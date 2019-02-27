@@ -21,6 +21,6 @@ The sampler [dynesty](https://dynesty.readthedocs.io/en/latest/) is used for nes
 
 You can change the parameters and the signal model in params.ini
 
-To run do `python bayestoch.py params.ini`
+To run do `python run_blip.py params.ini`
 
 Posterior plots are automatically made in the output directory specified in params.ini
