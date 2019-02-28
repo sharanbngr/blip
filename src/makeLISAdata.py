@@ -8,12 +8,12 @@ from scipy.interpolate import interp1d as intrp
 import os, pdb
 
 
-class LISAdata(det_response):
+class LISAdata(Antennapatterns):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
     of isotropic stochastic background. Any eventually signal models should be added as methods here. This
-    has the det_response class as a super class. 
+    has the Antennapatterns class as a super class. 
     '''
 
     def __init__(self, params, inj)
@@ -59,13 +59,6 @@ class LISAdata(det_response):
 
         Sp = 1.6e-43
         Sa = 1.44e-48*(1.0/(2.0*np.pi*frange)**4)
-
-        ###############################
-        #   Old values from Adams and Cornish, 2010
-        #
-        #   Sp = 4e-42*(1+ 0*frange)
-        #   Sa = 9e-50*(1+ ((1e-4)/(frange))**2)*(1/(2*np.pi*frange)**4)
-
 
         # Generate data
         np12 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
@@ -118,6 +111,7 @@ class LISAdata(det_response):
         return h1, h2, h3
 
     def gen_isgwb(self):
+        
         '''
         Generate time series mock LISA data and take ffts. The output are the ffts.
 
@@ -130,10 +124,111 @@ class LISAdata(det_response):
         # --------------------- Generate Fake Data + Noise -----------------------------
         print "Simulating isgwb data for analysis ..."
 
-        h1_gw, h2_gw, h3_gw  = injectISGWB(10**(inj['ln_omega0']), inj['alpha'], self.params['fs'], self.params['dur'])
-        h1 = h1_gw + h1
-        h2 = h2_gw + h2
-        h3 = h3_gw + h3
+        # speed of light
+         cspeed = 3e8 #m/s
+
+
+        delf  = 1.0/self.params['dur']
+        freqs = np.arange(self.params['fmin'], self.params['fmax'], delf)
+
+        #Charactersitic frequency
+        fstar = cspeed/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = freqs/(2*fstar)
+
+
+
+        ## There are the responses for the three arms
+        ## Naturally RIJ = RJI
+
+        R12, R23, R31 = self.AET_response(f0)
+
+        H0 = 2.2*10**(-18)
+        Omegaf = Omega0*(freqs/(1e-3))**alpha
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
+
+        # Generate time series data for the doppler channels
+        wht_data = np.random.normal(size=int(fs*dur))
+        f_wht, wht_psd = sg.welch(wht_data, fs=fs, nperseg=int(fs*dur))
+
+
+        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
+        # detector response tensor, and interpolated to the psd frequencies.
+    S12_gw = np.interp(f_wht,freqs, Sgw*R12)
+    S23_gw = np.interp(f_wht,freqs,Sgw*R23)
+    S31_gw = np.interp(f_wht,freqs,Sgw*R31)
+
+    S21_gw = np.interp(f_wht,freqs,Sgw*R12)
+    S32_gw = np.interp(f_wht,freqs,Sgw*R23)
+    S13_gw = np.interp(f_wht,freqs,Sgw*R31)
+
+    # PSD of band-limited white gaussian noise
+    N02 = 1.0/(f_wht[-1] - f_wht[0])
+
+    ## Do an rrft
+    wht_rfft = np.fft.rfft(wht_data)
+
+    # Generate colored ffts
+    h12_fft = wht_rfft*np.sqrt(S12_gw)/np.sqrt(N02)
+    h23_fft = wht_rfft*np.sqrt(S23_gw)/np.sqrt(N02)
+    h31_fft = wht_rfft*np.sqrt(S31_gw)/np.sqrt(N02)
+    h21_fft = wht_rfft*np.sqrt(S21_gw)/np.sqrt(N02)
+    h32_fft = wht_rfft*np.sqrt(S32_gw)/np.sqrt(N02)
+    h13_fft = wht_rfft*np.sqrt(S13_gw)/np.sqrt(N02)
+
+    h12_gw = np.fft.irfft(h12_fft, n=wht_data.size)
+    h23_gw = np.fft.irfft(h23_fft, n=wht_data.size)
+    h31_gw = np.fft.irfft(h31_fft, n=wht_data.size)
+    h21_gw = np.fft.irfft(h21_fft, n=wht_data.size)
+    h32_gw = np.fft.irfft(h32_fft, n=wht_data.size)
+    h13_gw = np.fft.irfft(h13_fft, n=wht_data.size)
+
+
+
+    
+
+    # To generate michelson channels we need time shifts of multiples of L.
+    tlag  = L/cspeed
+
+    # time array and time shift array
+    tarr = np.linspace(0, dur , num= h12_gw.size, endpoint=False)
+    delt = tarr[2] - tarr[1]
+
+    if 1.0/delt != fs:
+        pdb.set_trace()
+
+    # shifted time series
+    tshift = tarr - tlag
+
+    '''
+    h1_gw = np.interp(tshift, tarr, h12_gw, left=h12_gw[0]) + h21_gw -\
+    np.interp(tshift, tarr, h31_gw, left=h31_gw[0]) - h13_gw
+
+    h2_gw = np.interp(tshift, tarr, h23_gw, left=h23_gw[0]) + h32_gw -\
+    np.interp(tshift, tarr, h21_gw, left=h21_gw[0]) - h12_gw
+
+    h3_gw = np.interp(tshift, tarr, h31_gw, left=h31_gw[0]) + h13_gw -\
+    np.interp(tshift, tarr, h32_gw, left=h32_gw[0]) - h23_gw
+    '''
+
+    h1_gw, h2_gw, h3_gw = h12_gw - h13_gw, h23_gw - h21_gw,  h31_gw - h32_gw 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
     def do_tdi(self):

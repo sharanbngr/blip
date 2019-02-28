@@ -4,7 +4,58 @@ import scipy.signal as sg
 from src.makeGaussianData import gaussianData
 import pdb
 
-def calDetectorResponse(f0, chnl_type):
+def Antennapatterns():
+
+    '''
+    Class  of the LISA array or of parts of it. The methods here include calculation of antenna patters for a single doppler channel, for
+    the three michelson channels or for the AET TDI channels
+    '''
+
+    def doppler_response():
+        # cos(theta) space and phi space. The angular integral is a linear and
+         # rectangular in the cos(theta) and phi space
+        tt = np.arange(-1, 1, 0.01)
+        pp = np.arange(0, 2*np.pi, np.pi/100)
+
+        [ct, phi] = np.meshgrid(tt,pp)
+        dct = ct[0, 1] - ct[0,0]
+        dphi = phi[1,0] - phi[0,0]
+
+        ## udir is just u.r, where r is the directional vector
+        udir = np.sqrt(1-ct**2) * np.sin(phi + np.pi/6)
+
+        # Initlize arrays for the detector reponse
+         R1 = np.zeros((f0.size, tt.size, pp.size))
+
+        # Calculate the detector response for each frequency
+        for ii in range(0, f0.size):
+
+            # Calculate GW transfer function for the michelson channels
+            gammaU    =    1/2 * (np.sinc((f0[ii])*(1 - udir))*np.exp(-1j*f0[ii]*(3+udir)) + \
+                             np.sinc((f0[ii])*(1 + udir))*np.exp(-1j*f0[ii]*(1+udir)))
+
+
+            ## Michelson Channel Antenna patterns for + pol
+            ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
+
+            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) + \
+                            0.5*((np.cos(phi))**2 - ct**2))*gammaU
+
+
+            ## Michelson Channel Antenna patterns for x pol
+            ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
+
+            Fcross_u  = - np.sqrt(1-ct**2)/2 * (np.sin(2*phi + np.pi/3))*gammaU
+     
+
+            # There are for the doppler tracking channels
+            R1[ii, :, :] = dct*dphi/(4*np.pi)*np.sum((np.absolute(Fplus_u))**2 + (np.absolute(Fcross_u))**2)
+
+
+
+
+
+
 
     # cos(theta) space and phi space. The angular integral is a linear and
     # rectangular in the cos(theta) and phi space
