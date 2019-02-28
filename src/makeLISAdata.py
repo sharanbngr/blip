@@ -16,15 +16,15 @@ class LISAdata(Antennapatterns):
     has the Antennapatterns class as a super class. 
     '''
 
-    def __init__(self, params, inj)
-    self.params = params
-    self.inj = inj
-    self.armlength = 2.5e9 ## armlength in meters
+    def __init__(self, params, inj):
+        self.params = params
+        self.inj = inj
+        self.armlength = 2.5e9 ## armlength in meters
 
     ## Method for reading frequency domain spectral data if given in an npz file
     def read_spectrum(self):
         if os.path.isfile(self.params['input_spectrum']) and not self.params['doPreProc']:
-            print "loading freq domain data from input file"
+            print("loading freq domain data from input file")
 
             data = np.load(self.params['input_spectrum'])
             rA    = data['rA']
@@ -44,7 +44,7 @@ class LISAdata(Antennapatterns):
         ## Call noise TDI and generate gaussian detector noise. 
           
         # --------------------- Generate Fake Data + Noise -----------------------------
-        print "Simulating isgwb data for analysis ..."
+        print("Simulating isgwb data for analysis ...")
 
        # speed of light
         cspeed = 3e8 #m/s
@@ -122,10 +122,10 @@ class LISAdata(Antennapatterns):
         '''
 
         # --------------------- Generate Fake Data + Noise -----------------------------
-        print "Simulating isgwb data for analysis ..."
+        print("Simulating isgwb data for analysis ...")
 
         # speed of light
-         cspeed = 3e8 #m/s
+        cspeed = 3e8 #m/s
 
 
         delf  = 1.0/self.params['dur']
@@ -157,13 +157,13 @@ class LISAdata(Antennapatterns):
 
         # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
         # detector response tensor, and interpolated to the psd frequencies.
-    S12_gw = np.interp(f_wht,freqs, Sgw*R12)
-    S23_gw = np.interp(f_wht,freqs,Sgw*R23)
-    S31_gw = np.interp(f_wht,freqs,Sgw*R31)
+        S12_gw = np.interp(f_wht,freqs, Sgw*R12)
+        S23_gw = np.interp(f_wht,freqs,Sgw*R23)
+        S31_gw = np.interp(f_wht,freqs,Sgw*R31)
 
-    S21_gw = np.interp(f_wht,freqs,Sgw*R12)
-    S32_gw = np.interp(f_wht,freqs,Sgw*R23)
-    S13_gw = np.interp(f_wht,freqs,Sgw*R31)
+        S21_gw = np.interp(f_wht,freqs,Sgw*R12)
+        S32_gw = np.interp(f_wht,freqs,Sgw*R23)
+        S13_gw = np.interp(f_wht,freqs,Sgw*R31)
 
     # PSD of band-limited white gaussian noise
     N02 = 1.0/(f_wht[-1] - f_wht[0])
