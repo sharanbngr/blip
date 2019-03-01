@@ -4,19 +4,17 @@ import numpy as np
 from dynesty import NestedSampler
 from dynesty.utils import resample_equal
 import sys, ConfigParser, subprocess
-from src.makeLISAdata import makeLISAdata
-from src.logL_stoch import logL
+from src.makeLISAdata import LISAdata
 from src.plotmaker import plotmaker
 
-class LISA(lisadata, bayesClass):
+class LISA(LISAdata):
 
     def __init__(self,  params, inj):
 
         # set the data
-        self.params = params     # standard deviation(s) of the data
-        self.ndata = len(fdata)  # number of data points
+        LISAdata.__init__(self, params, inj)
         
-
+    '''
     def prior(self, theta):
 
         # Unpack: Theta is defined in the unit cube
@@ -38,7 +36,7 @@ class LISA(lisadata, bayesClass):
         llike = logL_iso(self.rA, self.rE, self.rT, self.fdata,  self.params, theta)
         return llike
 
-
+    '''
 
 
 
@@ -90,22 +88,30 @@ def stochastic(paramsfile='params.ini'):
     # --------------------------- NESTED SAMPLER --------------------------------
 
     # Make output folder
-    subprocess.call(["mkdir", "-p", out_dir])
+    subprocess.call(["mkdir", "-p", params['out_dir']])
 
     # Copy the params file to outdir, to keep track of the parameters of each run.
-    subprocess.call(["cp", paramsfile, out_dir ])
-
-
+    subprocess.call(["cp", paramsfile, params['out_dir']])
 
 
     # ------------------------------ Run Nestle ----------------------------------
 
-    # Initialize class
-    lisa =  lisa(rA, rE, rT, fdata,  params)
+    # Initialize lisa class
+    lisa =  LISA(params, inj)
 
+    ## Generate TDI noise
+    lisa.gen_aet_noise()
 
+    ## Generate TDI isotropic signal
+    lisa.gen_aet_isgwb()
+    
+    ## Generate lisa freq domain data from time domain data
+    lisa.tser2fser()
+
+    import pdb; pdb.set_trace()
     # Names of parameters
 
+    '''
     parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
     npar = len(parameters)
     print "npar = " + str(npar)
@@ -130,7 +136,7 @@ def stochastic(paramsfile='params.ini'):
 
     print "\n Making posterior Plots ..."
     plotmaker(out_dir,post_samples, parameters, npar, inj)
-
+    '''
 if __name__ == "__main__":
 
     if len(sys.argv) != 2:
