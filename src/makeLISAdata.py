@@ -129,10 +129,11 @@ class LISAdata(Antennapatterns):
         hY = hm2 - np.interp(tshift, tarr, hm2, left=hm2[0])
         hZ = hm3 - np.interp(tshift, tarr, hm3, left=hm3[0])
 
-        self.h1_noi = (1.0/3.0)*(2*hX - hY - hZ)
-        self.h2_noi = (1.0/np.sqrt(3.0))*(hZ - hY)
-        self.h3_noi = (1.0/3.0)*(hX + hY + hZ)
+        h1_noi = (1.0/3.0)*(2*hX - hY - hZ)
+        h2_noi = (1.0/np.sqrt(3.0))*(hZ - hY)
+        h3_noi = (1.0/3.0)*(hX + hY + hZ)
 
+        return h1_noi, h2_noi, h3_noi
 
     def gen_aet_isgwb(self):
         
@@ -160,12 +161,8 @@ class LISAdata(Antennapatterns):
         f0 = freqs/(2*fstar)
 
         ## There are the responses for the three arms
-        ## Naturally RIJ = RJI
+        RAA, REE, RTT = self.tdi_isgwb_response(f0)
 
-        R1plus, R1cross, R2plus, R2cross, R3plus, R3cross = self.michelson_response(f0, 0, 0)
-        ##RAA, REE, RTT = self.AET_response(f0)
-
-        RAA, REE, RTT = np.abs(R1plus + R1cross), np.abs(R2plus + R2cross), np.abs(R3plus + R3cross)
         H0 = 2.2*10**(-18) ## in SI units
 
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(1e-3))**self.inj['alpha']
@@ -195,26 +192,100 @@ class LISAdata(Antennapatterns):
         hT_fft = wht_rfft*np.sqrt(STT_gw)/np.sqrt(N02)
 
         ## Generate time series data
-        self.h1_gw = np.fft.irfft(hA_fft, n=wht_data.size)
-        self.h2_gw = np.fft.irfft(hE_fft, n=wht_data.size)
-        self.h3_gw = np.fft.irfft(hT_fft, n=wht_data.size)
+        h1_gw = np.fft.irfft(hA_fft, n=wht_data.size)
+        h2_gw = np.fft.irfft(hE_fft, n=wht_data.size)
+        h3_gw = np.fft.irfft(hT_fft, n=wht_data.size)
 
+        return h1_gw, h2_gw, h3_gw
 
-    def tser2fser(self):
+    def read_data(self):
         
         '''
-        Convert time domain data to fourier domain. This method assumes that:
-        1) If doInj =1, the LISAclass object has noise property h1_noi, h2_noi and h3_noi
-        and signal property h1_gw, h2_gw and h3_gw
-        2) If doInj = 0, then we have  h1_data, h2_data and h3_data
+        Read in time domain data from an ascii txt file. Since this was used primarily for 
+        the MLDC, it assumes that the data is given in X,Y and Z channels and converts to 
+        A, E and T. 
+        '''
+        
+        hoft = np.loadtxt(self.params['datafile'])
+        times, hX, hY, hZ = hoft[:, 0], hoft[:, 1], hoft[:, 2], hoft[:, 3]
 
-        A hann window is applied by default when moving to the fourier domain. 
+        delt = times[1] - times[0]
+
+        ## Downsample
+        if self.params['fs'] < 1.0/delt:
+
+            hX = sg.decimate(hX, int(1.0/(self.params['fs']*delt)))
+            hY = sg.decimate(hY, int(1.0/(self.params['fs']*delt)))
+            hZ = sg.decimate(hZ, int(1.0/(self.params['fs']*delt)))
+            self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
+            times = self.params['fs']*np.arange(0, hX.size, 1)
+        else:
+            self.params['fs'] = 1.0/delt
+
+        hA = (1.0/3.0)*(2*hX - hY - hZ)
+        hE = (1.0/np.sqrt(3.0))*(hZ - hY)
+        hT = (1.0/3.0)*(hX + hY + hZ)
+
+        return hA, hE, hT
+
+
+    def tser2fser(self, h1, h2, h3):
+        
+        '''
+        Convert time domain data to fourier domain and return ffts. The convention is that the 
+        the ffts are divided by the sampling frequency and corrected for windowing. A hann window 
+        is applied by default when moving to the fourier domain. The ffts are also normalized so that
+        thier square gives the PSD.
         '''
 
-        if self.inj['doInj']:
-            self.h1_data = self.h1_noi + self.h1_gw
-            self.h2_data = self.h2_noi + self.h2_gw
-            self.h3_data = self.h3_noi + self.h3_gw
- 
+        print ("Calculating fourier spectra... ")
 
-        import pdb; pdb.set_trace()
+        # Number of segmants
+        nsegs = int(np.floor(self.params['dur']/self.params['seglen']))
+
+        Nperseg=int(self.params['fs']*self.params['seglen'])
+
+        # Apply band pass filter
+        order = 8
+        zz, pp, kk = sg.butter(order, [0.5*self.params['fmin']/(self.params['fs']/2), 0.4*self.params['fs']/(self.params['fs']/2)], btype='bandpass', output='zpk')
+        sos = sg.zpk2sos(zz, pp, kk)
+
+        h1 = sg.sosfiltfilt(sos, h1)
+        h2 = sg.sosfiltfilt(sos, h2)
+        h3 = sg.sosfiltfilt(sos, h3)
+
+        # Map of spectrum
+        r1 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
+        r2 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
+        r3 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
+
+        # Hann Window
+        hwin = np.hanning(Nperseg)
+
+        # We will NOT use any segments
+        for ii in range(0, nsegs):
+
+            idxmin = int(ii*Nperseg)
+            idxmax = idxmin + Nperseg
+
+            r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
+            r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
+            r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
+
+
+        # "Cut" to desired frequencies
+        fftfreqs = np.fft.rfftfreq(Nperseg, 1.0/self.params['fs'])
+
+        idx = np.logical_and(fftfreqs >=  self.params['fmin'] , fftfreqs <=  self.params['fmax'])
+
+        # Output arrays
+        fdata = fftfreqs[idx]
+        
+        # Get desired frequencies only
+        # We want to normalize ffts so thier square give the psd
+        # 0.375 is to adjust for hann windowing, sqrt(2) for single sided
+        r1 = 2.0/np.sqrt(0.375)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r2 = 2.0/np.sqrt(0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r3 = 2.0/np.sqrt(0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+
+        return r1, r2, r3, fdata

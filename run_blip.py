@@ -5,7 +5,7 @@ from dynesty import NestedSampler
 from dynesty.utils import resample_equal
 import sys, ConfigParser, subprocess
 from src.makeLISAdata import LISAdata
-from src.plotmaker import plotmaker
+from tools.plotmaker import plotmaker
 
 class LISA(LISAdata):
 
@@ -13,9 +13,65 @@ class LISA(LISAdata):
 
         # set the data
         LISAdata.__init__(self, params, inj)
+
+        if self.params['readData']:
+            self.readdata()
+        else:
+            self.makedata()
+
+
+    def makedata(self):
+        '''
+        Just a wrapper function to use the methods the LISAdata class to generate data. Return
+        Frequency domain data. 
+        '''
+
+        ## Generate TDI noise
+        h1, h2, h3 = self.gen_aet_noise()
+
+        ## Generate TDI isotropic signal
+        if self.inj['doInj']:
+            h1_gw, h2_gw, h3_gw = self.gen_aet_isgwb()
+            h1, h2, h3 = h1 + h1_gw, h2 + h2_gw, h3 + h3_gw
+
+        ## Generate lisa freq domain data from time domain data
+        self.r1, self.r2, self.r3, self.fdata = self.tser2fser(h1, h2, h3)
+
+        # Charactersitic frequency. Define f0
+        cspeed = 3e8
+        fstar = cspeed/(2*np.pi*self.armlength)
+        self.f0 = (self.fdata/(2*fstar)).reshape(self.fdata.size, 1)
+
+    def readdata(self):
+        '''
+        Just a wrapper function to use the methods the LISAdata class to read data. Return frequency
+        domain data. Since this was used primarily for the MLDC, this assumes that the data is doppler tracking
+        and converts to strain data. 
+        '''
         
-    '''
-    def prior(self, theta):
+        h1, h2, h3 = self.read_data()
+        
+        ## Generate lisa freq domain data from time domain data
+        r1, r2, r3, self.fdata = self.tser2fser(h1, h2, h3)
+
+        # Charactersitic frequency. Define f0
+        cspeed = 3e8
+        fstar = cspeed/(2*np.pi*self.armlength)
+        self.f0 = (self.fdata/(2*fstar)).reshape(self.fdata.size, 1)
+
+        self.r1, self.r2, self.r3 = r1/(4*self.f0), r2/(4*self.f0), r3/(4*self.f0)
+
+
+        import pdb; pdb.set_trace()
+        
+   
+   
+    
+    def isgwb_prior(self, theta):
+
+        '''
+        Prior function for the ISGWB
+        '''
 
         # Unpack: Theta is defined in the unit cube
         alpha, log_omega0, log_Np, log_Na = theta
@@ -30,13 +86,13 @@ class LISA(LISAdata):
 
 
 
-    def log_likelihood(self, theta):
+    def isgwb_log_likelihood(self, theta):
 
         # Wrapper for isotropic loglikelihood
-        llike = logL_iso(self.rA, self.rE, self.rT, self.fdata,  self.params, theta)
+        llike = isgwb_logL(lisa, theta)
         return llike
 
-    '''
+    
 
 
 
@@ -66,9 +122,8 @@ def stochastic(paramsfile='params.ini'):
     params['seglen']   = float(config.get("params", "seglen"))
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
-    params['out_dir']            = str(config.get("run_params", "out_dir"))
-    params['doPreProc']          = int(config.get("run_params", "doPreProc"))
-    params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
+    params['readData'] = int(config.get("params", "readData"))
+    params['datafile']  = str(config.get("params", "datafile"))
 
     # Injection Dict
     inj['doInj']       = int(config.get("inj", "doInj"))
@@ -79,7 +134,9 @@ def stochastic(paramsfile='params.ini'):
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
 
     # some run parameters
-    
+    params['out_dir']            = str(config.get("run_params", "out_dir"))
+    params['doPreProc']          = int(config.get("run_params", "doPreProc"))
+    params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
@@ -98,27 +155,17 @@ def stochastic(paramsfile='params.ini'):
 
     # Initialize lisa class
     lisa =  LISA(params, inj)
-
-    ## Generate TDI noise
-    lisa.gen_aet_noise()
-
-    ## Generate TDI isotropic signal
-    lisa.gen_aet_isgwb()
     
-    ## Generate lisa freq domain data from time domain data
-    lisa.tser2fser()
-
-    import pdb; pdb.set_trace()
     # Names of parameters
 
-    '''
+    
     parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
     npar = len(parameters)
     print "npar = " + str(npar)
 
-    engine = NestedSampler(lisa.log_likelihood, lisa.prior, npar, bound='multi', sample='rwalk', nlive=nlive)
+    engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior, npar, bound='multi', sample='rwalk', nlive=nlive)
     engine.run_nested(dlogz=0.5,print_progress=True )
-    #logL(rA, rE, rT, fdata,params, inj)
+
 
 
 

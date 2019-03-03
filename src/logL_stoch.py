@@ -4,7 +4,7 @@ from src.inj.addISGWB import calDetectorResponse
 import os, pdb
 #import matplotlib.pyplot as plt
 
-def gwPSD(Omega0, alpha,freqs):
+def gwPSD(Omega0, alpha,freqs, f0):
 
     '''
     Script to calcualte the GW power in a detector for a given powerlaw
@@ -29,18 +29,6 @@ def gwPSD(Omega0, alpha,freqs):
     SE_gw : E channel
     ST_gw : T Channel
     '''
-
-    # speed of light
-    cspeed = 3e8 #m/s
-
-    # Length of the arms.
-    L = 2.5e9
-
-    #Charactersitic frequency
-    fstar = cspeed/(2*np.pi*L)
-
-    # define f0 = f/2f*
-    f0 = freqs/(2*fstar)
 
     if not os.path.isfile('detector_response.txt'):
         RA, RE, RT = calDetectorResponse(f0, 'TDI')
@@ -68,25 +56,16 @@ def gwPSD(Omega0, alpha,freqs):
 
     return SA_gw, SE_gw, ST_gw
 
-def noisePSD(Np, Na, fs, seglen, freqs ):
+def noisePSD(Np, Na, fs, seglen,freqs, f0 ):
 
-    if Na > 1e-35 or Np > 1e-35:
-        raise ValueError('Unusually loud values of noise provided')
-
-    # Position noise, converted to phase
-    Sp = Np*(1 + ((2e-3)/freqs)**4)
-    # Acceleration noise converted to phase
-    Sa = Na*(1+ ((4e-4)/(freqs))**2)*(1+ (freqs/(8e-3))**4)*(1/(2*np.pi*freqs)**4)
+    # Convert acceleraation and position noise, converted to phase
+    Sp, Sa = Np, Na*(1 + 16e-8/freqs**2)*(1.0/(2*np.pi*freqs)**4)
 
     # arm length
     L = 2.5e9
-    cspeed = 3e8 #m/s
 
-    #Charactersitic frequency
-    fstar = cspeed/(2*np.pi*L)
-
-    # define f0 = f/2f*
-    f0 = freqs/(2*fstar)
+    if Na/(4*L**2) > 1e-35 or Np/(4*L**2) > 1e-35:
+        raise ValueError('Unusually loud values of noise provided')
 
     ## Noise spectra of the TDI Channels
     SAA  = (4/9)*(np.sin(2*f0))**2*(np.cos(2*f0)*(12*Sp) + 24*Sp )+ \
@@ -102,11 +81,11 @@ def noisePSD(Np, Na, fs, seglen, freqs ):
 
 
 
-def logL(rA, rE, rT, fdata, config, theta):
-    # Check to see if we are getting data
-    if fdata.size == 0:
-        pdb.set_trace()
+def isgwb_logL(lisa, theta):
 
+    '''
+    Calculate the isgwb bayesian likelihood. Arguments are the lisa class and the parameter samples. 
+    '''
 
     # unpack priors
     alpha, log_omega0, log_Np, log_Na  = theta
@@ -114,50 +93,22 @@ def logL(rA, rE, rT, fdata, config, theta):
     #alpha, omega0 = 0.65, 1e-7
     Np, Na =  10**(log_Np), 10**(log_Na)
 
-    # For Now we will work only with the A channel and the <AA> correlation
-    delf = 1/config['seglen']
-
-    # Nyquist freq
-    fmax =  config['fs']/2
-
-    # Number of segmants
-    nsegs = int(np.floor(config['dur']/config['seglen']))
-
     # Modelled Noise PSD
-    SAA, SEE, STT = noisePSD(Np, Na, config['fs'], config['seglen'], fdata)
+    SAA, SEE, STT = noisePSD(Np, Na, lisa.params['fs'], lisa.params['seglen'], lisa.fdata, lisa.f0)
 
     # Modelled signal PSD
-    SA_gw, SE_gw, ST_gw = gwPSD(10**log_omega0, alpha, fdata)
+    SA_gw, SE_gw, ST_gw = gwPSD(10**log_omega0, alpha, lisa.fdata, lisa.f0)
 
-    # Covariance matric
-    CIJ = np.zeros((rA.shape[0], 3, 3 ))
-    CIJ[:, 0, 0] = (SAA + SA_gw)
-    CIJ[:, 1, 1] = (SEE + SE_gw)
-    CIJ[:, 2, 2] = (STT + ST_gw)
-
-    # Inverse and determinant
-    invCIJ = np.linalg.inv(CIJ)
-    detC = np.linalg.det(CIJ)
-    #detC = (SAA + SA_gw)*(SEE + SE_gw)*(STT + ST_gw)
+    ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
+    ## This is true for an equal arm stationary lisa. 
 
 
-    # Initialize Loglike
-    Loglike = 0
+    SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
 
+    SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), lisa.r1.shape[1], axis=1)
+    ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), lisa.r2.shape[1], axis=1)
+    SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), lisa.r3.shape[1], axis=1)
 
-    # Calcualate likelihood, for single detector it is easy
-    # Note that as of now, the exponent needs to have a factor for 0.5
-    # in it. Some references show 2, but that is incorrect.
-
-    for ii in range(0, nsegs):
-
-    #    # Create column vector
-        rbar = np.stack((rA[:, ii], rE[:, ii], rT[:, ii]), axis=1)
-        rmat = np.zeros(invCIJ.shape, dtype='complex')
-        rmat[:, :, 0] = rbar
-        rmat[:, :, 1] = rbar
-        rmat[:, :, 2] = rbar
-
-        Loglike = Loglike +  np.real(np.sum(- 0.5*np.conj(rmat)*rmat*invCIJ) - np.sum(0.5*np.log(2*np.pi*detC)))
+    Loglike  = -0.5*np.sum( (np.abs(lisa.r1)**2)/SA_net + (np.abs(lisa.r2)**2)/SE_net + np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
 
     return Loglike
