@@ -175,14 +175,15 @@ class Antennapatterns():
 
             Fplus_w   = 1/2*(1 - (1+ct**2)*(np.cos(phi))**2)*gammaW
 
+
             ## Michelson Channel Antenna patterns for x pol
             ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-
             Fcross_u  = - np.sqrt(1-ct**2)/2 * (np.sin(2*phi + np.pi/3))*gammaU
             Fcross_v  = - np.sqrt(1-ct**2)/2 * (np.sin(2*phi - np.pi/3))*gammaV
             Fcross_w   = 1/2*ct*np.sin(2*phi)*gammaW
 
-            ## First calculate Michelson antenna patterns
+
+            ## First Michelson antenna patterns
             ## Calculate Fplus
             Fplus1 = (Fplus_u - Fplus_v)
             Fplus2 = (Fplus_w - Fplus_u)
@@ -193,7 +194,7 @@ class Antennapatterns():
             Fcross2 = (Fcross_w - Fcross_u)
             Fcross3 = (Fcross_v - Fcross_w)
 
-            ## Calculate antenna patterns for the A, E and T channels
+            ## Calculate antenna patterns for the A, E and T channels -  We are switiching to doppler channel.
             FAplus = (1/3)*np.sin(2*f0[ii])*(2*Fplus1 - Fplus2 - Fplus3)
             FEplus = (1/np.sqrt(3))*np.sin(2*f0[ii])*(Fplus3 - Fplus2)
             FTplus = (1/3)*np.sin(2*f0[ii])*(Fplus1 + Fplus3 + Fplus2)
@@ -207,6 +208,7 @@ class Antennapatterns():
             R1[ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FAplus))**2 + (np.absolute(FAcross))**2)
             R2[ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FEplus))**2 + (np.absolute(FEcross))**2)
             R3[ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FTplus))**2 + (np.absolute(FTcross))**2)
+
 
 
         return R1, R2, R3

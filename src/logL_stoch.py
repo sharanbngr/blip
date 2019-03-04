@@ -1,10 +1,9 @@
 from __future__ import division
 import numpy as np
-from src.inj.addISGWB import calDetectorResponse
 import os, pdb
 #import matplotlib.pyplot as plt
 
-def gwPSD(Omega0, alpha,freqs, f0):
+def gwPSD(Omega0, alpha,freqs, f0, R1, R2, R3):
 
     '''
     Script to calcualte the GW power in a detector for a given powerlaw
@@ -30,18 +29,6 @@ def gwPSD(Omega0, alpha,freqs, f0):
     ST_gw : T Channel
     '''
 
-    if not os.path.isfile('detector_response.txt'):
-        RA, RE, RT = calDetectorResponse(f0, 'TDI')
-        np.savetxt('detector_response.txt', (RA, RE, RT))
-    else:
-        RA, RE, RT = np.loadtxt('detector_response.txt')
-
-    if RA.shape != freqs.shape:
-        RA, RE, RT = calDetectorResponse(f0, 'TDI')
-        np.savetxt('detector_response.txt', (RA, RE, RT))
-
-
-
     H0 = 2.2*10**(-18)
     Omegaf = Omega0*(freqs/(1e-3))**alpha
 
@@ -50,13 +37,17 @@ def gwPSD(Omega0, alpha,freqs, f0):
 
     # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
     # detector response tensor.
-    SA_gw = Sgw*RA
-    SE_gw = Sgw*RE
-    ST_gw = Sgw*RT
+    SA_gw = Sgw*R1
+    SE_gw = Sgw*R2
+    ST_gw = Sgw*R3
 
     return SA_gw, SE_gw, ST_gw
 
 def noisePSD(Np, Na, fs, seglen,freqs, f0 ):
+
+    '''
+    Calculate noise power spectra for A, E and T channels of a stationary equal arm lisa. 
+    '''
 
     # Convert acceleraation and position noise, converted to phase
     Sp, Sa = Np, Na*(1 + 16e-8/freqs**2)*(1.0/(2*np.pi*freqs)**4)
@@ -64,24 +55,27 @@ def noisePSD(Np, Na, fs, seglen,freqs, f0 ):
     # arm length
     L = 2.5e9
 
-    if Na/(4*L**2) > 1e-35 or Np/(4*L**2) > 1e-35:
+    if Na > 1e-35 or Np > 1e-35:
         raise ValueError('Unusually loud values of noise provided')
 
+
     ## Noise spectra of the TDI Channels
-    SAA  = (4/9)*(np.sin(2*f0))**2*(np.cos(2*f0)*(12*Sp) + 24*Sp )+ \
-    (16/9)*(np.sin(2*f0))**2*(np.cos(2*f0)*12*Sa + np.cos(4*f0)*(6*Sa) + 18*Sa)
+    SAA = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(np.cos(2*f0) + 2)/4 \
+        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4*np.cos(2*f0) + 2*np.cos(4*f0) + 6)/4
 
-    SEE  = (4/3)*(np.sin(2*f0))**2*(4*Sp + (4 + 4*np.cos(2*f0))*Sp) +\
-    (16/3)*(np.sin(2*f0))**2*(4*Sa + 4*Sa*np.cos(2*f0) +  4*Sa*(np.cos(2*f0))**2 )
 
-    STT = (4/9)*(np.sin(2*f0))**2* (12 - 12*np.cos(2*f0))*Sp + \
-    (16/9)*(np.sin(2*f0))**2*(6 - 12*np.cos(2*f0) + 6*(np.cos(2*f0))**2)*Sa
+    SEE = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(2 + np.cos(2*f0))/4 \
+        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4 + 4*np.cos(2*f0) +  4*(np.cos(2*f0))**2 )/4
 
+    STT = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(1 - np.cos(2*f0))/4 \
+        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(2 - 4*np.cos(2*f0) + 2*(np.cos(2*f0))**2)/4
+
+    
     return SAA, SEE, STT
 
 
 
-def isgwb_logL(lisa, theta):
+def isgwb_logL(self, theta):
 
     '''
     Calculate the isgwb bayesian likelihood. Arguments are the lisa class and the parameter samples. 
@@ -90,14 +84,13 @@ def isgwb_logL(lisa, theta):
     # unpack priors
     alpha, log_omega0, log_Np, log_Na  = theta
 
-    #alpha, omega0 = 0.65, 1e-7
     Np, Na =  10**(log_Np), 10**(log_Na)
 
     # Modelled Noise PSD
-    SAA, SEE, STT = noisePSD(Np, Na, lisa.params['fs'], lisa.params['seglen'], lisa.fdata, lisa.f0)
+    SAA, SEE, STT = noisePSD(Np, Na, self.params['fs'], self.params['seglen'], self.fdata, self.f0)
 
     # Modelled signal PSD
-    SA_gw, SE_gw, ST_gw = gwPSD(10**log_omega0, alpha, lisa.fdata, lisa.f0)
+    SA_gw, SE_gw, ST_gw = gwPSD(10**log_omega0, alpha, self.fdata, self.f0, self.R1, self.R2, self.R3)
 
     ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
     ## This is true for an equal arm stationary lisa. 
@@ -105,10 +98,10 @@ def isgwb_logL(lisa, theta):
 
     SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
 
-    SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), lisa.r1.shape[1], axis=1)
-    ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), lisa.r2.shape[1], axis=1)
-    SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), lisa.r3.shape[1], axis=1)
+    SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
+    ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
+    SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
 
-    Loglike  = -0.5*np.sum( (np.abs(lisa.r1)**2)/SA_net + (np.abs(lisa.r2)**2)/SE_net + np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
+    Loglike  = -0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
 
     return Loglike

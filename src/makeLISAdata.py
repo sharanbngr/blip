@@ -241,7 +241,7 @@ class LISAdata(Antennapatterns):
         print ("Calculating fourier spectra... ")
 
         # Number of segmants
-        nsegs = int(np.floor(self.params['dur']/self.params['seglen']))
+        nsegs = 2*int(np.floor(self.params['dur']/self.params['seglen'])) -1
 
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
@@ -262,12 +262,13 @@ class LISAdata(Antennapatterns):
         # Hann Window
         hwin = np.hanning(Nperseg)
 
-        # We will NOT use any segments
+        # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(ii*Nperseg)
+            idxmin = int(0.5*ii*Nperseg)
             idxmax = idxmin + Nperseg
 
+            
             r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
             r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
             r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
