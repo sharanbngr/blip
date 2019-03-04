@@ -169,6 +169,7 @@ def blip(paramsfile='params.ini'):
     params['Shfile']   = config.get("params", "Shfile")
     params['readData'] = int(config.get("params", "readData"))
     params['datafile']  = str(config.get("params", "datafile"))
+    params['fref'] = float(config.get("params", "fref"))
 
     # Injection Dict
     inj['doInj']       = int(config.get("inj", "doInj"))

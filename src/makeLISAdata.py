@@ -165,7 +165,7 @@ class LISAdata(Antennapatterns):
 
         H0 = 2.2*10**(-18) ## in SI units
 
-        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(1e-3))**self.inj['alpha']
+        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2

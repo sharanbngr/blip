@@ -3,7 +3,7 @@ import numpy as np
 import os, pdb
 #import matplotlib.pyplot as plt
 
-def gwPSD(Omega0, alpha,freqs, f0, R1, R2, R3):
+def gwPSD(Omega0, alpha,freqs, f0, fref, R1, R2, R3):
 
     '''
     Script to calcualte the GW power in a detector for a given powerlaw
@@ -30,7 +30,7 @@ def gwPSD(Omega0, alpha,freqs, f0, R1, R2, R3):
     '''
 
     H0 = 2.2*10**(-18)
-    Omegaf = Omega0*(freqs/(1e-3))**alpha
+    Omegaf = Omega0*(freqs/fref)**alpha
 
     # Spectrum of the SGWB
     Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
@@ -90,7 +90,8 @@ def isgwb_logL(self, theta):
     SAA, SEE, STT = noisePSD(Np, Na, self.params['fs'], self.params['seglen'], self.fdata, self.f0)
 
     # Modelled signal PSD
-    SA_gw, SE_gw, ST_gw = gwPSD(10**log_omega0, alpha, self.fdata, self.f0, self.R1, self.R2, self.R3)
+    SA_gw, SE_gw, ST_gw = gwPSD(10**log_omega0, alpha, self.fdata, self.f0, self.params['fref'], \
+         self.R1, self.R2, self.R3)
 
     ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
     ## This is true for an equal arm stationary lisa. 
