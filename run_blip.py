@@ -31,7 +31,7 @@ class LISA(LISAdata):
         ## Calculate the antenna patterns
         self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0)
 
-        self.diag_spectra()
+        #self.diag_spectra()
 
     def makedata(self):
         '''
@@ -85,7 +85,7 @@ class LISA(LISAdata):
 
         # Transform to actual priors
         alpha       = 10*alpha-5
-        log_omega0   = 6*log_omega0 -14
+        log_omega0   = 10*log_omega0 -14
         log_Np = 5*log_Np - 44
         log_Na = 5*log_Na - 51
 
@@ -111,7 +111,11 @@ class LISA(LISAdata):
         # Acceleration noise converted to phase
         Sa = Na*(1 + 16e-8/self.fdata**2)*(1.0/(2*np.pi*self.fdata)**4)
 
-        SAA = (16.0/3)*((np.sin(2*self.f0))**2)*(2*Sp + 6*Sa + Sp*np.cos(2*self.f0) + 4*Sa*np.cos(2*self.f0) + 2*Sa*np.cos(4*self.f0))
+        SAA = (16.0/3)*((np.sin(2*self.f0))**2)*(2*Sp + 6*Sa + Sp*np.cos(2*self.f0) + \
+             4*Sa*np.cos(2*self.f0) + 2*Sa*np.cos(4*self.f0))
+
+        SEE = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(2 + np.cos(2*self.f0)) + \
+                (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4 + 4*np.cos(2*self.f0) +  4*(np.cos(2*self.f0))**2 )
 
         Omega0, alpha = 3.55e-9, 2.0/3.0
 
@@ -122,21 +126,21 @@ class LISA(LISAdata):
         
         # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
         # detector response tensor.
-        SA_gw = Sgw*self.R1  #*(np.sin(2*f0))**2
-        SAA = SAA/2 + SA_gw
+        SE_gw = Sgw*self.R2  #*(np.sin(2*f0))**2
+        SEE = SEE/2 + SE_gw
 
         fmin, fmax = 1e-4, 1e-1
         ymin, ymax = 1e-42, 1e-36
 
-        PSDA = np.mean(np.abs(self.r1)**2, axis=1)
-        plt.loglog(self.fdata, SAA, label='required')
-        plt.loglog(self.fdata, PSDA,label='PSDA', alpha=0.6)
+        PSDE = np.mean(np.abs(self.r2)**2, axis=1)
+        plt.loglog(self.fdata, SEE, label='required')
+        plt.loglog(self.fdata, PSDE,label='PSDE', alpha=0.6)
         plt.xlim(fmin, fmax)
         plt.ylim(ymin, ymax)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum 1/Hz')
         plt.legend()
-        plt.savefig(self.params['out_dir'] + '/psdA.png', dpi=125)
+        plt.savefig(self.params['out_dir'] + '/psdE.png', dpi=125)
         plt.close()
         import pdb; pdb.set_trace()
 

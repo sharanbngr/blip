@@ -60,15 +60,15 @@ def noisePSD(Np, Na, fs, seglen,freqs, f0 ):
 
 
     ## Noise spectra of the TDI Channels
-    SAA = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(np.cos(2*f0) + 2)/4 \
-        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4*np.cos(2*f0) + 2*np.cos(4*f0) + 6)/4
+    SAA = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(np.cos(2*f0) + 2) \
+        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4*np.cos(2*f0) + 2*np.cos(4*f0) + 6)
 
 
-    SEE = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(2 + np.cos(2*f0))/4 \
-        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4 + 4*np.cos(2*f0) +  4*(np.cos(2*f0))**2 )/4
+    SEE = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(2 + np.cos(2*f0)) \
+        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4 + 4*np.cos(2*f0) +  4*(np.cos(2*f0))**2 )
 
-    STT = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(1 - np.cos(2*f0))/4 \
-        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(2 - 4*np.cos(2*f0) + 2*(np.cos(2*f0))**2)/4
+    STT = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(1 - np.cos(2*f0)) \
+        + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(2 - 4*np.cos(2*f0) + 2*(np.cos(2*f0))**2)
 
     
     return SAA, SEE, STT
@@ -80,7 +80,7 @@ def isgwb_logL(self, theta):
     '''
     Calculate the isgwb bayesian likelihood. Arguments are the lisa class and the parameter samples. 
     '''
-
+    
     # unpack priors
     alpha, log_omega0, log_Np, log_Na  = theta
 
@@ -103,6 +103,7 @@ def isgwb_logL(self, theta):
     ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
     SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
 
-    Loglike  = -0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
+    Loglike  = -0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+         np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
 
     return Loglike
