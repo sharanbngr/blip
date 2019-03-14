@@ -32,15 +32,14 @@ fi
 if [ -d "$buildDirectory" ]
 then
 	ls | grep -v "$buildDirectory" | xargs rm -r
-	mv "$buildDirectory/*" ./ && rm -rf "$buildDirectory"
+	mv ./docs/build/* ./ && rm -rf "$buildDirectory"
 	git add .
 	git commit -m "new pages version $(date)"
 	git push origin gh-pages
+	git checkout master
 	# github.com recognizes gh-pages branch and create pages
 	# url scheme https//:[github-handle].github.io/[repository]
 else
 	echo "directory $buildDirectory does not exists"
 fi
 
-
-git checkout master
