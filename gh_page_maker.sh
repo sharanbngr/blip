@@ -32,7 +32,7 @@ fi
 if [ -d "$buildDirectory" ]
 then
 	ls | grep -v "$buildDirectory" | xargs rm -r
-	mv "$buildDirectory/*" . && rm -rf "$buildDirectory"
+	mv "$buildDirectory/*" ./ && rm -rf "$buildDirectory"
 	git add .
 	git commit -m "new pages version $(date)"
 	git push origin gh-pages
