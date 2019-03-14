@@ -231,50 +231,146 @@ and a power spectra based spherical harmonic analysis.</p>
 <span class="target" id="module-freqDomain"></span><dl class="class">
 <dt id="freqDomain.freqDomain">
 <em class="property">class </em><code class="descclassname">freqDomain.</code><code class="descname">freqDomain</code><a class="reference internal" href="_modules/freqDomain.html#freqDomain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain" title="Permalink to this definition">¶</a></dt>
-<dd><p>Class for various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.</p>
+<dd><p>Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.</p>
 <dl class="method">
 <dt id="freqDomain.freqDomain.aet_noise_spectrum">
 <code class="descname">aet_noise_spectrum</code><span class="sig-paren">(</span><em>freqs</em>, <em>Np=4e-41</em>, <em>Na=1.44e-48</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.aet_noise_spectrum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.aet_noise_spectrum" title="Permalink to this definition">¶</a></dt>
-<dd><p>A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
+<dd><p>Calculates A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
 Adams &amp; Cornish, <a class="reference external" href="http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308">http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</a></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>freqs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – A numpy array of frequencies</li>
+<li><strong>(</strong><strong>optional</strong><strong>)</strong> (<em>Na</em>) – Position noise value</li>
+<li><strong>(</strong><strong>optional</strong><strong>)</strong> – Acceleration noise level</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>SAA, SEE, STT</strong> – Frequencies arrays with the noise PSD for the A, E and T TDI channels</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="freqDomain.freqDomain.aet_response">
 <code class="descname">aet_response</code><span class="sig-paren">(</span><em>f0</em>, <em>theta</em>, <em>phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.aet_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.aet_response" title="Permalink to this definition">¶</a></dt>
-<dd><p>Calculate antenna patterns given theta and phi for the A,E and T channels of a stationary LISA.
-Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
-passed as an array</p>
+<dd><p>Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>f0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – A numpy array of scaled frequencies (see above for def)</li>
+<li><strong>theta</strong> (<em>phi</em>) – Sky position values.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>RAplus, RAcross, REplus, REcross, RTplus, RTcross</strong> – Plus and cross antenna Patterns for the given sky direction for the three channels</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="freqDomain.freqDomain.doppler_response">
 <code class="descname">doppler_response</code><span class="sig-paren">(</span><em>f0</em>, <em>theta</em>, <em>phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.doppler_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.doppler_response" title="Permalink to this definition">¶</a></dt>
-<dd><p>Calculate antenna patterns given theta and phi for the doppler channel of a stationary LISA.
-Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
-passed as an array</p>
+<dd><p>Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the doppler channel of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>f0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – A numpy array of scaled frequencies (see above for def)</li>
+<li><strong>theta</strong> (<em>phi</em>) – Sky position values.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>Rplus, Rcorss</strong> – Plus and cross antenna Patterns for the given sky direction</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="freqDomain.freqDomain.fundamental_noise_spectrum">
 <code class="descname">fundamental_noise_spectrum</code><span class="sig-paren">(</span><em>freqs</em>, <em>Np=4e-41</em>, <em>Na=1.44e-48</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.fundamental_noise_spectrum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.fundamental_noise_spectrum" title="Permalink to this definition">¶</a></dt>
-<dd><p>Fundamentla noise estikmates for lisa. Currently only contain only position and acceleration noise sources.
-The default values are specifications pulled from 2017 Lisa proposal noise estimations.</p>
+<dd><p>Creates a frequency array of fundamentla noise estimates for lisa. Currently we consisder only contain only position and acceleration noise sources. The default values are specifications pulled from 2017 Lisa proposal noise estimations.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>freqs</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – A numpy array of frequencies</li>
+<li><strong>(</strong><strong>optional</strong><strong>)</strong> (<em>Na</em>) – Position noise value</li>
+<li><strong>(</strong><strong>optional</strong><strong>)</strong> – Acceleration noise level</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>Sp, Sa</strong> – Frequencies array for position and acceleration noises for each satellite</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="freqDomain.freqDomain.michelson_response">
 <code class="descname">michelson_response</code><span class="sig-paren">(</span><em>f0</em>, <em>theta</em>, <em>phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.michelson_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.michelson_response" title="Permalink to this definition">¶</a></dt>
-<dd><p>Calculate antenna patterns given theta and phi for the three michelson of a stationary LISA.
-Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
-passed as an array</p>
+<dd><p>Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the three Michelson channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>f0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – A numpy array of scaled frequencies (see above for def)</li>
+<li><strong>theta</strong> (<em>phi</em>) – Sky position values.</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first"><strong>R1plus, R1cross, R2plus, R2cross, R3plus, R3cross</strong> – Plus and cross antenna Patterns for the given sky direction for the three channels</p>
+</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><p class="first last"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="freqDomain.freqDomain.tdi_isgwb_response">
 <code class="descname">tdi_isgwb_response</code><span class="sig-paren">(</span><em>f0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.tdi_isgwb_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.tdi_isgwb_response" title="Permalink to this definition">¶</a></dt>
-<dd><p>Calcualte the detector response functions to an isotropic SGWB using A, E and T TDI channels. cos(theta) space and phi space. The angular integral is a linear and
-rectangular in the cos(theta) and phi space</p>
+<dd><p>Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. Note that since this is the response to an isotropic background, the response function is integrated over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the cos(theta) and phi space.  Note that f0 is (pi*L*f)/c and is input as an array</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>f0</strong> (<a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a>) – A numpy array of scaled frequencies (see above for def)</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><strong>R1, R2 and R3</strong> – Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.</td>
+</tr>
+<tr class="field-odd field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>
@@ -289,30 +385,78 @@ has the Antennapatterns class as a super class.</p>
 <dl class="method">
 <dt id="makeLISAdata.LISAdata.gaussianData">
 <code class="descname">gaussianData</code><span class="sig-paren">(</span><em>Sh</em>, <em>freqs</em>, <em>fs=1</em>, <em>dur=100000.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gaussianData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gaussianData" title="Permalink to this definition">¶</a></dt>
-<dd><blockquote>
-<div>Script for generation time series data of a given spectral density.</div></blockquote>
-<p>Input:
-Sh : desired spectral density
-freqs : corresponding frequencies
-fs : sampleRate in Hz
-dur : duration in seconds</p>
-<p>Output:
-Random time series data of duration dur with the prescribed spectrum</p>
-<p>Adapted from gaussian_noise.m from stamp</p>
+<dd><p>Script for generation time series noise drawn from a gaussian process of a given spectral density.  Adapted from gaussian_noise.m from stamp</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>Sh</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>)</em>) – A frequency array with the desired power spectral density</li>
+<li><strong>freqs</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>)</em>) – An array with corresponding frequencies to Sh</li>
+<li><strong>fs</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)"><em>float</em></a><em>)</em>) – SampleRate in Hz</li>
+<li><strong>dur</strong> (<em>(</em><a class="reference external" href="https://docs.python.org/3/library/functions.html#int" title="(in Python v3.7)"><em>int</em></a><em>)</em>) – Duration in seconds</li>
+</ul>
+</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><p class="first last"><ul class="simple">
+<li><strong>ht</strong> (<em>float</em>)</li>
+<li><em>Array with time series data of duration, dur with the prescribed spectrum Sh</em></li>
+</ul>
+</p>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="makeLISAdata.LISAdata.gen_aet_isgwb">
 <code class="descname">gen_aet_isgwb</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gen_aet_isgwb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gen_aet_isgwb" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate time series mock LISA data. The output are time domain TDI data. Michelson
+<dd><p>Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson
 channels are manipulated to generate the A, E and T channels. We implement TDI as described in</p>
 <p><a class="reference external" href="http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308">http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</a></p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><strong>h1_gw, h2_gw, h3_gw</strong> – Time series isotropic stochastic noise for the three TDI channels</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.gen_aet_noise">
+<code class="descname">gen_aet_noise</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gen_aet_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gen_aet_noise" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><strong>h1_noi, h2_noi, h3_noi</strong> – Time series data for the three TDI channels</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
 <dt id="makeLISAdata.LISAdata.gen_michelson_noise">
 <code class="descname">gen_michelson_noise</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gen_michelson_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gen_michelson_noise" title="Permalink to this definition">¶</a></dt>
-<dd><p>Generate interferometric michelson noise</p>
+<dd><p>Generate interferometric michelson (time-domain) noise, using freqDomain.fundamental_noise_spectrum</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><strong>h1, h2, h3</strong> – Time series data for the three michelson channels</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -321,6 +465,32 @@ channels are manipulated to generate the A, E and T channels. We implement TDI a
 <dd><p>Read in time domain data from an ascii txt file. Since this was used primarily for
 the MLDC, it assumes that the data is given in X,Y and Z channels and converts to
 A, E and T.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><strong>hA, hE, hT</strong> – Time series data for the three TDI channels</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></td>
+</tr>
+</tbody>
+</table>
+</dd></dl>
+
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.read_spectrum">
+<code class="descname">read_spectrum</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.read_spectrum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.read_spectrum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read an input frequency domain data file. Returns the fourier transform of the data from the three channels and an array of reference frequencyes</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Returns:</th><td class="field-body"><strong>rA, rE, rT, fdata</strong></td>
+</tr>
+<tr class="field-even field"><th class="field-name">Return type:</th><td class="field-body"><a class="reference external" href="https://docs.python.org/3/library/functions.html#float" title="(in Python v3.7)">float</a></td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 <dl class="method">
@@ -330,6 +500,20 @@ A, E and T.</p>
 the ffts are divided by the sampling frequency and corrected for windowing. A hann window
 is applied by default when moving to the fourier domain. The ffts are also normalized so that
 thier square gives the PSD.</p>
+<table class="docutils field-list" frame="void" rules="none">
+<col class="field-name" />
+<col class="field-body" />
+<tbody valign="top">
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>h3</strong> (<em>h1</em><em>,</em><em>h2</em><em>,</em>) – time series data for the three input channels</td>
+</tr>
+<tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body"><ul class="simple">
+<li><strong>r1, r2, r3</strong> (<em>float</em>) – frequency series data for the three input channels</li>
+<li><strong>fdata</strong> (<em>float</em>) – Reference frequency series</li>
+</ul>
+</td>
+</tr>
+</tbody>
+</table>
 </dd></dl>
 
 </dd></dl>

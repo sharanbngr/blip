@@ -21,6 +21,17 @@ class LISAdata(freqDomain):
 
     ## Method for reading frequency domain spectral data if given in an npz file
     def read_spectrum(self):
+
+        '''
+        Read an input frequency domain data file. Returns the fourier transform of the data from the three channels and an array of reference frequencyes
+
+        Returns
+        ---------
+
+        rA, rE, rT, fdata   :   float 
+
+        '''
+
         if os.path.isfile(self.params['input_spectrum']) and not self.params['doPreProc']:
             print("loading freq domain data from input file")
 
@@ -32,29 +43,34 @@ class LISAdata(freqDomain):
 
             return rA, rE, rT, fdata
 
-    ## Method for reading time domain data from an ascii file. This is useful for the mldc
-    def read_time_series(self):
-        if os.path.isfile(self.params['simfile']):
-            hoft = np.loadtxt(self.params['simfile'])
-            times, hX, hY, hZ = hoft[:, 0], hoft[:, 1], hoft[:, 2], hoft[:, 3]
-
-
 
     def gaussianData(self, Sh,freqs, fs=1, dur=1e5):
    
         '''
-         Script for generation time series data of a given spectral density.
+        Script for generation time series noise drawn from a gaussian process of a given spectral density.  Adapted from gaussian_noise.m from stamp
 
-        Input:
-        Sh : desired spectral density
-        freqs : corresponding frequencies
-        fs : sampleRate in Hz
-        dur : duration in seconds
+        Parameters
+        -----------
+        
+        Sh : (float)
+            A frequency array with the desired power spectral density
+        freqs : (float)
+            An array with corresponding frequencies to Sh
 
-        Output:
-        Random time series data of duration dur with the prescribed spectrum
+        fs : (float)
+            SampleRate in Hz
+        
+        dur : (int)
+            Duration in seconds
 
-        Adapted from gaussian_noise.m from stamp
+     
+        Returns
+        ---------
+    
+        ht : float
+        Array with time series data of duration, dur with the prescribed spectrum Sh
+
+       
         '''
     
         # Number of data points in the time series
@@ -100,7 +116,18 @@ class LISAdata(freqDomain):
     def gen_michelson_noise(self):
         
         '''
-        Generate interferometric michelson noise
+        Generate interferometric michelson (time-domain) noise, using freqDomain.fundamental_noise_spectrum
+
+
+
+        Returns
+        ---------
+    
+        h1, h2, h3 : float
+            Time series data for the three michelson channels
+
+
+
         '''
           
         # --------------------- Generate Fake Noise -----------------------------
@@ -168,6 +195,21 @@ class LISAdata(freqDomain):
 
     def gen_aet_noise(self):
         
+        '''
+        Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum
+
+
+
+        Returns
+        ---------
+    
+        h1_noi, h2_noi, h3_noi : float
+            Time series data for the three TDI channels
+
+        '''
+
+
+
         cspeed = 3e8 #m/s
 
         # michelson channels
@@ -192,10 +234,18 @@ class LISAdata(freqDomain):
     def gen_aet_isgwb(self):
         
         '''
-        Generate time series mock LISA data. The output are time domain TDI data. Michelson 
+        Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson 
         channels are manipulated to generate the A, E and T channels. We implement TDI as described in
 
         http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
+
+
+        Returns
+        ---------
+    
+        h1_gw, h2_gw, h3_gw : float
+            Time series isotropic stochastic noise for the three TDI channels
+
         '''
 
         # --------------------- Generate Fake Data + Noise -----------------------------
@@ -258,6 +308,14 @@ class LISAdata(freqDomain):
         Read in time domain data from an ascii txt file. Since this was used primarily for 
         the MLDC, it assumes that the data is given in X,Y and Z channels and converts to 
         A, E and T. 
+
+        Returns
+        ---------
+    
+        hA, hE, hT : float
+            Time series data for the three TDI channels
+
+
         '''
         
         hoft = np.loadtxt(self.params['datafile'])
@@ -290,6 +348,21 @@ class LISAdata(freqDomain):
         the ffts are divided by the sampling frequency and corrected for windowing. A hann window 
         is applied by default when moving to the fourier domain. The ffts are also normalized so that
         thier square gives the PSD.
+
+        Parameters
+        -----------
+        h1,h2, h3 : float
+            time series data for the three input channels
+
+        Returns
+        ---------
+    
+        r1, r2, r3 : float
+            frequency series data for the three input channels
+
+        fdata : float
+            Reference frequency series
+
         '''
 
         print ("Calculating fourier spectra... ")

@@ -4,16 +4,31 @@ import numpy as np
 class freqDomain():
 
     '''
-    Class for various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
+    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
     '''
 
 
     def doppler_response(self, f0, theta, phi):
         
         '''
-        Calculate antenna patterns given theta and phi for the doppler channel of a stationary LISA. 
-        Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
-        passed as an array
+        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the doppler channel of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
+        
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+
+        phi theta  : float
+            Sky position values. 
+    
+
+        Returns
+        ---------
+
+        Rplus, Rcorss   :   float
+            Plus and cross antenna Patterns for the given sky direction
         '''
 
 
@@ -48,9 +63,24 @@ class freqDomain():
     def michelson_response(self, f0, theta, phi): 
 
         '''
-        Calculate antenna patterns given theta and phi for the three michelson of a stationary LISA. 
-        Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
-        passed as an array
+        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the three Michelson channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
+        
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+
+        phi theta  : float
+            Sky position values. 
+    
+
+        Returns
+        ---------
+
+        R1plus, R1cross, R2plus, R2cross, R3plus, R3cross   :   float
+            Plus and cross antenna Patterns for the given sky direction for the three channels
         '''
 
         ct = np.cos(theta)
@@ -102,11 +132,29 @@ class freqDomain():
 
     def aet_response(self, f0, theta, phi): 
 
+
+
         '''
-        Calculate antenna patterns given theta and phi for the A,E and T channels of a stationary LISA. 
-        Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
-        passed as an array
+        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
+        
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+
+        phi theta  : float
+            Sky position values. 
+    
+
+        Returns
+        ---------
+
+        RAplus, RAcross, REplus, REcross, RTplus, RTcross   :   float
+            Plus and cross antenna Patterns for the given sky direction for the three channels
         '''
+
 
         R1plus, R1cross, R2plus, R2cross, R3plus, R3cross  = self.michelson_response(f0, theta, phi)
         
@@ -125,10 +173,25 @@ class freqDomain():
     def tdi_isgwb_response(self, f0): 
 
         '''
-        Calcualte the detector response functions to an isotropic SGWB using A, E and T TDI channels. cos(theta) space and phi space. The angular integral is a linear and 
-        rectangular in the cos(theta) and phi space
-        '''
+        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. Note that since this is the response to an isotropic background, the response function is integrated over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the cos(theta) and phi space.  Note that f0 is (pi*L*f)/c and is input as an array
+
         
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+
+    
+
+        Returns
+        ---------
+
+        R1, R2 and R3   :   float
+            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
+        '''
+
         
         tt = np.arange(-1, 1, 0.01)
         pp = np.arange(0, 2*np.pi, np.pi/100)
@@ -212,8 +275,28 @@ class freqDomain():
     def fundamental_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
 
         '''
-        Fundamentla noise estikmates for lisa. Currently only contain only position and acceleration noise sources.
-        The default values are specifications pulled from 2017 Lisa proposal noise estimations.
+        Creates a frequency array of fundamentla noise estimates for lisa. Currently we consisder only contain only position and acceleration noise sources. The default values are specifications pulled from 2017 Lisa proposal noise estimations.
+
+        Parameters
+        -----------
+
+        freqs   : float
+            A numpy array of frequencies
+
+        Np (optional) : float
+            Position noise value
+        
+        Na (optional) : float
+            Acceleration noise level
+    
+
+        Returns
+        ---------
+
+        Sp, Sa   :   float
+            Frequencies array for position and acceleration noises for each satellite
+
+
         ''' 
         
         Sp = Np
@@ -224,8 +307,30 @@ class freqDomain():
     def aet_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
 
         '''
-        A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
+        Calculates A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
         Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
+
+
+        Parameters
+        -----------
+
+        freqs   : float
+            A numpy array of frequencies
+
+        Np (optional) : float
+            Position noise value
+        
+        Na (optional) : float
+            Acceleration noise level
+    
+
+        Returns
+        ---------
+
+        SAA, SEE, STT   :   float
+            Frequencies arrays with the noise PSD for the A, E and T TDI channels
+
+
         '''
 
         # Get Sp and Sa

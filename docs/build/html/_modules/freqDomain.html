@@ -149,16 +149,31 @@
 <div class="viewcode-block" id="freqDomain"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain">[docs]</a><span class="k">class</span> <span class="nc">freqDomain</span><span class="p">():</span>
 
     <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">    Class for various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. </span>
+<span class="sd">    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. </span>
 <span class="sd">    &#39;&#39;&#39;</span>
 
 
 <div class="viewcode-block" id="freqDomain.doppler_response"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain.doppler_response">[docs]</a>    <span class="k">def</span> <span class="nf">doppler_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f0</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">):</span>
         
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Calculate antenna patterns given theta and phi for the doppler channel of a stationary LISA. </span>
-<span class="sd">        Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be</span>
-<span class="sd">        passed as an array</span>
+<span class="sd">        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the doppler channel of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        f0   : float</span>
+<span class="sd">            A numpy array of scaled frequencies (see above for def)</span>
+
+<span class="sd">        phi theta  : float</span>
+<span class="sd">            Sky position values. </span>
+<span class="sd">    </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        Rplus, Rcorss   :   float</span>
+<span class="sd">            Plus and cross antenna Patterns for the given sky direction</span>
 <span class="sd">        &#39;&#39;&#39;</span>
 
 
@@ -193,9 +208,24 @@
 <div class="viewcode-block" id="freqDomain.michelson_response"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain.michelson_response">[docs]</a>    <span class="k">def</span> <span class="nf">michelson_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f0</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">):</span> 
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Calculate antenna patterns given theta and phi for the three michelson of a stationary LISA. </span>
-<span class="sd">        Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be</span>
-<span class="sd">        passed as an array</span>
+<span class="sd">        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the three Michelson channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        f0   : float</span>
+<span class="sd">            A numpy array of scaled frequencies (see above for def)</span>
+
+<span class="sd">        phi theta  : float</span>
+<span class="sd">            Sky position values. </span>
+<span class="sd">    </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        R1plus, R1cross, R2plus, R2cross, R3plus, R3cross   :   float</span>
+<span class="sd">            Plus and cross antenna Patterns for the given sky direction for the three channels</span>
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="n">ct</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">theta</span><span class="p">)</span>
@@ -247,11 +277,29 @@
 
 <div class="viewcode-block" id="freqDomain.aet_response"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain.aet_response">[docs]</a>    <span class="k">def</span> <span class="nf">aet_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f0</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">):</span> 
 
+
+
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Calculate antenna patterns given theta and phi for the A,E and T channels of a stationary LISA. </span>
-<span class="sd">        Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be</span>
-<span class="sd">        passed as an array</span>
+<span class="sd">        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        f0   : float</span>
+<span class="sd">            A numpy array of scaled frequencies (see above for def)</span>
+
+<span class="sd">        phi theta  : float</span>
+<span class="sd">            Sky position values. </span>
+<span class="sd">    </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        RAplus, RAcross, REplus, REcross, RTplus, RTcross   :   float</span>
+<span class="sd">            Plus and cross antenna Patterns for the given sky direction for the three channels</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+
 
         <span class="n">R1plus</span><span class="p">,</span> <span class="n">R1cross</span><span class="p">,</span> <span class="n">R2plus</span><span class="p">,</span> <span class="n">R2cross</span><span class="p">,</span> <span class="n">R3plus</span><span class="p">,</span> <span class="n">R3cross</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">michelson_response</span><span class="p">(</span><span class="n">f0</span><span class="p">,</span> <span class="n">theta</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span>
         
@@ -270,10 +318,25 @@
 <div class="viewcode-block" id="freqDomain.tdi_isgwb_response"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain.tdi_isgwb_response">[docs]</a>    <span class="k">def</span> <span class="nf">tdi_isgwb_response</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">f0</span><span class="p">):</span> 
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Calcualte the detector response functions to an isotropic SGWB using A, E and T TDI channels. cos(theta) space and phi space. The angular integral is a linear and </span>
-<span class="sd">        rectangular in the cos(theta) and phi space</span>
+<span class="sd">        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. Note that since this is the response to an isotropic background, the response function is integrated over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the cos(theta) and phi space.  Note that f0 is (pi*L*f)/c and is input as an array</span>
+
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        f0   : float</span>
+<span class="sd">            A numpy array of scaled frequencies (see above for def)</span>
+
+<span class="sd">    </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        R1, R2 and R3   :   float</span>
+<span class="sd">            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.</span>
 <span class="sd">        &#39;&#39;&#39;</span>
-        
+
         
         <span class="n">tt</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mf">0.01</span><span class="p">)</span>
         <span class="n">pp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">100</span><span class="p">)</span>
@@ -357,8 +420,28 @@
 <div class="viewcode-block" id="freqDomain.fundamental_noise_spectrum"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain.fundamental_noise_spectrum">[docs]</a>    <span class="k">def</span> <span class="nf">fundamental_noise_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">Np</span><span class="o">=</span><span class="mf">4e-41</span><span class="p">,</span> <span class="n">Na</span><span class="o">=</span><span class="mf">1.44e-48</span><span class="p">):</span>
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Fundamentla noise estikmates for lisa. Currently only contain only position and acceleration noise sources.</span>
-<span class="sd">        The default values are specifications pulled from 2017 Lisa proposal noise estimations.</span>
+<span class="sd">        Creates a frequency array of fundamentla noise estimates for lisa. Currently we consisder only contain only position and acceleration noise sources. The default values are specifications pulled from 2017 Lisa proposal noise estimations.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        freqs   : float</span>
+<span class="sd">            A numpy array of frequencies</span>
+
+<span class="sd">        Np (optional) : float</span>
+<span class="sd">            Position noise value</span>
+<span class="sd">        </span>
+<span class="sd">        Na (optional) : float</span>
+<span class="sd">            Acceleration noise level</span>
+<span class="sd">    </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        Sp, Sa   :   float</span>
+<span class="sd">            Frequencies array for position and acceleration noises for each satellite</span>
+
+
 <span class="sd">        &#39;&#39;&#39;</span> 
         
         <span class="n">Sp</span> <span class="o">=</span> <span class="n">Np</span>
@@ -369,8 +452,30 @@
 <div class="viewcode-block" id="freqDomain.aet_noise_spectrum"><a class="viewcode-back" href="../classes.html#freqDomain.freqDomain.aet_noise_spectrum">[docs]</a>    <span class="k">def</span> <span class="nf">aet_noise_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">Np</span><span class="o">=</span><span class="mf">4e-41</span><span class="p">,</span> <span class="n">Na</span><span class="o">=</span><span class="mf">1.44e-48</span><span class="p">):</span>
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        A, E, and T channel noise spectra for a stationary lisa. Following the defintions in</span>
+<span class="sd">        Calculates A, E, and T channel noise spectra for a stationary lisa. Following the defintions in</span>
 <span class="sd">        Adams &amp; Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</span>
+
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        freqs   : float</span>
+<span class="sd">            A numpy array of frequencies</span>
+
+<span class="sd">        Np (optional) : float</span>
+<span class="sd">            Position noise value</span>
+<span class="sd">        </span>
+<span class="sd">        Na (optional) : float</span>
+<span class="sd">            Acceleration noise level</span>
+<span class="sd">    </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        SAA, SEE, STT   :   float</span>
+<span class="sd">            Frequencies arrays with the noise PSD for the A, E and T TDI channels</span>
+
+
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="c1"># Get Sp and Sa</span>

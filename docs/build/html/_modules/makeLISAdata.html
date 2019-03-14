@@ -165,7 +165,18 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">armlength</span> <span class="o">=</span> <span class="mf">2.5e9</span> <span class="c1">## armlength in meters</span>
 
     <span class="c1">## Method for reading frequency domain spectral data if given in an npz file</span>
-    <span class="k">def</span> <span class="nf">read_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="LISAdata.read_spectrum"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.read_spectrum">[docs]</a>    <span class="k">def</span> <span class="nf">read_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Read an input frequency domain data file. Returns the fourier transform of the data from the three channels and an array of reference frequencyes</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        rA, rE, rT, fdata   :   float </span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+
         <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;input_spectrum&#39;</span><span class="p">])</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;doPreProc&#39;</span><span class="p">]:</span>
             <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;loading freq domain data from input file&quot;</span><span class="p">)</span>
 
@@ -175,31 +186,36 @@
             <span class="n">rT</span>    <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;rT&#39;</span><span class="p">]</span>
             <span class="n">fdata</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;fdata&#39;</span><span class="p">]</span>
 
-            <span class="k">return</span> <span class="n">rA</span><span class="p">,</span> <span class="n">rE</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">fdata</span>
-
-    <span class="c1">## Method for reading time domain data from an ascii file. This is useful for the mldc</span>
-    <span class="k">def</span> <span class="nf">read_time_series</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;simfile&#39;</span><span class="p">]):</span>
-            <span class="n">hoft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;simfile&#39;</span><span class="p">])</span>
-            <span class="n">times</span><span class="p">,</span> <span class="n">hX</span><span class="p">,</span> <span class="n">hY</span><span class="p">,</span> <span class="n">hZ</span> <span class="o">=</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span>
-
+            <span class="k">return</span> <span class="n">rA</span><span class="p">,</span> <span class="n">rE</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">fdata</span></div>
 
 
 <div class="viewcode-block" id="LISAdata.gaussianData"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gaussianData">[docs]</a>    <span class="k">def</span> <span class="nf">gaussianData</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Sh</span><span class="p">,</span><span class="n">freqs</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dur</span><span class="o">=</span><span class="mf">1e5</span><span class="p">):</span>
    
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">         Script for generation time series data of a given spectral density.</span>
+<span class="sd">        Script for generation time series noise drawn from a gaussian process of a given spectral density.  Adapted from gaussian_noise.m from stamp</span>
 
-<span class="sd">        Input:</span>
-<span class="sd">        Sh : desired spectral density</span>
-<span class="sd">        freqs : corresponding frequencies</span>
-<span class="sd">        fs : sampleRate in Hz</span>
-<span class="sd">        dur : duration in seconds</span>
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        </span>
+<span class="sd">        Sh : (float)</span>
+<span class="sd">            A frequency array with the desired power spectral density</span>
+<span class="sd">        freqs : (float)</span>
+<span class="sd">            An array with corresponding frequencies to Sh</span>
 
-<span class="sd">        Output:</span>
-<span class="sd">        Random time series data of duration dur with the prescribed spectrum</span>
+<span class="sd">        fs : (float)</span>
+<span class="sd">            SampleRate in Hz</span>
+<span class="sd">        </span>
+<span class="sd">        dur : (int)</span>
+<span class="sd">            Duration in seconds</span>
 
-<span class="sd">        Adapted from gaussian_noise.m from stamp</span>
+<span class="sd">     </span>
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        ht : float</span>
+<span class="sd">        Array with time series data of duration, dur with the prescribed spectrum Sh</span>
+
+<span class="sd">       </span>
 <span class="sd">        &#39;&#39;&#39;</span>
     
         <span class="c1"># Number of data points in the time series</span>
@@ -245,7 +261,18 @@
 <div class="viewcode-block" id="LISAdata.gen_michelson_noise"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gen_michelson_noise">[docs]</a>    <span class="k">def</span> <span class="nf">gen_michelson_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Generate interferometric michelson noise</span>
+<span class="sd">        Generate interferometric michelson (time-domain) noise, using freqDomain.fundamental_noise_spectrum</span>
+
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        h1, h2, h3 : float</span>
+<span class="sd">            Time series data for the three michelson channels</span>
+
+
+
 <span class="sd">        &#39;&#39;&#39;</span>
           
         <span class="c1"># --------------------- Generate Fake Noise -----------------------------</span>
@@ -311,8 +338,23 @@
 
         <span class="k">return</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span></div>
 
-    <span class="k">def</span> <span class="nf">gen_aet_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<div class="viewcode-block" id="LISAdata.gen_aet_noise"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gen_aet_noise">[docs]</a>    <span class="k">def</span> <span class="nf">gen_aet_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum</span>
+
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        h1_noi, h2_noi, h3_noi : float</span>
+<span class="sd">            Time series data for the three TDI channels</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+
+
+
         <span class="n">cspeed</span> <span class="o">=</span> <span class="mf">3e8</span> <span class="c1">#m/s</span>
 
         <span class="c1"># michelson channels</span>
@@ -332,15 +374,23 @@
         <span class="n">h2_noi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">))</span><span class="o">*</span><span class="p">(</span><span class="n">hZ</span> <span class="o">-</span> <span class="n">hY</span><span class="p">)</span>
         <span class="n">h3_noi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">hX</span> <span class="o">+</span> <span class="n">hY</span> <span class="o">+</span> <span class="n">hZ</span><span class="p">)</span>
 
-        <span class="k">return</span> <span class="n">h1_noi</span><span class="p">,</span> <span class="n">h2_noi</span><span class="p">,</span> <span class="n">h3_noi</span>
+        <span class="k">return</span> <span class="n">h1_noi</span><span class="p">,</span> <span class="n">h2_noi</span><span class="p">,</span> <span class="n">h3_noi</span></div>
 
 <div class="viewcode-block" id="LISAdata.gen_aet_isgwb"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gen_aet_isgwb">[docs]</a>    <span class="k">def</span> <span class="nf">gen_aet_isgwb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Generate time series mock LISA data. The output are time domain TDI data. Michelson </span>
+<span class="sd">        Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson </span>
 <span class="sd">        channels are manipulated to generate the A, E and T channels. We implement TDI as described in</span>
 
 <span class="sd">        http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</span>
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        h1_gw, h2_gw, h3_gw : float</span>
+<span class="sd">            Time series isotropic stochastic noise for the three TDI channels</span>
+
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="c1"># --------------------- Generate Fake Data + Noise -----------------------------</span>
@@ -403,6 +453,14 @@
 <span class="sd">        Read in time domain data from an ascii txt file. Since this was used primarily for </span>
 <span class="sd">        the MLDC, it assumes that the data is given in X,Y and Z channels and converts to </span>
 <span class="sd">        A, E and T. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        hA, hE, hT : float</span>
+<span class="sd">            Time series data for the three TDI channels</span>
+
+
 <span class="sd">        &#39;&#39;&#39;</span>
         
         <span class="n">hoft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;datafile&#39;</span><span class="p">])</span>
@@ -435,6 +493,21 @@
 <span class="sd">        the ffts are divided by the sampling frequency and corrected for windowing. A hann window </span>
 <span class="sd">        is applied by default when moving to the fourier domain. The ffts are also normalized so that</span>
 <span class="sd">        thier square gives the PSD.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        h1,h2, h3 : float</span>
+<span class="sd">            time series data for the three input channels</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        r1, r2, r3 : float</span>
+<span class="sd">            frequency series data for the three input channels</span>
+
+<span class="sd">        fdata : float</span>
+<span class="sd">            Reference frequency series</span>
+
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Calculating fourier spectra... &quot;</span><span class="p">)</span>
