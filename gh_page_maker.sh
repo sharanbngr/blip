@@ -3,6 +3,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
+sourceDirectory=./docs/source
 buildDirectory=./docs/build
 
 # get a clean master branch assuming
@@ -13,7 +14,7 @@ git checkout -- .
 git fetch --all
 
 # build html docs from sphinx files
-sphinx-build -b html . "$buildDirectory"
+sphinx-build -b html "$sourceDirectory"  "$buildDirectory"
 
 # create or use orphaned gh-pages branch
 branch_name=gh-pages
