@@ -1,6 +1,6 @@
 #  BLIP: Bayesian LISA Pipeline
 
-More documentation at https://sharanbngr.github.io/blip/
+More documentation at https://blip.readthedocs.io/en/latest/
 
 
 A bayesian pipeline for detecting stochastic backgrounds with LISA. BLIP stands for Bayesian LIsa Pipeline. This is a fully pythonic pipeline.
