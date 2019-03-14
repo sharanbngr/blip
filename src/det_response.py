@@ -1,16 +1,14 @@
 from __future__ import division
 import numpy as np
 
-class Antennapatterns():
+class freqDomain():
 
     '''
-    Class  of the LISA array or of parts of it. The methods here include calculation of antenna patters for a single doppler channel, for
-    the three michelson channels or for the AET TDI channels
+    Class for various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
     '''
 
     def __init__(self, params, inj):
-        self.params = params
-        self.inj = inj
+        
 
     def doppler_response(self, f0, theta, phi):
         
@@ -212,5 +210,42 @@ class Antennapatterns():
 
 
         return R1, R2, R3
+
+    def fundamental_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
+
+        '''
+        Fundamentla noise estikmates for lisa. Currently only contain only position and acceleration noise sources.
+        The default values are specifications pulled from 2017 Lisa proposal noise estimations.
+        ''' 
+        
+        Sp = Np
+        Sa = Na*(1 + 16e-8/freqs**2)*(1.0/(2*np.pi*freqs)**4)
+
+        return Sp, Sa
+
+    def aet_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
+
+        '''
+        A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
+        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
+        '''
+
+        # Get Sp and Sa
+        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
+
+
+        ## Noise spectra of the TDI Channels
+        SAA = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(np.cos(2*self.f0) + 2) \
+            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4*np.cos(2*self.f0) + 2*np.cos(4*self.f0) + 6)
+
+
+        SEE = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(2 + np.cos(2*self.f0)) \
+            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4 + 4*np.cos(2*self.f0) +  4*(np.cos(2*self.f0))**2 )
+
+        STT = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(1 - np.cos(2*self.f0)) \
+            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(2 - 4*np.cos(2*self.f0) + 2*(np.cos(2*self.f0))**2)
+
+
+        retrun SAA, SEE, STT
 
 
