@@ -2,12 +2,12 @@ from __future__ import division
 import numpy as np
 import scipy.signal as sg
 from tools.makeGaussianData import gaussianData
-from src.det_response import Antennapatterns
+from src.det_response import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 
 
-class LISAdata(Antennapatterns):
+class LISAdata(freqDomain):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -53,14 +53,10 @@ class LISAdata(Antennapatterns):
         delf  = 1.0/self.params['dur']
         frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
 
+        Sp, Sa = self.fundamental_noise_spectrum(frange)
+
         # To implement TDI we need time shifts of multiples of L.
         tlag  = self.armlength/cspeed
-
-
-        # Using 2017 Lisa proposal noise estimations, but treating them as white in position and acceleration respectively. 
-
-        Sp = 1.6e-43
-        Sa = 1.44e-48*(1.0/(2.0*np.pi*frange)**4)
 
         # Generate data
         np12 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])

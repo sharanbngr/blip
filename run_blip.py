@@ -5,11 +5,11 @@ from dynesty import NestedSampler
 from dynesty.utils import resample_equal
 import sys, ConfigParser, subprocess
 from src.makeLISAdata import LISAdata
+from src.bayes import Bayes
 from tools.plotmaker import plotmaker
-from src.logL_stoch import isgwb_logL
 import matplotlib.pyplot as plt
 
-class LISA(LISAdata):
+class LISA(LISAdata, Bayes):
 
     '''
     Generic class for getting data and setting up the prior space and likelihood. This is tuned for ISGWB analysis at the moment
@@ -18,8 +18,10 @@ class LISA(LISAdata):
 
     def __init__(self,  params, inj):
 
-        # set the data
+        # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
+        # Set up the Bayes class
+        Bayes.__init__(self)
 
         ## Generate or get data
         if self.params['readData']:
@@ -74,30 +76,7 @@ class LISA(LISAdata):
         
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
         
-    def isgwb_prior(self, theta):
 
-        '''
-        Prior function for the ISGWB
-        '''
-
-        # Unpack: Theta is defined in the unit cube
-        alpha, log_omega0, log_Np, log_Na = theta
-
-        # Transform to actual priors
-        alpha       = 10*alpha-5
-        log_omega0   = 10*log_omega0 -14
-        log_Np = 5*log_Np - 44
-        log_Na = 5*log_Na - 51
-
-        return (alpha, log_omega0, log_Np, log_Na)
-
-
-
-    def isgwb_log_likelihood(self, theta):
-
-        # Wrapper for isotropic loglikelihood
-        llike = isgwb_logL(self, theta)
-        return llike
 
     
     def diag_spectra(self):
