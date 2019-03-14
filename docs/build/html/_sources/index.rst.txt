@@ -70,6 +70,7 @@ The project is licensed under the BSD license.
    :maxdepth: 2
    :caption: Contents:
 
+    intro
 
 
 Indices and tables
