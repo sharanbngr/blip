@@ -57,7 +57,7 @@ Modules and Methods
 .. toctree::
    :maxdepth: 3
    
-
+ 
    classes
 
     

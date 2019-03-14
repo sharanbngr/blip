@@ -6,8 +6,6 @@
 Welcome to BLIP!
 =================
 
-BLIP
-====
 
 BLIP stands for Bayesian LISA Pipeline and is a gravitational wave analysis pipeline for LISA. It is geared
 mostly towards stochastic gravitational wave backgrounds, although the methods in here can be of wider use. 
@@ -44,41 +42,25 @@ To run the pipeline, do
 
 
 
-Contribute
-----------
-
-- Issue Tracker: github.com/$project/$project/issues
-- Source Code: github.com/$project/$project
-
 Support
 -------
 
-If you are having issues, please let us know.
-We have a mailing list located at: project@google-groups.com
+If you are having issues, please email banag002@umn.edu
 
 
 
 
 
-
+Modules and Methods
+------------------------
 
 .. toctree::
    :maxdepth: 3
-   :caption: Contents:
+   
+ 
+   classes
 
     
-
-
-Classes
---------
-.. automodule:: bayes
-    :members:
-
-.. automodule:: freqDomain
-    :members:
-
-.. automodule:: makeLISAdata
-    :members:
 
 
 

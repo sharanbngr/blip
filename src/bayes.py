@@ -13,7 +13,19 @@ class bayes():
     def isgwb_prior(self, theta):
 
         '''
-        Prior function for the ISGWB
+        Prior function for an isotropic stochastic backgound analysis.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube. 
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
         '''
 
         # Unpack: Theta is defined in the unit cube
@@ -31,8 +43,22 @@ class bayes():
     def Sph_prior(self, theta):
 
         '''
-        Prior for an power spectra spherical harmonic anisotropic analysis
+        Prior for a power spectra based spherical harmonic anisotropic analysis
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube. 
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
         '''
+
+
 
         # Prior on theta[0] which is alpha
         theta[0]       = 10*theta[0] -5
@@ -50,8 +76,22 @@ class bayes():
     def isgwb_log_likelihood(self, theta):
 
         '''
-        Calculate isotropic likelihood for the sampled point theta.
+        Calculate likelihood for an isotropic stochastic background analysis.
+        
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. 
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
         '''
+
 
         # unpack priors
         alpha, log_omega0, log_Np, log_Na  = theta
@@ -94,5 +134,18 @@ class bayes():
     def Sph_likelihood(self, theta):
 
         '''
-        Likelihood wrapper for a power spectra based sphercial harmonic analysis. 
+        Calculate likelihood for a power-spectra based spherical harmonic analysis.
+        
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na. 
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
         '''

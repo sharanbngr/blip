@@ -1,42 +1,152 @@
 
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
-  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 
-<html xmlns="http://www.w3.org/1999/xhtml">
-  <head>
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <title>bayes &#8212; blip 0.01 documentation</title>
-    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
-    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
-    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
-    <script type="text/javascript" src="../_static/jquery.js"></script>
-    <script type="text/javascript" src="../_static/underscore.js"></script>
-    <script type="text/javascript" src="../_static/doctools.js"></script>
-    <script type="text/javascript" src="../_static/language_data.js"></script>
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bayes &mdash; blip 0.01 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
     <link rel="index" title="Index" href="../genindex.html" />
-    <link rel="search" title="Search" href="../search.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
    
-  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
-  
-  
-  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
-
-  </head><body>
-  
-
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
           
 
-          <div class="body" role="main">
+          
+            <a href="../blip.html" class="icon icon-home"> blip
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes.html">Modules and Methods</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../blip.html">blip</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../blip.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>bayes</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
             
   <h1>Source code for bayes</h1><div class="highlight"><pre>
 <span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">division</span>
 <span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
 
-<div class="viewcode-block" id="bayes"><a class="viewcode-back" href="../index.html#bayes.bayes">[docs]</a><span class="k">class</span> <span class="nc">bayes</span><span class="p">():</span>
+<div class="viewcode-block" id="bayes"><a class="viewcode-back" href="../classes.html#bayes.bayes">[docs]</a><span class="k">class</span> <span class="nc">bayes</span><span class="p">():</span>
 
     <span class="sd">&#39;&#39;&#39;</span>
 <span class="sd">    Class with methods for bayesian analysis of different kinds of signals. The methods currently</span>
@@ -45,10 +155,22 @@
 <span class="sd">    &#39;&#39;&#39;</span>
 
 
-<div class="viewcode-block" id="bayes.isgwb_prior"><a class="viewcode-back" href="../index.html#bayes.bayes.isgwb_prior">[docs]</a>    <span class="k">def</span> <span class="nf">isgwb_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+<div class="viewcode-block" id="bayes.isgwb_prior"><a class="viewcode-back" href="../classes.html#bayes.bayes.isgwb_prior">[docs]</a>    <span class="k">def</span> <span class="nf">isgwb_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Prior function for the ISGWB</span>
+<span class="sd">        Prior function for an isotropic stochastic backgound analysis.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing samples from a unit cube. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        theta   :   float</span>
+<span class="sd">            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na</span>
 <span class="sd">        &#39;&#39;&#39;</span>
 
         <span class="c1"># Unpack: Theta is defined in the unit cube</span>
@@ -63,11 +185,25 @@
         <span class="k">return</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">log_omega0</span><span class="p">,</span> <span class="n">log_Np</span><span class="p">,</span> <span class="n">log_Na</span><span class="p">)</span></div>
 
 
-<div class="viewcode-block" id="bayes.Sph_prior"><a class="viewcode-back" href="../index.html#bayes.bayes.Sph_prior">[docs]</a>    <span class="k">def</span> <span class="nf">Sph_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+<div class="viewcode-block" id="bayes.Sph_prior"><a class="viewcode-back" href="../classes.html#bayes.bayes.Sph_prior">[docs]</a>    <span class="k">def</span> <span class="nf">Sph_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Prior for an power spectra spherical harmonic anisotropic analysis</span>
+<span class="sd">        Prior for a power spectra based spherical harmonic anisotropic analysis</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing samples from a unit cube. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        theta   :   float</span>
+<span class="sd">            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+
+
 
         <span class="c1"># Prior on theta[0] which is alpha</span>
         <span class="n">theta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>       <span class="o">=</span> <span class="mi">10</span><span class="o">*</span><span class="n">theta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span><span class="mi">5</span>
@@ -82,11 +218,25 @@
 
         <span class="k">return</span> <span class="n">theta</span></div>
 
-<div class="viewcode-block" id="bayes.isgwb_log_likelihood"><a class="viewcode-back" href="../index.html#bayes.bayes.isgwb_log_likelihood">[docs]</a>    <span class="k">def</span> <span class="nf">isgwb_log_likelihood</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+<div class="viewcode-block" id="bayes.isgwb_log_likelihood"><a class="viewcode-back" href="../classes.html#bayes.bayes.isgwb_log_likelihood">[docs]</a>    <span class="k">def</span> <span class="nf">isgwb_log_likelihood</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Calculate isotropic likelihood for the sampled point theta.</span>
+<span class="sd">        Calculate likelihood for an isotropic stochastic background analysis.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        Loglike   :   float</span>
+<span class="sd">            The log-likelihood value at the sampled point in the parameter space</span>
 <span class="sd">        &#39;&#39;&#39;</span>
+
 
         <span class="c1"># unpack priors</span>
         <span class="n">alpha</span><span class="p">,</span> <span class="n">log_omega0</span><span class="p">,</span> <span class="n">log_Np</span><span class="p">,</span> <span class="n">log_Na</span>  <span class="o">=</span> <span class="n">theta</span>
@@ -126,74 +276,63 @@
         <span class="k">return</span> <span class="n">Loglike</span></div>
 
 
-<div class="viewcode-block" id="bayes.Sph_likelihood"><a class="viewcode-back" href="../index.html#bayes.bayes.Sph_likelihood">[docs]</a>    <span class="k">def</span> <span class="nf">Sph_likelihood</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+<div class="viewcode-block" id="bayes.Sph_likelihood"><a class="viewcode-back" href="../classes.html#bayes.bayes.Sph_likelihood">[docs]</a>    <span class="k">def</span> <span class="nf">Sph_likelihood</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
 
         <span class="sd">&#39;&#39;&#39;</span>
-<span class="sd">        Likelihood wrapper for a power spectra based sphercial harmonic analysis. </span>
+<span class="sd">        Calculate likelihood for a power-spectra based spherical harmonic analysis.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        Loglike   :   float</span>
+<span class="sd">            The log-likelihood value at the sampled point in the parameter space</span>
 <span class="sd">        &#39;&#39;&#39;</span></div></div>
 </pre></div>
 
+           </div>
+           
           </div>
-          
-        </div>
-      </div>
-      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
-        <div class="sphinxsidebarwrapper">
-<h1 class="logo"><a href="../index.html">blip</a></h1>
+          <footer>
+  
 
+  <hr/>
 
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Sharan Banagiri
 
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
 
-
-
-
-
-<h3>Navigation</h3>
-
-<div class="relations">
-<h3>Related Topics</h3>
-<ul>
-  <li><a href="../index.html">Documentation overview</a><ul>
-  <li><a href="index.html">Module code</a><ul>
-  </ul></li>
-  </ul></li>
-</ul>
-</div>
-<div id="searchbox" style="display: none" role="search">
-  <h3>Quick search</h3>
-    <div class="searchformwrapper">
-    <form class="search" action="../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-    </div>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
-
-
-
-
-
-
-
+</footer>
 
         </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="footer">
-      &copy;2019, Sharan Banagiri.
-      
-      |
-      Powered by <a href="http://sphinx-doc.org/">Sphinx 1.8.5</a>
-      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
-      
-    </div>
 
-    
+    </section>
 
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
     
-  </body>
+   
+
+</body>
 </html>
