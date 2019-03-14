@@ -59,7 +59,7 @@ Modules and Methods
    
  
    classes
-
+   aux_functions
     
 
 

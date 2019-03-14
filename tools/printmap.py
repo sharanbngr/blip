@@ -8,6 +8,10 @@ from matplotlib import ticker
 
 def printmap(map, xvals, yvals, xlab, ylab, clabel, crange, saveas):
     
+    '''
+    Auxially function for making a spectrogram map
+    '''
+
     ax = plt.axes([0.15, 0.15, .75, .75])
     plt.imshow(map, cmap='hot', origin='lower', aspect='auto', extent=(xvals[0],xvals[1], yvals[0],yvals[1]))
     intervals = float(0.05)
