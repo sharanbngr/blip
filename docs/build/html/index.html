@@ -54,7 +54,7 @@ mostly towards stochastic gravitational wave backgrounds, although the methods i
 <h2>Running the pipeline<a class="headerlink" href="#running-the-pipeline" title="Permalink to this headline">¶</a></h2>
 <p>The code comes with a params.ini file which has all the parameters set in. You can change them and the signal model by modifying params.ini</p>
 <p>To run the pipeline, do</p>
-<p><code class="docutils literal notranslate"><span class="pre">`python</span> <span class="pre">run_blip.py</span> <span class="pre">params.ini`</span></code></p>
+<p><code class="docutils literal notranslate"><span class="pre">python</span> <span class="pre">run_blip.py</span> <span class="pre">params.ini</span></code></p>
 </div>
 <div class="section" id="contribute">
 <h2>Contribute<a class="headerlink" href="#contribute" title="Permalink to this headline">¶</a></h2>
@@ -67,12 +67,148 @@ mostly towards stochastic gravitational wave backgrounds, although the methods i
 <h2>Support<a class="headerlink" href="#support" title="Permalink to this headline">¶</a></h2>
 <p>If you are having issues, please let us know.
 We have a mailing list located at: <a class="reference external" href="mailto:project&#37;&#52;&#48;google-groups&#46;com">project<span>&#64;</span>google-groups<span>&#46;</span>com</a></p>
-</div>
-<div class="section" id="license">
-<h2>License<a class="headerlink" href="#license" title="Permalink to this headline">¶</a></h2>
-<p>The project is licensed under the BSD license.</p>
 <div class="toctree-wrapper compound">
 </div>
+</div>
+<div class="section" id="module-bayes">
+<span id="classes"></span><h2>Classes<a class="headerlink" href="#module-bayes" title="Permalink to this headline">¶</a></h2>
+<dl class="class">
+<dt id="bayes.bayes">
+<em class="property">class </em><code class="descclassname">bayes.</code><code class="descname">bayes</code><a class="reference internal" href="_modules/bayes.html#bayes"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayes.bayes" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class with methods for bayesian analysis of different kinds of signals. The methods currently
+include prior and likelihood functions for ISGWB analysis, sky-pixel/radiometer type analysis
+and a power spectra based spherical harmonic analysis.</p>
+<dl class="method">
+<dt id="bayes.bayes.Sph_likelihood">
+<code class="descname">Sph_likelihood</code><span class="sig-paren">(</span><em>theta</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayes.html#bayes.Sph_likelihood"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayes.bayes.Sph_likelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>Likelihood wrapper for a power spectra based sphercial harmonic analysis.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayes.bayes.Sph_prior">
+<code class="descname">Sph_prior</code><span class="sig-paren">(</span><em>theta</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayes.html#bayes.Sph_prior"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayes.bayes.Sph_prior" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prior for an power spectra spherical harmonic anisotropic analysis</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayes.bayes.isgwb_log_likelihood">
+<code class="descname">isgwb_log_likelihood</code><span class="sig-paren">(</span><em>theta</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayes.html#bayes.isgwb_log_likelihood"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayes.bayes.isgwb_log_likelihood" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate isotropic likelihood for the sampled point theta.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="bayes.bayes.isgwb_prior">
+<code class="descname">isgwb_prior</code><span class="sig-paren">(</span><em>theta</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/bayes.html#bayes.isgwb_prior"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#bayes.bayes.isgwb_prior" title="Permalink to this definition">¶</a></dt>
+<dd><p>Prior function for the ISGWB</p>
+</dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-freqDomain"></span><dl class="class">
+<dt id="freqDomain.freqDomain">
+<em class="property">class </em><code class="descclassname">freqDomain.</code><code class="descname">freqDomain</code><a class="reference internal" href="_modules/freqDomain.html#freqDomain"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class for various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.</p>
+<dl class="method">
+<dt id="freqDomain.freqDomain.aet_noise_spectrum">
+<code class="descname">aet_noise_spectrum</code><span class="sig-paren">(</span><em>freqs</em>, <em>Np=4e-41</em>, <em>Na=1.44e-48</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.aet_noise_spectrum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.aet_noise_spectrum" title="Permalink to this definition">¶</a></dt>
+<dd><p>A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
+Adams &amp; Cornish, <a class="reference external" href="http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308">http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="freqDomain.freqDomain.aet_response">
+<code class="descname">aet_response</code><span class="sig-paren">(</span><em>f0</em>, <em>theta</em>, <em>phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.aet_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.aet_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate antenna patterns given theta and phi for the A,E and T channels of a stationary LISA.
+Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
+passed as an array</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="freqDomain.freqDomain.doppler_response">
+<code class="descname">doppler_response</code><span class="sig-paren">(</span><em>f0</em>, <em>theta</em>, <em>phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.doppler_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.doppler_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate antenna patterns given theta and phi for the doppler channel of a stationary LISA.
+Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
+passed as an array</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="freqDomain.freqDomain.fundamental_noise_spectrum">
+<code class="descname">fundamental_noise_spectrum</code><span class="sig-paren">(</span><em>freqs</em>, <em>Np=4e-41</em>, <em>Na=1.44e-48</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.fundamental_noise_spectrum"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.fundamental_noise_spectrum" title="Permalink to this definition">¶</a></dt>
+<dd><p>Fundamentla noise estikmates for lisa. Currently only contain only position and acceleration noise sources.
+The default values are specifications pulled from 2017 Lisa proposal noise estimations.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="freqDomain.freqDomain.michelson_response">
+<code class="descname">michelson_response</code><span class="sig-paren">(</span><em>f0</em>, <em>theta</em>, <em>phi</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.michelson_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.michelson_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calculate antenna patterns given theta and phi for the three michelson of a stationary LISA.
+Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and should be
+passed as an array</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="freqDomain.freqDomain.tdi_isgwb_response">
+<code class="descname">tdi_isgwb_response</code><span class="sig-paren">(</span><em>f0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/freqDomain.html#freqDomain.tdi_isgwb_response"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#freqDomain.freqDomain.tdi_isgwb_response" title="Permalink to this definition">¶</a></dt>
+<dd><p>Calcualte the detector response functions to an isotropic SGWB using A, E and T TDI channels. cos(theta) space and phi space. The angular integral is a linear and
+rectangular in the cos(theta) and phi space</p>
+</dd></dl>
+
+</dd></dl>
+
+<span class="target" id="module-makeLISAdata"></span><dl class="class">
+<dt id="makeLISAdata.LISAdata">
+<em class="property">class </em><code class="descclassname">makeLISAdata.</code><code class="descname">LISAdata</code><span class="sig-paren">(</span><em>params</em>, <em>inj</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata" title="Permalink to this definition">¶</a></dt>
+<dd><p>Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation
+of isotropic stochastic background. Any eventually signal models should be added as methods here. This
+has the Antennapatterns class as a super class.</p>
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.gaussianData">
+<code class="descname">gaussianData</code><span class="sig-paren">(</span><em>Sh</em>, <em>freqs</em>, <em>fs=1</em>, <em>dur=100000.0</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gaussianData"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gaussianData" title="Permalink to this definition">¶</a></dt>
+<dd><blockquote>
+<div>Script for generation time series data of a given spectral density.</div></blockquote>
+<p>Input:
+Sh : desired spectral density
+freqs : corresponding frequencies
+fs : sampleRate in Hz
+dur : duration in seconds</p>
+<p>Output:
+Random time series data of duration dur with the prescribed spectrum</p>
+<p>Adapted from gaussian_noise.m from stamp</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.gen_aet_isgwb">
+<code class="descname">gen_aet_isgwb</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gen_aet_isgwb"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gen_aet_isgwb" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate time series mock LISA data. The output are time domain TDI data. Michelson
+channels are manipulated to generate the A, E and T channels. We implement TDI as described in</p>
+<p><a class="reference external" href="http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308">http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</a></p>
+</dd></dl>
+
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.gen_michelson_noise">
+<code class="descname">gen_michelson_noise</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.gen_michelson_noise"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.gen_michelson_noise" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generate interferometric michelson noise</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.read_data">
+<code class="descname">read_data</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.read_data"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.read_data" title="Permalink to this definition">¶</a></dt>
+<dd><p>Read in time domain data from an ascii txt file. Since this was used primarily for
+the MLDC, it assumes that the data is given in X,Y and Z channels and converts to
+A, E and T.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="makeLISAdata.LISAdata.tser2fser">
+<code class="descname">tser2fser</code><span class="sig-paren">(</span><em>h1</em>, <em>h2</em>, <em>h3</em><span class="sig-paren">)</span><a class="reference internal" href="_modules/makeLISAdata.html#LISAdata.tser2fser"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#makeLISAdata.LISAdata.tser2fser" title="Permalink to this definition">¶</a></dt>
+<dd><p>Convert time domain data to fourier domain and return ffts. The convention is that the
+the ffts are divided by the sampling frequency and corrected for windowing. A hann window
+is applied by default when moving to the fourier domain. The ffts are also normalized so that
+thier square gives the PSD.</p>
+</dd></dl>
+
+</dd></dl>
+
 </div>
 </div>
 <div class="section" id="indices-and-tables">

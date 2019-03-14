@@ -1,8 +1,7 @@
 from __future__ import division
 import numpy as np
 import scipy.signal as sg
-from tools.makeGaussianData import gaussianData
-from src.det_response import freqDomain
+from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 
@@ -39,6 +38,65 @@ class LISAdata(freqDomain):
             hoft = np.loadtxt(self.params['simfile'])
             times, hX, hY, hZ = hoft[:, 0], hoft[:, 1], hoft[:, 2], hoft[:, 3]
 
+
+
+    def gaussianData(self, Sh,freqs, fs=1, dur=1e5):
+   
+        '''
+         Script for generation time series data of a given spectral density.
+
+        Input:
+        Sh : desired spectral density
+        freqs : corresponding frequencies
+        fs : sampleRate in Hz
+        dur : duration in seconds
+
+        Output:
+        Random time series data of duration dur with the prescribed spectrum
+
+        Adapted from gaussian_noise.m from stamp
+        '''
+    
+        # Number of data points in the time series
+        N = int(fs*dur)
+
+        # prepare for FFT
+        if  np.mod(N,2)== 0 :
+            numFreqs = N/2 - 1;
+        else:
+            numFreqs = (N-1)/2;
+
+        # We will make an array of the desired frequencies
+        delF = 1/dur
+        fmin = 1/dur
+        fmax = np.around(dur*fs/2)/dur
+        delF = 1/dur
+
+        # The output frequency series
+        fout = np.linspace(fmin, fmax, numFreqs)
+
+        # Interpolate to the desired frequencies
+        norms = np.interp(fout, freqs, Sh)
+
+        # Amplitude for for ifft
+        norms = np.sqrt(norms*fs*N)/2.0
+
+        # Normally distributed in frequency space
+        re1 = norms*np.random.normal(size=fout.size)
+        im1 = norms*np.random.normal(size=fout.size)
+
+        htilda = re1 + 1j*im1
+
+        if np.mod(N, 2) == 0:
+            htilda = np.concatenate((np.zeros(1), htilda,np.zeros(1), np.flipud(np.conjugate(htilda))))
+        else:
+            htilda = np.concatenate((np.zeros(1),htilda, np.conjugate(np.flipud(htilda))))
+
+        # Take inverse fft to get time series data
+        ht = np.real(np.fft.ifft(htilda, N))
+
+        return ht
+
     def gen_michelson_noise(self):
         
         '''
@@ -59,19 +117,19 @@ class LISAdata(freqDomain):
         tlag  = self.armlength/cspeed
 
         # Generate data
-        np12 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np21 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np13 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np31 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np23 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np32 = gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
+        np12 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
+        np21 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
+        np13 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
+        np31 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
+        np23 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
+        np32 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
 
-        na12 = gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na21 = gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na13 = gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na31 = gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na23 = gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na32 = gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
+        na12 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
+        na21 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
+        na13 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
+        na31 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
+        na23 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
+        na32 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
     
 
         # time array and time shift array

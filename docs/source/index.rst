@@ -40,7 +40,7 @@ The code comes with a params.ini file which has all the parameters set in. You c
 
 To run the pipeline, do 
 
-```python run_blip.py params.ini```
+``python run_blip.py params.ini``
 
 
 
@@ -63,10 +63,24 @@ We have a mailing list located at: project@google-groups.com
 
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
    :caption: Contents:
 
     
+
+
+Classes
+--------
+.. automodule:: bayes
+    :members:
+
+.. automodule:: freqDomain
+    :members:
+
+.. automodule:: makeLISAdata
+    :members:
+
+
 
 
 Indices and tables

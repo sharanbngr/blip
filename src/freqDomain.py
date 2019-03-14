@@ -7,8 +7,6 @@ class freqDomain():
     Class for various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
     '''
 
-    def __init__(self, params, inj):
-        
 
     def doppler_response(self, f0, theta, phi):
         
@@ -246,6 +244,6 @@ class freqDomain():
             + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(2 - 4*np.cos(2*self.f0) + 2*(np.cos(2*self.f0))**2)
 
 
-        retrun SAA, SEE, STT
+        return SAA, SEE, STT
 
 
