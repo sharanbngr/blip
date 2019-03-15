@@ -149,3 +149,12 @@ class bayes():
         Loglike   :   float
             The log-likelihood value at the sampled point in the parameter space
         '''
+
+
+        # unpack priors
+        log_Np, log_Na  = theta[-2], theta[-1]
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        # Modelled Noise PSD
+        SAA, SEE, STT = self.aet_noise_spectrum(self.freqs, Np, Na, self.f0) 
