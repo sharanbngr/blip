@@ -1,0 +1,607 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>makeLISAdata &mdash; blip 0.01 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> blip
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes.html">Modules and Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aux_functions.html">Auxiliary Functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">blip</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>makeLISAdata</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for makeLISAdata</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">division</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+<span class="kn">import</span> <span class="nn">scipy.signal</span> <span class="k">as</span> <span class="nn">sg</span>
+<span class="kn">from</span> <span class="nn">src.freqDomain</span> <span class="k">import</span> <span class="n">freqDomain</span>
+<span class="kn">from</span> <span class="nn">scipy.interpolate</span> <span class="k">import</span> <span class="n">interp1d</span> <span class="k">as</span> <span class="n">intrp</span>
+<span class="kn">import</span> <span class="nn">os</span>
+
+
+<div class="viewcode-block" id="LISAdata"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata">[docs]</a><span class="k">class</span> <span class="nc">LISAdata</span><span class="p">(</span><span class="n">freqDomain</span><span class="p">):</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation </span>
+<span class="sd">    of isotropic stochastic background. Any eventually signal models should be added as methods here. This</span>
+<span class="sd">    has the Antennapatterns class as a super class. </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">params</span><span class="p">,</span> <span class="n">inj</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">params</span> <span class="o">=</span> <span class="n">params</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inj</span> <span class="o">=</span> <span class="n">inj</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">armlength</span> <span class="o">=</span> <span class="mf">2.5e9</span> <span class="c1">## armlength in meters</span>
+
+    <span class="c1">## Method for reading frequency domain spectral data if given in an npz file</span>
+<div class="viewcode-block" id="LISAdata.read_spectrum"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.read_spectrum">[docs]</a>    <span class="k">def</span> <span class="nf">read_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Read an input frequency domain data file. Returns the fourier transform of the data from the three channels and an array of reference frequencyes</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        rA, rE, rT, fdata   :   float </span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;input_spectrum&#39;</span><span class="p">])</span> <span class="ow">and</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;doPreProc&#39;</span><span class="p">]:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;loading freq domain data from input file&quot;</span><span class="p">)</span>
+
+            <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;input_spectrum&#39;</span><span class="p">])</span>
+            <span class="n">rA</span>    <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;rA&#39;</span><span class="p">]</span>
+            <span class="n">rE</span>    <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;rE&#39;</span><span class="p">]</span>
+            <span class="n">rT</span>    <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;rT&#39;</span><span class="p">]</span>
+            <span class="n">fdata</span> <span class="o">=</span> <span class="n">data</span><span class="p">[</span><span class="s1">&#39;fdata&#39;</span><span class="p">]</span>
+
+            <span class="k">return</span> <span class="n">rA</span><span class="p">,</span> <span class="n">rE</span><span class="p">,</span> <span class="n">rT</span><span class="p">,</span> <span class="n">fdata</span></div>
+
+
+<div class="viewcode-block" id="LISAdata.gaussianData"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gaussianData">[docs]</a>    <span class="k">def</span> <span class="nf">gaussianData</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">Sh</span><span class="p">,</span><span class="n">freqs</span><span class="p">,</span> <span class="n">fs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">dur</span><span class="o">=</span><span class="mf">1e5</span><span class="p">):</span>
+   
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Script for generation time series noise drawn from a gaussian process of a given spectral density.  Adapted from gaussian_noise.m from stamp</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        </span>
+<span class="sd">        Sh : (float)</span>
+<span class="sd">            A frequency array with the desired power spectral density</span>
+<span class="sd">        freqs : (float)</span>
+<span class="sd">            An array with corresponding frequencies to Sh</span>
+
+<span class="sd">        fs : (float)</span>
+<span class="sd">            SampleRate in Hz</span>
+<span class="sd">        </span>
+<span class="sd">        dur : (int)</span>
+<span class="sd">            Duration in seconds</span>
+
+<span class="sd">     </span>
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        ht : float</span>
+<span class="sd">        Array with time series data of duration, dur with the prescribed spectrum Sh</span>
+
+<span class="sd">       </span>
+<span class="sd">        &#39;&#39;&#39;</span>
+    
+        <span class="c1"># Number of data points in the time series</span>
+        <span class="n">N</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">fs</span><span class="o">*</span><span class="n">dur</span><span class="p">)</span>
+
+        <span class="c1"># prepare for FFT</span>
+        <span class="k">if</span>  <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">N</span><span class="p">,</span><span class="mi">2</span><span class="p">)</span><span class="o">==</span> <span class="mi">0</span> <span class="p">:</span>
+            <span class="n">numFreqs</span> <span class="o">=</span> <span class="n">N</span><span class="o">/</span><span class="mi">2</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">numFreqs</span> <span class="o">=</span> <span class="p">(</span><span class="n">N</span><span class="o">-</span><span class="mi">1</span><span class="p">)</span><span class="o">/</span><span class="mi">2</span><span class="p">;</span>
+
+        <span class="c1"># We will make an array of the desired frequencies</span>
+        <span class="n">delF</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">dur</span>
+        <span class="n">fmin</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">dur</span>
+        <span class="n">fmax</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">around</span><span class="p">(</span><span class="n">dur</span><span class="o">*</span><span class="n">fs</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="n">dur</span>
+        <span class="n">delF</span> <span class="o">=</span> <span class="mi">1</span><span class="o">/</span><span class="n">dur</span>
+
+        <span class="c1"># The output frequency series</span>
+        <span class="n">fout</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="n">fmin</span><span class="p">,</span> <span class="n">fmax</span><span class="p">,</span> <span class="n">numFreqs</span><span class="p">)</span>
+
+        <span class="c1"># Interpolate to the desired frequencies</span>
+        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">fout</span><span class="p">,</span> <span class="n">freqs</span><span class="p">,</span> <span class="n">Sh</span><span class="p">)</span>
+
+        <span class="c1"># Amplitude for for ifft</span>
+        <span class="n">norms</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">norms</span><span class="o">*</span><span class="n">fs</span><span class="o">*</span><span class="n">N</span><span class="p">)</span><span class="o">/</span><span class="mf">2.0</span>
+
+        <span class="c1"># Normally distributed in frequency space</span>
+        <span class="n">re1</span> <span class="o">=</span> <span class="n">norms</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">fout</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">im1</span> <span class="o">=</span> <span class="n">norms</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="n">fout</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+        <span class="n">htilda</span> <span class="o">=</span> <span class="n">re1</span> <span class="o">+</span> <span class="mi">1</span><span class="n">j</span><span class="o">*</span><span class="n">im1</span>
+
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">mod</span><span class="p">(</span><span class="n">N</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">htilda</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">htilda</span><span class="p">,</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">htilda</span><span class="p">))))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">htilda</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">((</span><span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="mi">1</span><span class="p">),</span><span class="n">htilda</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">conjugate</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">flipud</span><span class="p">(</span><span class="n">htilda</span><span class="p">))))</span>
+
+        <span class="c1"># Take inverse fft to get time series data</span>
+        <span class="n">ht</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">real</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">ifft</span><span class="p">(</span><span class="n">htilda</span><span class="p">,</span> <span class="n">N</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="n">ht</span></div>
+
+<div class="viewcode-block" id="LISAdata.gen_michelson_noise"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gen_michelson_noise">[docs]</a>    <span class="k">def</span> <span class="nf">gen_michelson_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Generate interferometric michelson (time-domain) noise, using freqDomain.fundamental_noise_spectrum</span>
+
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        h1, h2, h3 : float</span>
+<span class="sd">            Time series data for the three michelson channels</span>
+
+
+
+<span class="sd">        &#39;&#39;&#39;</span>
+          
+        <span class="c1"># --------------------- Generate Fake Noise -----------------------------</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Simulating isgwb data for analysis ...&quot;</span><span class="p">)</span>
+
+       <span class="c1"># speed of light</span>
+        <span class="n">cspeed</span> <span class="o">=</span> <span class="mf">3e8</span> <span class="c1">#m/s</span>
+        <span class="n">delf</span>  <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">]</span>
+        <span class="n">frange</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmin&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmax&#39;</span><span class="p">],</span> <span class="n">delf</span><span class="p">)</span> <span class="c1"># in Hz</span>
+
+        <span class="n">Sp</span><span class="p">,</span> <span class="n">Sa</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">fundamental_noise_spectrum</span><span class="p">(</span><span class="n">frange</span><span class="p">)</span>
+
+        <span class="c1"># To implement TDI we need time shifts of multiples of L.</span>
+        <span class="n">tlag</span>  <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">armlength</span><span class="o">/</span><span class="n">cspeed</span>
+
+        <span class="c1"># Generate data</span>
+        <span class="n">np12</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sp</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">np21</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sp</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">np13</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sp</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">np31</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sp</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">np23</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sp</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">np32</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sp</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+
+        <span class="n">na12</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sa</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">na21</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sa</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">na13</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sa</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">na31</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sa</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">na23</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sa</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+        <span class="n">na32</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gaussianData</span><span class="p">(</span><span class="n">Sa</span><span class="p">,</span> <span class="n">frange</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">])</span>
+    
+
+        <span class="c1"># time array and time shift array</span>
+        <span class="n">tarr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">]</span> <span class="p">,</span> <span class="n">num</span><span class="o">=</span><span class="n">np12</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">delt</span> <span class="o">=</span> <span class="n">tarr</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="n">tarr</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">delt</span> <span class="o">!=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s1">&#39;Time series generated not consistant with the sampling frequency&#39;</span><span class="p">)</span>
+            
+
+        <span class="c1"># shifted time series</span>
+        <span class="n">tshift</span> <span class="o">=</span> <span class="n">tarr</span> <span class="o">-</span> <span class="n">tlag</span>
+
+        <span class="c1">## The three dopper channels for each arms</span>
+        <span class="n">h12</span>  <span class="o">=</span> <span class="n">np12</span> <span class="o">-</span> <span class="n">na12</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">na21</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">na21</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">h21</span>  <span class="o">=</span> <span class="n">np21</span> <span class="o">+</span> <span class="n">na21</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">na12</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">na12</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">h23</span>  <span class="o">=</span> <span class="n">np23</span> <span class="o">-</span> <span class="n">na23</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">na32</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">na32</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">h32</span>  <span class="o">=</span> <span class="n">np32</span> <span class="o">+</span> <span class="n">na32</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">na23</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">np23</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">h31</span>  <span class="o">=</span> <span class="n">np31</span> <span class="o">-</span> <span class="n">na31</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">na13</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">na13</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">h13</span>  <span class="o">=</span> <span class="n">np13</span> <span class="o">+</span> <span class="n">na13</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">na31</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">na31</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+
+        <span class="c1"># The michelson channels are formed from the doppler channels</span>
+        <span class="n">h1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">h12</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">h12</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">h21</span> <span class="o">-</span>\
+        <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">h13</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">h13</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="n">h31</span>
+
+        <span class="n">h2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">h23</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">h23</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">h32</span> <span class="o">-</span>\
+        <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">h21</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">h21</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="n">h12</span>
+
+        <span class="n">h3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">h31</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">h31</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">h13</span> <span class="o">-</span>\
+        <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">h32</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">h32</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">-</span> <span class="n">h23</span>
+
+        <span class="k">return</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span></div>
+
+<div class="viewcode-block" id="LISAdata.gen_aet_noise"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gen_aet_noise">[docs]</a>    <span class="k">def</span> <span class="nf">gen_aet_noise</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum</span>
+
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        h1_noi, h2_noi, h3_noi : float</span>
+<span class="sd">            Time series data for the three TDI channels</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+
+
+
+        <span class="n">cspeed</span> <span class="o">=</span> <span class="mf">3e8</span> <span class="c1">#m/s</span>
+
+        <span class="c1"># michelson channels</span>
+        <span class="n">hm1</span><span class="p">,</span> <span class="n">hm2</span><span class="p">,</span> <span class="n">hm3</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">gen_michelson_noise</span><span class="p">()</span>
+
+        <span class="c1">## In time domain we need to do some interpolation to get to the appropriate TDI channels</span>
+        <span class="n">tarr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">linspace</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">]</span> <span class="p">,</span> <span class="n">num</span><span class="o">=</span> <span class="n">hm1</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="n">endpoint</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+        <span class="c1"># shifted time series</span>
+        <span class="n">tshift</span> <span class="o">=</span> <span class="n">tarr</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">armlength</span><span class="o">/</span><span class="n">cspeed</span>
+
+        <span class="n">hX</span> <span class="o">=</span> <span class="n">hm1</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">hm1</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">hm1</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">hY</span> <span class="o">=</span> <span class="n">hm2</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">hm2</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">hm2</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="n">hZ</span> <span class="o">=</span> <span class="n">hm3</span> <span class="o">-</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">tshift</span><span class="p">,</span> <span class="n">tarr</span><span class="p">,</span> <span class="n">hm3</span><span class="p">,</span> <span class="n">left</span><span class="o">=</span><span class="n">hm3</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="n">h1_noi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">hX</span> <span class="o">-</span> <span class="n">hY</span> <span class="o">-</span> <span class="n">hZ</span><span class="p">)</span>
+        <span class="n">h2_noi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">))</span><span class="o">*</span><span class="p">(</span><span class="n">hZ</span> <span class="o">-</span> <span class="n">hY</span><span class="p">)</span>
+        <span class="n">h3_noi</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">hX</span> <span class="o">+</span> <span class="n">hY</span> <span class="o">+</span> <span class="n">hZ</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">h1_noi</span><span class="p">,</span> <span class="n">h2_noi</span><span class="p">,</span> <span class="n">h3_noi</span></div>
+
+<div class="viewcode-block" id="LISAdata.gen_aet_isgwb"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.gen_aet_isgwb">[docs]</a>    <span class="k">def</span> <span class="nf">gen_aet_isgwb</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson </span>
+<span class="sd">        channels are manipulated to generate the A, E and T channels. We implement TDI as described in</span>
+
+<span class="sd">        http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308</span>
+
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        h1_gw, h2_gw, h3_gw : float</span>
+<span class="sd">            Time series isotropic stochastic noise for the three TDI channels</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="c1"># --------------------- Generate Fake Data + Noise -----------------------------</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Simulating isgwb data for analysis ...&quot;</span><span class="p">)</span>
+
+        <span class="c1"># speed of light</span>
+        <span class="n">cspeed</span> <span class="o">=</span> <span class="mf">3e8</span> <span class="c1">#m/s</span>
+
+
+        <span class="n">delf</span>  <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">]</span>
+        <span class="n">freqs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmin&#39;</span><span class="p">],</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmax&#39;</span><span class="p">],</span> <span class="n">delf</span><span class="p">)</span>
+
+        <span class="c1">#Charactersitic frequency</span>
+        <span class="n">fstar</span> <span class="o">=</span> <span class="n">cspeed</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">armlength</span><span class="p">)</span>
+
+        <span class="c1"># define f0 = f/2f*</span>
+        <span class="n">f0</span> <span class="o">=</span> <span class="n">freqs</span><span class="o">/</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">fstar</span><span class="p">)</span>
+
+        <span class="c1">## There are the responses for the three arms</span>
+        <span class="n">RAA</span><span class="p">,</span> <span class="n">REE</span><span class="p">,</span> <span class="n">RTT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">tdi_isgwb_response</span><span class="p">(</span><span class="n">f0</span><span class="p">)</span>
+
+        <span class="n">H0</span> <span class="o">=</span> <span class="mf">2.2</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">18</span><span class="p">)</span> <span class="c1">## in SI units</span>
+
+        <span class="n">Omegaf</span> <span class="o">=</span> <span class="p">(</span><span class="mi">10</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">inj</span><span class="p">[</span><span class="s1">&#39;ln_omega0&#39;</span><span class="p">])</span><span class="o">*</span><span class="p">(</span><span class="n">freqs</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fref&#39;</span><span class="p">]))</span><span class="o">**</span><span class="bp">self</span><span class="o">.</span><span class="n">inj</span><span class="p">[</span><span class="s1">&#39;alpha&#39;</span><span class="p">]</span>
+
+        <span class="c1"># Spectrum of the SGWB</span>
+        <span class="n">Sgw</span> <span class="o">=</span> <span class="n">Omegaf</span><span class="o">*</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="n">freqs</span><span class="o">**</span><span class="mi">3</span><span class="p">))</span><span class="o">*</span><span class="p">(</span><span class="n">H0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="c1"># Generate time series data for the doppler channels</span>
+        <span class="n">wht_data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">random</span><span class="o">.</span><span class="n">normal</span><span class="p">(</span><span class="n">size</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">]))</span>
+        <span class="n">f_wht</span>  <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">(</span><span class="n">wht_data</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mf">1.0</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">])</span>
+
+        <span class="c1"># Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the</span>
+        <span class="c1"># detector response tensor, and interpolated to the psd frequencies.</span>
+        <span class="n">SAA_gw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">f_wht</span><span class="p">,</span><span class="n">freqs</span><span class="p">,</span> <span class="n">Sgw</span><span class="o">*</span><span class="n">RAA</span><span class="p">)</span>
+        <span class="n">SEE_gw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">f_wht</span><span class="p">,</span><span class="n">freqs</span><span class="p">,</span><span class="n">Sgw</span><span class="o">*</span><span class="n">REE</span><span class="p">)</span>
+        <span class="n">STT_gw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">interp</span><span class="p">(</span><span class="n">f_wht</span><span class="p">,</span><span class="n">freqs</span><span class="p">,</span><span class="n">Sgw</span><span class="o">*</span><span class="n">RTT</span><span class="p">)</span>
+
+        <span class="c1"># PSD of band-limited white gaussian noise</span>
+        <span class="n">N02</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="p">(</span><span class="n">f_wht</span><span class="p">[</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">f_wht</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+
+        <span class="c1">## Do an rrft</span>
+        <span class="n">wht_rfft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">wht_data</span><span class="p">)</span>
+
+        <span class="c1"># Generate colored ffts</span>
+        <span class="n">hA_fft</span> <span class="o">=</span> <span class="n">wht_rfft</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">SAA_gw</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">N02</span><span class="p">)</span>
+        <span class="n">hE_fft</span> <span class="o">=</span> <span class="n">wht_rfft</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">SEE_gw</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">N02</span><span class="p">)</span>
+        <span class="n">hT_fft</span> <span class="o">=</span> <span class="n">wht_rfft</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">STT_gw</span><span class="p">)</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="n">N02</span><span class="p">)</span>
+
+        <span class="c1">## Generate time series data</span>
+        <span class="n">h1_gw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">irfft</span><span class="p">(</span><span class="n">hA_fft</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">wht_data</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">h2_gw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">irfft</span><span class="p">(</span><span class="n">hE_fft</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">wht_data</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+        <span class="n">h3_gw</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">irfft</span><span class="p">(</span><span class="n">hT_fft</span><span class="p">,</span> <span class="n">n</span><span class="o">=</span><span class="n">wht_data</span><span class="o">.</span><span class="n">size</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">h1_gw</span><span class="p">,</span> <span class="n">h2_gw</span><span class="p">,</span> <span class="n">h3_gw</span></div>
+
+<div class="viewcode-block" id="LISAdata.read_data"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.read_data">[docs]</a>    <span class="k">def</span> <span class="nf">read_data</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Read in time domain data from an ascii txt file. Since this was used primarily for </span>
+<span class="sd">        the MLDC, it assumes that the data is given in X,Y and Z channels and converts to </span>
+<span class="sd">        A, E and T. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        hA, hE, hT : float</span>
+<span class="sd">            Time series data for the three TDI channels</span>
+
+
+<span class="sd">        &#39;&#39;&#39;</span>
+        
+        <span class="n">hoft</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">loadtxt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;datafile&#39;</span><span class="p">])</span>
+        <span class="n">times</span><span class="p">,</span> <span class="n">hX</span><span class="p">,</span> <span class="n">hY</span><span class="p">,</span> <span class="n">hZ</span> <span class="o">=</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">2</span><span class="p">],</span> <span class="n">hoft</span><span class="p">[:,</span> <span class="mi">3</span><span class="p">]</span>
+
+        <span class="n">delt</span> <span class="o">=</span> <span class="n">times</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">times</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="c1">## Downsample</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">delt</span><span class="p">:</span>
+
+            <span class="n">hX</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">decimate</span><span class="p">(</span><span class="n">hX</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">delt</span><span class="p">)))</span>
+            <span class="n">hY</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">decimate</span><span class="p">(</span><span class="n">hY</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">delt</span><span class="p">)))</span>
+            <span class="n">hZ</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">decimate</span><span class="p">(</span><span class="n">hZ</span><span class="p">,</span> <span class="nb">int</span><span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">delt</span><span class="p">)))</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="n">delt</span><span class="p">)</span><span class="o">/</span><span class="nb">int</span><span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">delt</span><span class="p">))</span>
+            <span class="n">times</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">hX</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="mf">1.0</span><span class="o">/</span><span class="n">delt</span>
+
+        <span class="n">hA</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">hX</span> <span class="o">-</span> <span class="n">hY</span> <span class="o">-</span> <span class="n">hZ</span><span class="p">)</span>
+        <span class="n">hE</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">3.0</span><span class="p">))</span><span class="o">*</span><span class="p">(</span><span class="n">hZ</span> <span class="o">-</span> <span class="n">hY</span><span class="p">)</span>
+        <span class="n">hT</span> <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="o">/</span><span class="mf">3.0</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="n">hX</span> <span class="o">+</span> <span class="n">hY</span> <span class="o">+</span> <span class="n">hZ</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">hA</span><span class="p">,</span> <span class="n">hE</span><span class="p">,</span> <span class="n">hT</span></div>
+
+
+<div class="viewcode-block" id="LISAdata.tser2fser"><a class="viewcode-back" href="../classes.html#makeLISAdata.LISAdata.tser2fser">[docs]</a>    <span class="k">def</span> <span class="nf">tser2fser</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">h1</span><span class="p">,</span> <span class="n">h2</span><span class="p">,</span> <span class="n">h3</span><span class="p">):</span>
+        
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Convert time domain data to fourier domain and return ffts. The convention is that the </span>
+<span class="sd">        the ffts are divided by the sampling frequency and corrected for windowing. A hann window </span>
+<span class="sd">        is applied by default when moving to the fourier domain. The ffts are also normalized so that</span>
+<span class="sd">        thier square gives the PSD.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+<span class="sd">        h1,h2, h3 : float</span>
+<span class="sd">            time series data for the three input channels</span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+<span class="sd">    </span>
+<span class="sd">        r1, r2, r3 : float</span>
+<span class="sd">            frequency series data for the three input channels</span>
+
+<span class="sd">        fdata : float</span>
+<span class="sd">            Reference frequency series</span>
+
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="nb">print</span> <span class="p">(</span><span class="s2">&quot;Calculating fourier spectra... &quot;</span><span class="p">)</span>
+
+        <span class="c1"># Number of segmants</span>
+        <span class="n">nsegs</span> <span class="o">=</span> <span class="mi">2</span><span class="o">*</span><span class="nb">int</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">floor</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;dur&#39;</span><span class="p">]</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;seglen&#39;</span><span class="p">]))</span> <span class="o">-</span><span class="mi">1</span>
+
+        <span class="n">Nperseg</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;seglen&#39;</span><span class="p">])</span>
+
+        <span class="c1"># Apply band pass filter</span>
+        <span class="n">order</span> <span class="o">=</span> <span class="mi">8</span>
+        <span class="n">zz</span><span class="p">,</span> <span class="n">pp</span><span class="p">,</span> <span class="n">kk</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">butter</span><span class="p">(</span><span class="n">order</span><span class="p">,</span> <span class="p">[</span><span class="mf">0.5</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmin&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="mf">0.4</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">/</span><span class="mi">2</span><span class="p">)],</span> <span class="n">btype</span><span class="o">=</span><span class="s1">&#39;bandpass&#39;</span><span class="p">,</span> <span class="n">output</span><span class="o">=</span><span class="s1">&#39;zpk&#39;</span><span class="p">)</span>
+        <span class="n">sos</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">zpk2sos</span><span class="p">(</span><span class="n">zz</span><span class="p">,</span> <span class="n">pp</span><span class="p">,</span> <span class="n">kk</span><span class="p">)</span>
+
+        <span class="n">h1</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">h1</span><span class="p">)</span>
+        <span class="n">h2</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">h2</span><span class="p">)</span>
+        <span class="n">h3</span> <span class="o">=</span> <span class="n">sg</span><span class="o">.</span><span class="n">sosfiltfilt</span><span class="p">(</span><span class="n">sos</span><span class="p">,</span> <span class="n">h3</span><span class="p">)</span>
+
+        <span class="c1"># Map of spectrum</span>
+        <span class="n">r1</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">Nperseg</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="n">nsegs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;complex&#39;</span><span class="p">)</span>
+        <span class="n">r2</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">Nperseg</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="n">nsegs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;complex&#39;</span><span class="p">)</span>
+        <span class="n">r3</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="mi">1</span> <span class="o">+</span> <span class="nb">int</span><span class="p">(</span><span class="n">Nperseg</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="n">nsegs</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="s1">&#39;complex&#39;</span><span class="p">)</span>
+
+        <span class="c1"># Hann Window</span>
+        <span class="n">hwin</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">hanning</span><span class="p">(</span><span class="n">Nperseg</span><span class="p">)</span>
+
+        <span class="c1"># We will use 50% overlapping segments</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="n">nsegs</span><span class="p">):</span>
+
+            <span class="n">idxmin</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">ii</span><span class="o">*</span><span class="n">Nperseg</span><span class="p">)</span>
+            <span class="n">idxmax</span> <span class="o">=</span> <span class="n">idxmin</span> <span class="o">+</span> <span class="n">Nperseg</span>
+
+            
+            <span class="n">r1</span><span class="p">[:,</span> <span class="n">ii</span><span class="p">]</span> <span class="o">=</span>   <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">hwin</span><span class="o">*</span><span class="n">h1</span><span class="p">[</span><span class="n">idxmin</span><span class="p">:</span><span class="n">idxmax</span><span class="p">])</span>
+            <span class="n">r2</span><span class="p">[:,</span> <span class="n">ii</span><span class="p">]</span> <span class="o">=</span>   <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">hwin</span><span class="o">*</span><span class="n">h2</span><span class="p">[</span><span class="n">idxmin</span><span class="p">:</span><span class="n">idxmax</span><span class="p">])</span>
+            <span class="n">r3</span><span class="p">[:,</span> <span class="n">ii</span><span class="p">]</span> <span class="o">=</span>   <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfft</span><span class="p">(</span><span class="n">hwin</span><span class="o">*</span><span class="n">h3</span><span class="p">[</span><span class="n">idxmin</span><span class="p">:</span><span class="n">idxmax</span><span class="p">])</span>
+
+
+        <span class="c1"># &quot;Cut&quot; to desired frequencies</span>
+        <span class="n">fftfreqs</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">fft</span><span class="o">.</span><span class="n">rfftfreq</span><span class="p">(</span><span class="n">Nperseg</span><span class="p">,</span> <span class="mf">1.0</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">])</span>
+
+        <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logical_and</span><span class="p">(</span><span class="n">fftfreqs</span> <span class="o">&gt;=</span>  <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmin&#39;</span><span class="p">]</span> <span class="p">,</span> <span class="n">fftfreqs</span> <span class="o">&lt;=</span>  <span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fmax&#39;</span><span class="p">])</span>
+
+        <span class="c1"># Output arrays</span>
+        <span class="n">fdata</span> <span class="o">=</span> <span class="n">fftfreqs</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        
+        <span class="c1"># Get desired frequencies only</span>
+        <span class="c1"># We want to normalize ffts so thier square give the psd</span>
+        <span class="c1"># 0.375 is to adjust for hann windowing, sqrt(2) for single sided</span>
+        <span class="n">r1</span> <span class="o">=</span> <span class="mf">2.0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">0.375</span><span class="p">)</span><span class="o">*</span><span class="n">r1</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;seglen&#39;</span><span class="p">]))</span>
+        <span class="n">r2</span> <span class="o">=</span> <span class="mf">2.0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">0.375</span><span class="p">)</span><span class="o">*</span><span class="n">r2</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;seglen&#39;</span><span class="p">]))</span>
+        <span class="n">r3</span> <span class="o">=</span> <span class="mf">2.0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mf">0.375</span><span class="p">)</span><span class="o">*</span><span class="n">r3</span><span class="p">[</span><span class="n">idx</span><span class="p">,</span> <span class="p">:]</span><span class="o">/</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;fs&#39;</span><span class="p">]</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">params</span><span class="p">[</span><span class="s1">&#39;seglen&#39;</span><span class="p">]))</span>
+
+        <span class="k">return</span> <span class="n">r1</span><span class="p">,</span> <span class="n">r2</span><span class="p">,</span> <span class="n">r3</span><span class="p">,</span> <span class="n">fdata</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Sharan Banagiri
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

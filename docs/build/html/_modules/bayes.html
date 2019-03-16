@@ -1,0 +1,339 @@
+
+
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <title>bayes &mdash; blip 0.01 documentation</title>
+  
+
+  
+  
+  
+  
+
+  
+  <script type="text/javascript" src="../_static/js/modernizr.min.js"></script>
+  
+    
+      <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+        <script type="text/javascript" src="../_static/jquery.js"></script>
+        <script type="text/javascript" src="../_static/underscore.js"></script>
+        <script type="text/javascript" src="../_static/doctools.js"></script>
+        <script type="text/javascript" src="../_static/language_data.js"></script>
+    
+    <script type="text/javascript" src="../_static/js/theme.js"></script>
+
+    
+
+  
+  <link rel="stylesheet" href="../_static/css/theme.css" type="text/css" />
+  <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" /> 
+</head>
+
+<body class="wy-body-for-nav">
+
+   
+  <div class="wy-grid-for-nav">
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+          
+
+          
+            <a href="../index.html" class="icon icon-home"> blip
+          
+
+          
+          </a>
+
+          
+            
+            
+          
+
+          
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+
+          
+        </div>
+
+        <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+          
+            
+            
+              
+            
+            
+              <ul>
+<li class="toctree-l1"><a class="reference internal" href="../classes.html">Modules and Methods</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../aux_functions.html">Auxiliary Functions</a></li>
+</ul>
+
+            
+          
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" aria-label="top navigation">
+        
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="../index.html">blip</a>
+        
+      </nav>
+
+
+      <div class="wy-nav-content">
+        
+        <div class="rst-content">
+        
+          
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<div role="navigation" aria-label="breadcrumbs navigation">
+
+  <ul class="wy-breadcrumbs">
+    
+      <li><a href="../index.html">Docs</a> &raquo;</li>
+        
+          <li><a href="index.html">Module code</a> &raquo;</li>
+        
+      <li>bayes</li>
+    
+    
+      <li class="wy-breadcrumbs-aside">
+        
+      </li>
+    
+  </ul>
+
+  
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+            
+  <h1>Source code for bayes</h1><div class="highlight"><pre>
+<span></span><span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">division</span>
+<span class="kn">import</span> <span class="nn">numpy</span> <span class="k">as</span> <span class="nn">np</span>
+
+<div class="viewcode-block" id="bayes"><a class="viewcode-back" href="../classes.html#bayes.bayes">[docs]</a><span class="k">class</span> <span class="nc">bayes</span><span class="p">():</span>
+
+    <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">    Class with methods for bayesian analysis of different kinds of signals. The methods currently</span>
+<span class="sd">    include prior and likelihood functions for ISGWB analysis, sky-pixel/radiometer type analysis</span>
+<span class="sd">    and a power spectra based spherical harmonic analysis. </span>
+<span class="sd">    &#39;&#39;&#39;</span>
+
+
+<div class="viewcode-block" id="bayes.isgwb_prior"><a class="viewcode-back" href="../classes.html#bayes.bayes.isgwb_prior">[docs]</a>    <span class="k">def</span> <span class="nf">isgwb_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Prior function for an isotropic stochastic backgound analysis.</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing samples from a unit cube. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        theta   :   float</span>
+<span class="sd">            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+        <span class="c1"># Unpack: Theta is defined in the unit cube</span>
+        <span class="n">alpha</span><span class="p">,</span> <span class="n">log_omega0</span><span class="p">,</span> <span class="n">log_Np</span><span class="p">,</span> <span class="n">log_Na</span> <span class="o">=</span> <span class="n">theta</span>
+
+        <span class="c1"># Transform to actual priors</span>
+        <span class="n">alpha</span>       <span class="o">=</span> <span class="mi">10</span><span class="o">*</span><span class="n">alpha</span><span class="o">-</span><span class="mi">5</span>
+        <span class="n">log_omega0</span>   <span class="o">=</span> <span class="mi">10</span><span class="o">*</span><span class="n">log_omega0</span> <span class="o">-</span><span class="mi">14</span>
+        <span class="n">log_Np</span> <span class="o">=</span> <span class="mi">5</span><span class="o">*</span><span class="n">log_Np</span> <span class="o">-</span> <span class="mi">44</span>
+        <span class="n">log_Na</span> <span class="o">=</span> <span class="mi">5</span><span class="o">*</span><span class="n">log_Na</span> <span class="o">-</span> <span class="mi">51</span>
+
+        <span class="k">return</span> <span class="p">(</span><span class="n">alpha</span><span class="p">,</span> <span class="n">log_omega0</span><span class="p">,</span> <span class="n">log_Np</span><span class="p">,</span> <span class="n">log_Na</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="bayes.Sph_prior"><a class="viewcode-back" href="../classes.html#bayes.bayes.Sph_prior">[docs]</a>    <span class="k">def</span> <span class="nf">Sph_prior</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Prior for a power spectra based spherical harmonic anisotropic analysis</span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing samples from a unit cube. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        theta   :   float</span>
+<span class="sd">            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+
+
+        <span class="c1"># Prior on theta[0] which is alpha</span>
+        <span class="n">theta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>       <span class="o">=</span> <span class="mi">10</span><span class="o">*</span><span class="n">theta</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span><span class="mi">5</span>
+
+        <span class="c1"># The rest of the priors except for the last two are ln_omegas</span>
+        <span class="k">for</span> <span class="n">ii</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">theta</span><span class="o">.</span><span class="n">size</span><span class="o">-</span><span class="mi">2</span><span class="p">):</span>
+            <span class="n">theta</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">=</span> <span class="mi">10</span><span class="o">*</span><span class="n">theta</span><span class="p">[</span><span class="n">ii</span><span class="p">]</span> <span class="o">-</span> <span class="mi">14</span>
+
+        <span class="c1"># The last two are the priors on the position and acc noise terms. </span>
+        <span class="n">theta</span><span class="p">[</span><span class="n">ii</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="mi">5</span><span class="o">*</span><span class="n">theta</span><span class="p">[</span><span class="n">ii</span><span class="o">-</span><span class="mi">2</span><span class="p">]</span> <span class="o">-</span> <span class="mi">44</span>
+        <span class="n">theta</span><span class="p">[</span><span class="n">ii</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="mi">5</span><span class="o">*</span><span class="n">theta</span><span class="p">[</span><span class="n">ii</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="mi">51</span>
+
+        <span class="k">return</span> <span class="n">theta</span></div>
+
+<div class="viewcode-block" id="bayes.isgwb_log_likelihood"><a class="viewcode-back" href="../classes.html#bayes.bayes.isgwb_log_likelihood">[docs]</a>    <span class="k">def</span> <span class="nf">isgwb_log_likelihood</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Calculate likelihood for an isotropic stochastic background analysis.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        Loglike   :   float</span>
+<span class="sd">            The log-likelihood value at the sampled point in the parameter space</span>
+<span class="sd">        &#39;&#39;&#39;</span>
+
+
+        <span class="c1"># unpack priors</span>
+        <span class="n">alpha</span><span class="p">,</span> <span class="n">log_omega0</span><span class="p">,</span> <span class="n">log_Np</span><span class="p">,</span> <span class="n">log_Na</span>  <span class="o">=</span> <span class="n">theta</span>
+
+        <span class="n">Np</span><span class="p">,</span> <span class="n">Na</span> <span class="o">=</span>  <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="n">log_Np</span><span class="p">),</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="n">log_Na</span><span class="p">)</span>
+
+        <span class="c1"># Modelled Noise PSD</span>
+        <span class="n">SAA</span><span class="p">,</span> <span class="n">SEE</span><span class="p">,</span> <span class="n">STT</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">aet_noise_spectrum</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="p">,</span> <span class="n">Np</span><span class="p">,</span> <span class="n">Na</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">f0</span><span class="p">)</span>        
+
+
+        <span class="c1">## Signal PSD</span>
+        <span class="n">H0</span> <span class="o">=</span> <span class="mf">2.2</span><span class="o">*</span><span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="o">-</span><span class="mi">18</span><span class="p">)</span>
+        <span class="n">Omegaf</span> <span class="o">=</span> <span class="mi">10</span><span class="o">**</span><span class="p">(</span><span class="n">log_omega0</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">/</span><span class="bp">self</span><span class="o">.</span><span class="n">fref</span><span class="p">)</span><span class="o">**</span><span class="n">alpha</span>
+
+        <span class="c1"># Spectrum of the SGWB</span>
+        <span class="n">Sgw</span> <span class="o">=</span> <span class="n">Omegaf</span><span class="o">*</span><span class="p">(</span><span class="mi">3</span><span class="o">/</span><span class="p">(</span><span class="mi">4</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">freqs</span><span class="o">**</span><span class="mi">3</span><span class="p">))</span><span class="o">*</span><span class="p">(</span><span class="n">H0</span><span class="o">/</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span>
+
+        <span class="c1"># Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the</span>
+        <span class="c1"># detector response tensor.</span>
+        <span class="n">SA_gw</span> <span class="o">=</span> <span class="n">Sgw</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">R1</span>
+        <span class="n">SE_gw</span> <span class="o">=</span> <span class="n">Sgw</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">R2</span>
+        <span class="n">ST_gw</span> <span class="o">=</span> <span class="n">Sgw</span><span class="o">*</span><span class="bp">self</span><span class="o">.</span><span class="n">R3</span>
+
+        <span class="c1">## We will assume that the covariance matrix is diagonal and will only calcualte those terms. </span>
+        <span class="c1">## This is true for an equal arm stationary lisa. </span>
+
+
+        <span class="n">SA_net</span><span class="p">,</span> <span class="n">SE_net</span><span class="p">,</span> <span class="n">ST_net</span> <span class="o">=</span> <span class="n">SAA</span> <span class="o">+</span> <span class="n">SA_gw</span><span class="p">,</span> <span class="n">SEE</span> <span class="o">+</span>  <span class="n">SE_gw</span><span class="p">,</span> <span class="n">STT</span> <span class="o">+</span> <span class="n">ST_gw</span>
+
+        <span class="n">SA_net</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">SA_net</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">SA_net</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">r1</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">ST_net</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">ST_net</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">ST_net</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">r2</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">SE_net</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">repeat</span><span class="p">(</span><span class="n">SE_net</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">SE_net</span><span class="o">.</span><span class="n">size</span><span class="p">,</span> <span class="mi">1</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">r3</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+        <span class="n">Loglike</span>  <span class="o">=</span> <span class="o">-</span><span class="mf">0.5</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r1</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="n">SA_net</span> <span class="o">+</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">abs</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">r2</span><span class="p">)</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span><span class="o">/</span><span class="n">SE_net</span> <span class="o">+</span> \
+             <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">SA_net</span><span class="p">)</span> <span class="o">+</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="mi">2</span><span class="o">*</span><span class="n">np</span><span class="o">.</span><span class="n">pi</span><span class="o">*</span><span class="n">SE_net</span><span class="p">)</span> <span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">Loglike</span></div>
+
+
+<div class="viewcode-block" id="bayes.Sph_likelihood"><a class="viewcode-back" href="../classes.html#bayes.bayes.Sph_likelihood">[docs]</a>    <span class="k">def</span> <span class="nf">Sph_likelihood</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">theta</span><span class="p">):</span>
+
+        <span class="sd">&#39;&#39;&#39;</span>
+<span class="sd">        Calculate likelihood for a power-spectra based spherical harmonic analysis.</span>
+<span class="sd">        </span>
+
+<span class="sd">        Parameters</span>
+<span class="sd">        -----------</span>
+
+<span class="sd">        theta   : float</span>
+<span class="sd">            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na. </span>
+
+<span class="sd">        Returns</span>
+<span class="sd">        ---------</span>
+
+<span class="sd">        Loglike   :   float</span>
+<span class="sd">            The log-likelihood value at the sampled point in the parameter space</span>
+<span class="sd">        &#39;&#39;&#39;</span></div></div>
+</pre></div>
+
+           </div>
+           
+          </div>
+          <footer>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>
+        &copy; Copyright 2019, Sharan Banagiri
+
+    </p>
+  </div>
+  Built with <a href="http://sphinx-doc.org/">Sphinx</a> using a <a href="https://github.com/rtfd/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>. 
+
+</footer>
+
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+  
+
+
+  <script type="text/javascript">
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script>
+
+  
+  
+    
+   
+
+</body>
+</html>

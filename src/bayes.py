@@ -13,7 +13,19 @@ class bayes():
     def isgwb_prior(self, theta):
 
         '''
-        Prior function for the ISGWB
+        Prior function for an isotropic stochastic backgound analysis.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube. 
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
         '''
 
         # Unpack: Theta is defined in the unit cube
@@ -31,8 +43,22 @@ class bayes():
     def Sph_prior(self, theta):
 
         '''
-        Prior for an power spectra spherical harmonic anisotropic analysis
+        Prior for a power spectra based spherical harmonic anisotropic analysis
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube. 
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
         '''
+
+
 
         # Prior on theta[0] which is alpha
         theta[0]       = 10*theta[0] -5
@@ -50,8 +76,22 @@ class bayes():
     def isgwb_log_likelihood(self, theta):
 
         '''
-        Calculate isotropic likelihood for the sampled point theta.
+        Calculate likelihood for an isotropic stochastic background analysis.
+        
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. 
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
         '''
+
 
         # unpack priors
         alpha, log_omega0, log_Np, log_Na  = theta
@@ -94,5 +134,58 @@ class bayes():
     def Sph_likelihood(self, theta):
 
         '''
-        Likelihood wrapper for a power spectra based sphercial harmonic analysis. 
+        Calculate likelihood for a power-spectra based spherical harmonic analysis.
+        
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na. 
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
         '''
+
+
+        # unpack priors
+        alpha, log_Np, log_Na  = theta[0],theta[-2], theta[-1]
+        log_omega0  = theta[1:-2]
+
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        # Modelled Noise PSD
+        SAA, SEE, STT = self.aet_noise_spectrum(self.freqs, Np, Na, self.f0) 
+
+
+        ## Signal PSD
+        H0 = 2.2*10**(-18)
+        Omegaf = 10**(log_omega0)*(self.freqs/self.fref)**alpha
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*self.freqs**3))*(H0/np.pi)**2
+
+        # Spectrum of an anisotropic SGWB signal as seen in LISA data, ie convoluted with the
+        # detector response tensor. R1, R2 and R3 here are 2-d arrays over frequency and spherical 
+        # harmonic coeffcients
+     
+        SA_gw = np.sum(Sgw*self.R1, axis=1)
+        SE_gw = np.sum(Sgw*self.R2, axis=1)
+        ST_gw = np.sum(Sgw*self.R3, axis=1)
+
+        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
+        ## This is true for an equal arm stationary lisa. 
+        SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
+
+        SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
+        ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
+        SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
+
+        Loglike  = -0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+             np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
+
+        return Loglike
