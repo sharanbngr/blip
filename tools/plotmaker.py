@@ -55,7 +55,6 @@ def plotmaker(outdir,post,params, npar, inj):
     # Put correct values
     # Extract the axes
     axes = np.array(fig.axes).reshape((npar, npar))
-
     for ii in range(npar):
         ax = axes[ii, ii]
         if int(inj['doInj']):

@@ -29,10 +29,14 @@ class LISA(LISAdata, Bayes):
         else:
             self.makedata()
 
-
         ## Calculate the antenna patterns
-        self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0)
-
+        if self.params['modeltype'] == 'isgwb':
+            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0)
+        elif params['modeltype']=='sph_sgwb':
+            self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
+        else:
+           raise ValueError('Unknown recovery model selected')
+       
         #self.diag_spectra()
 
     def makedata(self):
@@ -153,6 +157,8 @@ def blip(paramsfile='params.ini'):
     params['readData'] = int(config.get("params", "readData"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
+    params['modeltype'] = str(config.get("params", "modeltype"))
+    params['lmax'] = int(config.get("params", "lmax"))
 
     # Injection Dict
     inj['doInj']       = int(config.get("inj", "doInj"))
@@ -188,11 +194,39 @@ def blip(paramsfile='params.ini'):
     # Names of parameters
 
     
-    parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-    npar = len(parameters)
-    print "npar = " + str(npar)
+    
+   
+    
 
-    engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior, npar, bound='multi', sample='rwalk', nlive=nlive)
+    if params['modeltype']=='isgbw':
+
+        parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+        npar = len(parameters)     
+        engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
+                 npar, bound='multi', sample='rwalk', nlive=nlive)
+
+    elif params['modeltype']=='sph_sgwb':
+
+        parameters = []
+
+        parameters.append(r'$\alpha$')
+
+        for ii in range(params['lmax'] + 1):
+            omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
+            parameters.append(omega_params)
+        
+        parameters.append( r'$\log_{10} (Np)$')
+        parameters.append( r'$\log_{10} (Na)$')
+
+        npar = len(parameters)
+        engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
+                 npar, bound='multi', sample='rwalk', nlive=nlive)
+
+    else:
+        raise ValueError('Unknown recovery model selected')
+
+
+    print "npar = " + str(npar)
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 
