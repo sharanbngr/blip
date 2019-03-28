@@ -28,4 +28,4 @@ To run do `python run_blip.py params.ini`
 
 Posterior plots are automatically made in the output directory specified in params.ini
 
-Note: Currently the code is setup to run with python 2.7 and might not work with python 3
+**Note**: Currently the code is setup to run with python 2.7 and might not work with python 3
