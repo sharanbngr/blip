@@ -198,8 +198,9 @@ def blip(paramsfile='params.ini'):
    
     
 
-    if params['modeltype']=='isgbw':
+    if params['modeltype']=='isgwb':
 
+        print "Doing an isotropic stochastic analysis ..."
         parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
         npar = len(parameters)     
         engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
@@ -207,6 +208,7 @@ def blip(paramsfile='params.ini'):
 
     elif params['modeltype']=='sph_sgwb':
 
+        print "Doing a spherical harmonic stochastic analysis ..."
         parameters = []
 
         parameters.append(r'$\alpha$')
