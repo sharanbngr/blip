@@ -319,8 +319,17 @@ class LISAdata(freqDomain):
         '''
         
         hoft = np.loadtxt(self.params['datafile'])
-        times, hX, hY, hZ = hoft[:, 0], hoft[:, 1], hoft[:, 2], hoft[:, 3]
+        
 
+        fs_default = 1.0/(hoft[1, 0] - hoft[0, 0])
+
+        ## Read in the duration seconds of data + one segment of buffer
+        end_idx = int((self.params['dur'] + self.params['seglen'])*fs_default)
+
+        times, hX, hY, hZ = hoft[0:end_idx, 0], hoft[0:end_idx, 1], hoft[0:end_idx, 2], hoft[0:end_idx, 3]
+
+
+    
         delt = times[1] - times[0]
 
         ## Downsample
@@ -337,7 +346,7 @@ class LISAdata(freqDomain):
         hA = (1.0/3.0)*(2*hX - hY - hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
         hT = (1.0/3.0)*(hX + hY + hZ)
-
+        
         return hA, hE, hT
 
 

@@ -86,46 +86,95 @@ class LISA(LISAdata, Bayes):
     def diag_spectra(self):
 
         '''
-        A function to do diagnostics if the code doesn't work. Plot the expected spectra and data. 
+        A function to do simple diagnostics. Plot the expected spectra and data. 
         '''
 
-        Np, Na = 4e-41, 1.44e-48
-        Sp = Np
-        # Acceleration noise converted to phase
-        Sa = Na*(1 + 16e-8/self.fdata**2)*(1.0/(2*np.pi*self.fdata)**4)
+        import scipy.signal as sg
 
-        SAA = (16.0/3)*((np.sin(2*self.f0))**2)*(2*Sp + 6*Sa + Sp*np.cos(2*self.f0) + \
-             4*Sa*np.cos(2*self.f0) + 2*Sa*np.cos(4*self.f0))
+        ## Read in data from the mldc
+        h1, h2, h3 = self.read_data()
 
-        SEE = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(2 + np.cos(2*self.f0)) + \
-                (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4 + 4*np.cos(2*self.f0) +  4*(np.cos(2*self.f0))**2 )
+        ## Convert to A channel
+        hA = (1.0/3.0)*(2*h1 - h2 - h3)
 
+        ## ------------ Calculate PSD ------------------
+ 
+        # Number of segmants
+    
+        Nperseg=int(self.params['fs']*self.params['seglen'])
+
+        # Apply band pass filter
+        order = 8
+        zz, pp, kk = sg.butter(order, [0.5*self.params['fmin']/(self.params['fs']/2), \
+                 0.4*self.params['fs']/(self.params['fs']/2)], btype='bandpass', output='zpk')
+        sos = sg.zpk2sos(zz, pp, kk)
+
+        hA = sg.sosfiltfilt(sos, hA)
+
+        ## Calcualate hann-windowed PSD with 50% overlapping
+        psdfreqs, data_PSDA = sg.welch(hA, fs=self.params['fs'], window='hanning', nperseg=Nperseg, noverlap=int(0.5*Nperseg))
+
+        # "Cut" to desired frequencies
+        idx = np.logical_and(psdfreqs >=  self.params['fmin'] , psdfreqs <=  self.params['fmax'])
+
+        # Output arrays
+        fdata = psdfreqs[idx]
+
+        #Charactersitic frequency
+        fstar = 3e8/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = fdata/(2*fstar)
+
+
+        # Get desired frequencies for the PSD
+        # We want to normalize PSDs to account for the windowing
+        # Also convert from doppler-shift spectra to strain spectra
+        data_PSDA = (2/0.375)*data_PSDA[idx]/(16*f0**2)
+
+
+        ## Nominal instrumental noise levels as described in the mldc 
+        Np, Na = 4e-41, 1.445e-48
+
+        ## Acceleration noise converted to phase. Also add a red noise component
+        Sp, Sa = Np, Na*(1 + 16e-8/fdata**2)*(1.0/(2*np.pi*fdata)**4)
+
+        ## Noise in AA channel for a stationary LISA, following Adams and Cornish 2010
+        SAA = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(np.cos(2*f0) + 2) \
+            + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4*np.cos(2*f0) + 2*np.cos(4*f0) + 6)
+
+
+        ## SGWB signal levels of the mldc data
         Omega0, alpha = 3.55e-9, 2.0/3.0
 
+        ## Hubble constant
         H0 = 2.2*10**(-18)
-        Omegaf = Omega0*(self.fdata/25)**alpha
 
-        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+        ## Calculate astrophysical power law noise
+        Omegaf = Omega0*(fdata/25)**alpha
+
+        ## Power spectra of the SGWB
+        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*fdata**3)
         
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor.
-        SE_gw = Sgw*self.R2  #*(np.sin(2*f0))**2
-        SEE = SEE/2 + SE_gw
+        ## Spectrum of the SGWB signal convoluted with the detector response tensor.
+        SA_gw = Sgw*self.R1  
 
-        fmin, fmax = 1e-4, 1e-1
+        ## The total noise spectra is the sum of the instrumental + astrophysical 
+        SAA = SAA + SA_gw
+        
+        ## Plot data PSD with the expected level SAA
+        plt.loglog(fdata, SAA, label='required')
+        plt.loglog(fdata, data_PSDA,label='PSDA', alpha=0.6)
+        fmin, fmax = 1e-4, 5e-2
         ymin, ymax = 1e-42, 1e-36
-
-        PSDE = np.mean(np.abs(self.r2)**2, axis=1)
-        plt.loglog(self.fdata, SEE, label='required')
-        plt.loglog(self.fdata, PSDE,label='PSDE', alpha=0.6)
         plt.xlim(fmin, fmax)
         plt.ylim(ymin, ymax)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum 1/Hz')
         plt.legend()
-        plt.savefig(self.params['out_dir'] + '/psdE.png', dpi=125)
+        plt.savefig(self.params['out_dir'] + '/psdA.png', dpi=125)
         plt.close()
-        import pdb; pdb.set_trace()
+        
 
 
 def blip(paramsfile='params.ini'):
@@ -159,6 +208,14 @@ def blip(paramsfile='params.ini'):
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
     params['lmax'] = int(config.get("params", "lmax"))
+    
+    ## Extract truevals if any
+    tlist = config.get('params', 'truevals')
+    if len(tlist) >0:
+        tvals = tlist.split(',')
+        params['truevals'] = [float(tval) for tval in tvals] 
+    else:
+        params['truevals'] = []
 
     # Injection Dict
     inj['doInj']       = int(config.get("inj", "doInj"))
@@ -190,12 +247,7 @@ def blip(paramsfile='params.ini'):
 
     # Initialize lisa class
     lisa =  LISA(params, inj)
-    
-    # Names of parameters
-
-    
-    
-   
+    lisa.diag_spectra()
     
 
     if params['modeltype']=='isgwb':
@@ -229,25 +281,32 @@ def blip(paramsfile='params.ini'):
 
 
     print "npar = " + str(npar)
-    engine.run_nested(dlogz=0.5,print_progress=True )
-
+    
+    
+    # Check to see if we have appropriate number of truevals
+    if (len(params['truevals']) != npar) and (len(params['truevals']) != 0):
+        raise ValueError('The length of the truevals given does not match \
+                the number of parameters for the model' )
 
 
 
     # -------------------- Extract and Plot posteriors ---------------------------
+    
+    engine.run_nested(dlogz=0.5,print_progress=True )
 
 
     # re-scale weights to have a maximum of one
     res = engine.results
     weights = np.exp(res['logwt'] - res['logz'][-1])
+    weights[-1] = 1 - np.sum(weights[0:-1])
+    import pdb; pdb.set_trace()
     post_samples = resample_equal(res.samples, weights)
 
     # Save posteriors to file
     np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
-
-
+    
     print("\n Making posterior Plots ...")
-    plotmaker(params['out_dir'],post_samples, parameters, npar, inj)
+    plotmaker(params, parameters, npar)
     
 if __name__ == "__main__":
 

@@ -41,7 +41,7 @@ class Bayes():
 
         # Transform to actual priors
         alpha       = 10*alpha-5
-        log_omega0   = 10*log_omega0 -14
+        log_omega0   = 10*log_omega0 - 14
         log_Np = 5*log_Np - 44
         log_Na = 5*log_Na - 51
 
