@@ -14,6 +14,12 @@ Source it by
 
 `source lisawork/bin/activate`
 
+For Windows, source it by 
+
+`activate`
+
+while in `\lisawork\Scripts`
+
 numpy, scipy are needed for running this. Matplotlib and corner are required for plotting. Install them all by doing
 
 `pip install numpy scipy matplotlib corner`
