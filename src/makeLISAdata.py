@@ -404,10 +404,14 @@ class LISAdata(freqDomain):
             idxmin = int(0.5*ii*Nperseg)
             idxmax = idxmin + Nperseg
 
+            if hwin.size != h1[idxmin:idxmax].size:
+                import pdb; pdb.set_trace()
+
             
             r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
             r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
             r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
+
 
 
         # "Cut" to desired frequencies
@@ -421,8 +425,8 @@ class LISAdata(freqDomain):
         # Get desired frequencies only
         # We want to normalize ffts so thier square give the psd
         # 0.375 is to adjust for hann windowing, sqrt(2) for single sided
-        r1 = 2.0/np.sqrt(0.375)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-        r2 = 2.0/np.sqrt(0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-        r3 = 2.0/np.sqrt(0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r1 = np.sqrt(2/0.375)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r2 = np.sqrt(2/0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r3 = np.sqrt(2/0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
 
         return r1, r2, r3, fdata

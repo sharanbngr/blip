@@ -38,6 +38,7 @@ class LISA(LISAdata, Bayes):
            raise ValueError('Unknown recovery model selected')
        
         #self.diag_spectra()
+        #import pdb; pdb.set_trace()
 
     def makedata(self):
         '''
@@ -130,14 +131,14 @@ class LISA(LISAdata, Bayes):
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
         # Also convert from doppler-shift spectra to strain spectra
-        data_PSDA = (2/0.375)*data_PSDA[idx]/(16*f0**2)
+        data_PSDA = (1.0/0.375)*data_PSDA[idx]/(16*f0**2)
 
 
         ## Nominal instrumental noise levels as described in the mldc 
         Np, Na = 4e-41, 1.445e-48
 
         ## Acceleration noise converted to phase. Also add a red noise component
-        Sp, Sa = Np, Na*(1 + 16e-8/fdata**2)*(1.0/(2*np.pi*fdata)**4)
+        Sp, Sa = Np, Na*(1 + 16e-8/fdata**2)*(1.0/(2*np.pi*fdata)**4)*(1 + (fdata/8e-3)**4)
 
         ## Noise in AA channel for a stationary LISA, following Adams and Cornish 2010
         SAA = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(np.cos(2*f0) + 2) \
@@ -247,7 +248,7 @@ def blip(paramsfile='params.ini'):
 
     # Initialize lisa class
     lisa =  LISA(params, inj)
-    lisa.diag_spectra()
+
     
 
     if params['modeltype']=='isgwb':
@@ -299,7 +300,7 @@ def blip(paramsfile='params.ini'):
     res = engine.results
     weights = np.exp(res['logwt'] - res['logz'][-1])
     weights[-1] = 1 - np.sum(weights[0:-1])
-    import pdb; pdb.set_trace()
+
     post_samples = resample_equal(res.samples, weights)
 
     # Save posteriors to file

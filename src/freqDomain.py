@@ -412,12 +412,10 @@ class freqDomain():
 
         Sp, Sa   :   float
             Frequencies array for position and acceleration noises for each satellite
-
-
         ''' 
         
         Sp = Np
-        Sa = Na*(1 + 16e-8/freqs**2)*(1.0/(2*np.pi*freqs)**4)
+        Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
 
         return Sp, Sa
 
