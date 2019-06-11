@@ -38,7 +38,7 @@ class LISA(LISAdata, Bayes):
            raise ValueError('Unknown recovery model selected')
        
         #self.diag_spectra()
-        #import pdb; pdb.set_trace()
+   
 
     def makedata(self):
         '''
@@ -133,16 +133,10 @@ class LISA(LISAdata, Bayes):
         # Also convert from doppler-shift spectra to strain spectra
         data_PSDA = (1.0/0.375)*data_PSDA[idx]/(16*f0**2)
 
+        Np, Na = 4e-42, 3.6e-49
 
-        ## Nominal instrumental noise levels as described in the mldc 
-        Np, Na = 4e-41, 1.445e-48
-
-        ## Acceleration noise converted to phase. Also add a red noise component
-        Sp, Sa = Np, Na*(1 + 16e-8/fdata**2)*(1.0/(2*np.pi*fdata)**4)*(1 + (fdata/8e-3)**4)
-
-        ## Noise in AA channel for a stationary LISA, following Adams and Cornish 2010
-        SAA = (16.0/3.0) * ((np.sin(2*f0))**2) * Sp*(np.cos(2*f0) + 2) \
-            + (16.0/3.0) * ((np.sin(2*f0))**2) * Sa*(4*np.cos(2*f0) + 2*np.cos(4*f0) + 6)
+        # Modelled Noise PSD
+        SAA, SEE, STT = self.aet_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
 
         ## SGWB signal levels of the mldc data
@@ -161,7 +155,7 @@ class LISA(LISAdata, Bayes):
         SA_gw = Sgw*self.R1  
 
         ## The total noise spectra is the sum of the instrumental + astrophysical 
-        SAA = SAA + SA_gw
+        SAA = 2*SAA + SA_gw
         
         ## Plot data PSD with the expected level SAA
         plt.loglog(fdata, SAA, label='required')
@@ -174,6 +168,7 @@ class LISA(LISAdata, Bayes):
         plt.ylabel('Power Spectrum 1/Hz')
         plt.legend()
         plt.savefig(self.params['out_dir'] + '/psdA.png', dpi=125)
+        import pdb; pdb.set_trace()
         plt.close()
         
 
