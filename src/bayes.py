@@ -128,7 +128,7 @@ class Bayes():
         ## This is true for an equal arm stationary lisa. 
 
 
-        SA_net, SE_net, ST_net = (3.0/2)*SAA + SA_gw, (3.0/2)*SEE +  SE_gw, STT + ST_gw
+        SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
       
         SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
         ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
