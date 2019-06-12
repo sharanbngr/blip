@@ -37,7 +37,7 @@ class LISA(LISAdata, Bayes):
         else:
            raise ValueError('Unknown recovery model selected')
        
-        #self.diag_spectra()
+        self.diag_spectra()
    
 
     def makedata(self):
@@ -93,10 +93,10 @@ class LISA(LISAdata, Bayes):
         import scipy.signal as sg
 
         ## Read in data from the mldc
-        h1, h2, h3 = self.read_data()
+        hA, hE, hT = self.read_data()
 
         ## Convert to A channel
-        hA = (1.0/3.0)*(2*h1 - h2 - h3)
+        #hA = (1.0/3.0)*(2*h1 - h2 - h3)
 
         ## ------------ Calculate PSD ------------------
  
@@ -119,49 +119,53 @@ class LISA(LISAdata, Bayes):
         idx = np.logical_and(psdfreqs >=  self.params['fmin'] , psdfreqs <=  self.params['fmax'])
 
         # Output arrays
-        fdata = psdfreqs[idx]
+        psdfreqs = psdfreqs[idx]
 
         #Charactersitic frequency
         fstar = 3e8/(2*np.pi*self.armlength)
 
         # define f0 = f/2f*
-        f0 = fdata/(2*fstar)
+        f0 = self.fdata/(2*fstar)
 
 
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
         # Also convert from doppler-shift spectra to strain spectra
-        data_PSDA = (1.0/0.375)*data_PSDA[idx]/(16*f0**2)
+        data_PSDA = data_PSDA[idx]
+        
 
-        Np, Na = 4e-42, 3.6e-49
+        truevals = self.params['truevals']
+        Np, Na = 10**truevals[2], 10**truevals[3]
 
         # Modelled Noise PSD
         SAA, SEE, STT = self.aet_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
-
+        SAA = SAA * (4*np.pi*self.fdata*self.armlength/3e8)**2   
         ## SGWB signal levels of the mldc data
-        Omega0, alpha = 3.55e-9, 2.0/3.0
+        Omega0, alpha = 10**truevals[1], truevals[0]
 
         ## Hubble constant
         H0 = 2.2*10**(-18)
 
         ## Calculate astrophysical power law noise
-        Omegaf = Omega0*(fdata/25)**alpha
+        Omegaf = Omega0*(self.fdata/25)**alpha
 
         ## Power spectra of the SGWB
-        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*fdata**3)
+        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
         
         ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-        SA_gw = Sgw*self.R1  
+        SA_gw = Sgw*self.R1* (4*np.pi*self.fdata*self.armlength/3e8)**2  
 
         ## The total noise spectra is the sum of the instrumental + astrophysical 
-        SAA = 2*SAA + SA_gw
+        SAA = SAA + SA_gw
         
         ## Plot data PSD with the expected level SAA
-        plt.loglog(fdata, SAA, label='required')
-        plt.loglog(fdata, data_PSDA,label='PSDA', alpha=0.6)
-        fmin, fmax = 1e-4, 5e-2
-        ymin, ymax = 1e-42, 1e-36
+        plt.loglog(self.fdata, SAA, label='required')
+        plt.loglog(self.fdata, SA_gw, label='gw required')
+
+        plt.loglog(psdfreqs, data_PSDA,label='PSDA', alpha=0.6)
+        fmin, fmax = 1e-4, 1e-1
+        ymin, ymax = 1e-45, 1e-38
         plt.xlim(fmin, fmax)
         plt.ylim(ymin, ymax)
         plt.xlabel('f in Hz')

@@ -193,7 +193,6 @@ class freqDomain():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        
         tt = np.arange(-1, 1, 0.01)
         pp = np.arange(0, 2*np.pi, np.pi/100)
 
