@@ -226,11 +226,11 @@ class freqDomain():
             ## Michelson Channel Antenna patterns for + pol
             ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
 
-            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) + \
-                            0.5*((np.cos(phi))**2 - ct**2))*gammaU
+            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) )# + \
+                        #    0.5*((np.cos(phi))**2 - ct**2))*gammaU
 
-            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)+ \
-                         0.5*((np.cos(phi))**2 - ct**2))*gammaV
+            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) )# + \
+                        # 0.5*((np.cos(phi))**2 - ct**2))*gammaV
 
             Fplus_w   = 1/2*(1 - (1+ct**2)*(np.cos(phi))**2)*gammaW
 
@@ -331,11 +331,11 @@ class freqDomain():
             ## Michelson Channel Antenna patterns for + pol
             ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
 
-            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) + \
-                            0.5*((np.cos(phi))**2 - ct**2))*gammaU
+            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)) #+ \
+                        #    0.5*((np.cos(phi))**2 - ct**2))*gammaU
 
-            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)+ \
-                         0.5*((np.cos(phi))**2 - ct**2))*gammaV
+            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)) #+ \
+                        #     0.5*((np.cos(phi))**2 - ct**2))*gammaV
 
             Fplus_w   = 1/2*(1 - (1+ct**2)*(np.cos(phi))**2)*gammaW
 

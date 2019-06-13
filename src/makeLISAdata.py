@@ -395,6 +395,7 @@ class LISAdata(freqDomain):
         r2 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
         r3 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
 
+        
         # Hann Window
         hwin = np.hanning(Nperseg)
 
@@ -428,5 +429,7 @@ class LISAdata(freqDomain):
         r1 = np.sqrt(2/0.375)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         r2 = np.sqrt(2/0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         r3 = np.sqrt(2/0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-
+        
+        
         return r1, r2, r3, fdata
+        

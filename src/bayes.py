@@ -134,7 +134,7 @@ class Bayes():
         ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
         SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
 
-        Loglike  = -1*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
              np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
 
     

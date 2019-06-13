@@ -37,7 +37,7 @@ class LISA(LISAdata, Bayes):
         else:
            raise ValueError('Unknown recovery model selected')
        
-        self.diag_spectra()
+        #self.diag_spectra()
    
 
     def makedata(self):
@@ -95,8 +95,6 @@ class LISA(LISAdata, Bayes):
         ## Read in data from the mldc
         hA, hE, hT = self.read_data()
 
-        ## Convert to A channel
-        #hA = (1.0/3.0)*(2*h1 - h2 - h3)
 
         ## ------------ Calculate PSD ------------------
  
@@ -113,7 +111,10 @@ class LISA(LISAdata, Bayes):
         hA = sg.sosfiltfilt(sos, hA)
 
         ## Calcualate hann-windowed PSD with 50% overlapping
-        psdfreqs, data_PSDA = sg.welch(hA, fs=self.params['fs'], window='hanning', nperseg=Nperseg, noverlap=int(0.5*Nperseg))
+        #psdfreqs, data_PSDA = sg.welch(hA, fs=self.params['fs'], window='hanning', nperseg=Nperseg, noverlap=int(0.5*Nperseg))
+        rA, rE, rT, psdfreqs = self.tser2fser(hA, hE, hT)
+
+        data_PSDA = np.mean(np.abs(rA)**2, axis=1) 
 
         # "Cut" to desired frequencies
         idx = np.logical_and(psdfreqs >=  self.params['fmin'] , psdfreqs <=  self.params['fmax'])
