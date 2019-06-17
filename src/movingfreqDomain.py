@@ -19,7 +19,7 @@ class MovingfreqDomain():
             
         Returns
         -----------
-        r1, r2, r3  :  arrays
+        r1, r2, r3  :  array
             Arrays of satellite positions for reach time in timearray. e.g. r1[1] is [x1,y1,z1] at t=timearray[1]. 
         '''
         ## Semimajor axis in m
@@ -32,7 +32,7 @@ class MovingfreqDomain():
         alphaphase = 0
         ## Orbital angle alpha(t)
         at = (2*np.pi/3.154e7)*timearray
-        ## Eccentricity. L-dependent, so needs to be changed in time-varied arm length case.
+        ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = L/(2*a*np.sqrt(3))
         ## Initialize arrays
         beta_n = np.array([0,0,0])
@@ -42,8 +42,8 @@ class MovingfreqDomain():
         ## Calculate inclination and positions for each satellite.
         for n in sats:
             beta_n[n-1] = (n-1) + (2/3)*np.pi + betaphase
-            x_n[n-1] = a*np.cos(at)+a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1])-(1+np.sin(at)**2)*np.cos(beta_n[n-1]))
-            y_n[n-1] = a*np.sin(at)+a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1])-(1+np.cos(at)**2)*np.sin(beta_n[n-1]))
+            x_n[n-1] = a*np.cos(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.sin(at)**2)*np.cos(beta_n[n-1]))
+            y_n[n-1] = a*np.sin(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.cos(at)**2)*np.sin(beta_n[n-1]))
             z_n[n-1] = -np.sqrt(3)*a*e*np.cos(at-beta_n[n-1])
         
         ## Construct position vectors r_n
@@ -52,10 +52,10 @@ class MovingfreqDomain():
         r3 = np.array([x_n[2],y_n[2],z_n[2]])
         
         
-    def doppler_response(self, f0, theta, phi):
+    def doppler_response(self, f0, theta, phi, r1, r2, r3, ti):
         
         '''
-        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the doppler channel of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
+        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the u doppler channel of an orbiting LISA with satellite position vectors r1, r2, r3 at a given time. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
         
 
         Parameters
@@ -64,22 +64,42 @@ class MovingfreqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-        phi theta  : float
+        phi theta  :  float
             Sky position values. 
+            
+        r1, r2, r3  :  array
+            Satellite position vectors.
+        
+        ti  :  float
+            timearray index
     
 
         Returns
         ---------
 
-        Rplus, Rcorss   :   float
+        Rplus, Rcross   :   float
             Plus and cross antenna Patterns for the given sky direction
         '''
 
-
+        ## Define cos/sin(theta)
         ct = np.cos(theta)
-        
-        ## udir is just u.r, where r is the directional vector
-        udir = np.sqrt(1-ct**2) * np.sin(phi + np.pi/6)
+        st = np.sqrt(1-ct**2)
+        ## Define x/y/z for each satellite at time given by timearray[ti]
+        x1 = r1[0][ti]
+        y1 = r1[1][ti]
+        z1 = r1[2][ti]
+        x2 = r2[0][ti]
+        y2 = r2[1][ti]
+        z2 = r2[2][ti]
+        x3 = r3[0][ti]
+        y3 = r3[1][ti]
+        z3 = r3[2][ti]
+        ## Define vector u at time timearray[ti]
+        uvec = r2[:,ti] - r1[:,ti]
+        ## Calculate arm length for the u arm
+        Lu = np.dot(uvec,uvec)
+        ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
+        udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
 
         # Initlize arrays for the detector reponse
         Rplus, Rcross = np.zeros(f0.size), np.zeros(f0.size)
@@ -87,20 +107,23 @@ class MovingfreqDomain():
         # Calculate the detector response for each frequency
 
         # Calculate GW transfer function for the michelson channels
-        gammaU    =    1/2 * (np.sinc(f0*(1 - udir))*np.exp(-1j*f0*(3+udir)) + \
-                            np.sinc(f0*(1 + udir))*np.exp(-1j*f0*(1+udir)))
+        gammaU = 1/2 * (np.sinc(f0*(1-udir))*np.exp(-1j*f0*(3+udir)) + \
+                            np.sinc(f0*(1+udir))*np.exp(-1j*f0*(1+udir)))
 
 
         ## Michelson Channel Antenna patterns for + pol: Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
 
-        Rplus   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) + \
-                            0.5*((np.cos(phi))**2 - ct**2))*gammaU
-
+        Rplus = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
+                     (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct- \
+                      ((z2-z1)/Lu)*st)**2)*gammaU
+        
         ## Michelson Channel Antenna patterns for x pol
         ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
 
-        Rcross = - np.sqrt(1-ct**2)/2 * (np.sin(2*phi + np.pi/3))*gammaU
-
+        Rcross = ((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * \
+                  (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct- \
+                   ((z2-z1)/Lu)*st))*gammaU
+        
         return Rplus, Rcross
 
 
