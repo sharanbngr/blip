@@ -2,13 +2,56 @@ from __future__ import division
 import numpy as np
 from scipy.special import lpmn
 
-class freqDomain():
+class MovingfreqDomain():
 
     '''
-    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
+    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. All methods are calculated for a moving LISA constellation given a particular set of satellite orbits.
     '''
-
-
+    def LISA_orbits(self,timearray)
+        '''
+        Define LISA orbits as a function of predefined time array using analytic MLDC orbits.
+        
+        Parameters
+        -----------
+        
+        timearray  :  array
+            A numpy array of times in seconds.
+            
+        Returns
+        -----------
+        r1, r2, r3  :  arrays
+            Arrays of satellite positions for reach time in timearray. e.g. r1[1] is [x1,y1,z1] at t=timearray[1]. 
+        '''
+        ## Semimajor axis in m
+        a = 1.496e11
+        ## LISA arm length in m
+        L = 1.5e9
+        sats = np.array([1,2,3])
+        ## Alpha and beta phases allow for changing of initial satellite orbital phases; default initial conditions are alphaphase=betaphase=0.
+        betaphase = 0
+        alphaphase = 0
+        ## Orbital angle alpha(t)
+        at = (2*np.pi/3.154e7)*timearray
+        ## Eccentricity. L-dependent, so needs to be changed in time-varied arm length case.
+        e = L/(2*a*np.sqrt(3))
+        ## Initialize arrays
+        beta_n = np.array([0,0,0])
+        x_n = np.array([0,0,0])
+        y_n = np.array([0,0,0])
+        z_n = np.array([0,0,0])
+        ## Calculate inclination and positions for each satellite.
+        for n in sats:
+            beta_n[n-1] = (n-1) + (2/3)*np.pi + betaphase
+            x_n[n-1] = a*np.cos(at)+a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1])-(1+np.sin(at)**2)*np.cos(beta_n[n-1]))
+            y_n[n-1] = a*np.sin(at)+a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1])-(1+np.cos(at)**2)*np.sin(beta_n[n-1]))
+            z_n[n-1] = -np.sqrt(3)*a*e*np.cos(at-beta_n[n-1])
+        
+        ## Construct position vectors r_n
+        r1 = np.array([x_n[0],y_n[0],z_n[0]])
+        r2 = np.array([x_n[1],y_n[1],z_n[1]])
+        r3 = np.array([x_n[2],y_n[2],z_n[2]])
+        
+        
     def doppler_response(self, f0, theta, phi):
         
         '''
