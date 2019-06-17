@@ -7,7 +7,7 @@ class MovingfreqDomain():
     '''
     Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. All methods are calculated for a moving LISA constellation given a particular set of satellite orbits.
     '''
-    def LISA_orbits(self,timearray)
+    def lisa_orbits(self, timearray):
         '''
         Define LISA orbits as a function of predefined time array using analytic MLDC orbits.
         
@@ -31,7 +31,7 @@ class MovingfreqDomain():
         betaphase = 0
         alphaphase = 0
         ## Orbital angle alpha(t)
-        at = (2*np.pi/3.154e7)*timearray
+        at = (2*np.pi/3.154e7)*timearray + alphaphase
         ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = L/(2*a*np.sqrt(3))
         ## Initialize arrays
@@ -50,6 +50,8 @@ class MovingfreqDomain():
         r1 = np.array([x_n[0],y_n[0],z_n[0]])
         r2 = np.array([x_n[1],y_n[1],z_n[1]])
         r3 = np.array([x_n[2],y_n[2],z_n[2]])
+        
+        return r1, r2, r3
         
         
     def doppler_response(self, f0, theta, phi, r1, r2, r3, ti):
@@ -91,9 +93,12 @@ class MovingfreqDomain():
         x2 = r2[0][ti]
         y2 = r2[1][ti]
         z2 = r2[2][ti]
-        x3 = r3[0][ti]
-        y3 = r3[1][ti]
-        z3 = r3[2][ti]
+        
+        ## Add if calculating v, w:
+        ## x3 = r3[0][ti]
+        ## y3 = r3[1][ti]
+        ## z3 = r3[2][ti]
+        
         ## Define vector u at time timearray[ti]
         uvec = r2[:,ti] - r1[:,ti]
         ## Calculate arm length for the u arm
