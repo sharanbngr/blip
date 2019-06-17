@@ -35,13 +35,13 @@ class LISAdata(freqDomain):
         if os.path.isfile(self.params['input_spectrum']) and not self.params['doPreProc']:
             print("loading freq domain data from input file")
 
-            data = np.load(self.params['input_spectrum'])
-            rA    = data['rA']
-            rE    = data['rE']
-            rT    = data['rT']
+            data = np.load(self.params['out_dir'] + '/' +self.params['input_spectrum'])
+            r1    = data['r1']
+            r2    = data['r2']
+            r3    = data['r3']
             fdata = data['fdata']
 
-            return rA, rE, rT, fdata
+            return r1, r2, r3, fdata
 
 
     def gaussianData(self, Sh,freqs, fs=1, dur=1e5):
@@ -131,7 +131,7 @@ class LISAdata(freqDomain):
         '''
           
         # --------------------- Generate Fake Noise -----------------------------
-        print("Simulating isgwb data for analysis ...")
+        print("Simulating michelson data ...")
 
        # speed of light
         cspeed = 3e8 #m/s
@@ -430,6 +430,7 @@ class LISAdata(freqDomain):
         r2 = np.sqrt(2/0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         r3 = np.sqrt(2/0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         
-        
+        np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
+
         return r1, r2, r3, fdata
         
