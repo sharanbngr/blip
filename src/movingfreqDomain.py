@@ -9,7 +9,7 @@ class MovingfreqDomain():
     '''
     def lisa_orbits(self, timearray):
         '''
-        Define LISA orbits as a function of predefined time array using analytic MLDC orbits.
+        Define LISA orbits as functions of a predefined time array using analytic MLDC orbits.
         
         Parameters
         -----------
