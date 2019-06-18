@@ -226,10 +226,10 @@ class freqDomain():
             ## Michelson Channel Antenna patterns for + pol
             ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
 
-            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) )# + \
+            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) )*gammaU # + \
                         #    0.5*((np.cos(phi))**2 - ct**2))*gammaU
 
-            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) )# + \
+            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) )*gammaV# + \
                         # 0.5*((np.cos(phi))**2 - ct**2))*gammaV
 
             Fplus_w   = 1/2*(1 - (1+ct**2)*(np.cos(phi))**2)*gammaW
@@ -256,7 +256,7 @@ class freqDomain():
             ## Calculate antenna patterns for the A, E and T channels -  We are switiching to doppler channel.
             FXplus = 2*np.sin(2*f0[ii])*Fplus1
             FYplus = 2*np.sin(2*f0[ii])*Fplus2
-            FZplus = 2*np.sin(2*f0[ii])*Fplus2
+            FZplus = 2*np.sin(2*f0[ii])*Fplu3
 
             FXcross = 2*np.sin(2*f0[ii])*Fcross1
             FYcross = 2*np.sin(2*f0[ii])*Fcross2
@@ -331,10 +331,10 @@ class freqDomain():
             ## Michelson Channel Antenna patterns for + pol
             ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
 
-            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)) #+ \
+            Fplus_u   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2))*gammaU #+ \
                         #    0.5*((np.cos(phi))**2 - ct**2))*gammaU
 
-            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)) #+ \
+            Fplus_v   = 1/2*(1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2))*gammaV #+ \
                         #     0.5*((np.cos(phi))**2 - ct**2))*gammaV
 
             Fplus_w   = 1/2*(1 - (1+ct**2)*(np.cos(phi))**2)*gammaW
@@ -350,8 +350,8 @@ class freqDomain():
             ## First Michelson antenna patterns
             ## Calculate Fplus
             Fplus1 = (Fplus_u - Fplus_v)
-            Fplus2 = (Fplus_w - Fplus_u)
-            Fplus3 = (Fplus_v - Fplus_w)
+            Fplus2 = (Fplus_w - Fplus_u)*np.exp(2*f0[ii]*udir)
+            Fplus3 = (Fplus_v - Fplus_w)*np.exp(2*f0[ii]*udir)
 
             ## Calculate Fcross
             Fcross1 = (Fcross_u - Fcross_v)
