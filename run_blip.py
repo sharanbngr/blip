@@ -31,7 +31,7 @@ class LISA(LISAdata, Bayes):
 
         ## Calculate the antenna patterns
         if self.params['modeltype'] == 'isgwb':
-            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0)
+            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.ti, self.rs1, self.rs2, self.rs3)
         elif params['modeltype']=='sph_sgwb':
             self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
         else:
