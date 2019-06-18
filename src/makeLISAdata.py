@@ -1,12 +1,12 @@
 from __future__ import division
 import numpy as np
 import scipy.signal as sg
-from src.freqDomain import freqDomain
+from src.movingfreqDomain import movingfreqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 
 
-class LISAdata(freqDomain):
+class LISAdata(movingfreqDomain):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -342,12 +342,13 @@ class LISAdata(freqDomain):
             times = self.params['fs']*np.arange(0, hX.size, 1)
         else:
             self.params['fs'] = 1.0/delt
-
+                
+        
         hA = (1.0/3.0)*(2*hX - hY - hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
         hT = (1.0/3.0)*(hX + hY + hZ)
         
-        return hA, hE, hT
+        return hA, hE, hT, times
 
 
     def tser2fser(self, h1, h2, h3):

@@ -2,7 +2,7 @@ from __future__ import division
 import numpy as np
 from scipy.special import lpmn
 
-class MovingfreqDomain():
+class movingfreqDomain():
 
     '''
     Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. All methods are calculated for a moving LISA constellation given a particular set of satellite orbits.
@@ -34,11 +34,20 @@ class MovingfreqDomain():
         at = (2*np.pi/3.154e7)*timearray + alphaphase
         ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = L/(2*a*np.sqrt(3))
+        
+        ph = np.zeros((len(timearray),3))
         ## Initialize arrays
-        beta_n = np.array([0,0,0])
-        x_n = np.array([0,0,0])
-        y_n = np.array([0,0,0])
-        z_n = np.array([0,0,0])
+#        beta_n = np.array([[0],[0],[0]])
+#        x_n = np.array([[0],[0],[0]])
+#        y_n = np.array([[0],[0],[0]])
+#        z_n = np.array([[0],[0],[0]])
+        beta_n = ph
+        x_n = ph
+        y_n = ph
+        z_n = ph
+        
+        import pdb
+        pdb.set_trace()
         ## Calculate inclination and positions for each satellite.
         for n in sats:
             beta_n[n-1] = (n-1) + (2/3)*np.pi + betaphase

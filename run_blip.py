@@ -31,6 +31,7 @@ class LISA(LISAdata, Bayes):
 
         ## Calculate the antenna patterns
         if self.params['modeltype'] == 'isgwb':
+            self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.timearray)
             self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.ti, self.rs1, self.rs2, self.rs3)
         elif params['modeltype']=='sph_sgwb':
             self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
@@ -69,7 +70,7 @@ class LISA(LISAdata, Bayes):
         and converts to strain data. 
         '''
         
-        h1, h2, h3 = self.read_data()
+        h1, h2, h3, timearray = self.read_data()
         
         ## Generate lisa freq domain data from time domain data
         r1, r2, r3, self.fdata = self.tser2fser(h1, h2, h3)
@@ -81,7 +82,8 @@ class LISA(LISAdata, Bayes):
         
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
         
-
+        self.timearray = timearray
+        self.ti = 2
 
     
     def diag_spectra(self):
