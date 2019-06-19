@@ -302,17 +302,15 @@ class LISAdata(freqDomain):
 
         return h1_gw, h2_gw, h3_gw
 
-    def read_data(self):
+    def read_mldc_data(self):
         
         '''
-        Read in time domain data from an ascii txt file. Since this was used primarily for 
-        the MLDC, it assumes that the data is given in X,Y and Z channels and converts to 
-        A, E and T. 
-
+        Read mldc domain data from an ascii txt file. Since this was used primarily for 
+        the MLDC, it assumes that the data is given in X,Y and Z channels.
         Returns
         ---------
     
-        hA, hE, hT : float
+        h1, h2, h3 : float
             Time series data for the three TDI channels
 
 
@@ -326,28 +324,25 @@ class LISAdata(freqDomain):
         ## Read in the duration seconds of data + one segment of buffer
         end_idx = int((self.params['dur'] + self.params['seglen'])*fs_default)
 
-        times, hX, hY, hZ = hoft[0:end_idx, 0], hoft[0:end_idx, 1], hoft[0:end_idx, 2], hoft[0:end_idx, 3]
+        ## the mldc data is X,Y,Z tdi
+        times, h1, h2, h3 = hoft[0:end_idx, 0], hoft[0:end_idx, 1], hoft[0:end_idx, 2], hoft[0:end_idx, 3]
 
-
-    
         delt = times[1] - times[0]
 
         ## Downsample
         if self.params['fs'] < 1.0/delt:
 
-            hX = sg.decimate(hX, int(1.0/(self.params['fs']*delt)))
-            hY = sg.decimate(hY, int(1.0/(self.params['fs']*delt)))
-            hZ = sg.decimate(hZ, int(1.0/(self.params['fs']*delt)))
+            h1 = sg.decimate(h1, int(1.0/(self.params['fs']*delt)))
+            h2 = sg.decimate(h2, int(1.0/(self.params['fs']*delt)))
+            h3 = sg.decimate(h3, int(1.0/(self.params['fs']*delt)))
+            
             self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
-            times = self.params['fs']*np.arange(0, hX.size, 1)
+            times = self.params['fs']*np.arange(0, h1.size, 1)
         else:
             self.params['fs'] = 1.0/delt
 
-        hA = (1.0/3.0)*(2*hX - hY - hZ)
-        hE = (1.0/np.sqrt(3.0))*(hZ - hY)
-        hT = (1.0/3.0)*(hX + hY + hZ)
         
-        return hA, hE, hT
+        return h1, h2, h3
 
 
     def tser2fser(self, h1, h2, h3):

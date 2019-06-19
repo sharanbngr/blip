@@ -23,17 +23,21 @@ class LISA(LISAdata, Bayes):
         # Set up the Bayes class
         Bayes.__init__(self)
 
-        ## Generate or get data
-        if self.params['readData']:
-            self.readdata()
+        ## Generate or get mldc data
+        if self.params['mldc']:
+            self.read_mldc_data()
         else:
             self.makedata()
 
-        ## Calculate the antenna patterns
-        if self.params['modeltype'] == 'isgwb':
-            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0)
-        elif params['modeltype']=='sph_sgwb':
-            self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
+        ## Calculate the desired antenna patterns
+        if self.params['modeltype'] == 'isgwb' and params['tdi_lev']='aet':
+            self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
+        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']='xyz':
+            self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
+        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']='xyz':
+            self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
+        elif params['modeltype']=='sph_sgwb' and params['tdi_lev']='aet':
+            self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
         else:
            raise ValueError('Unknown recovery model selected')
        
@@ -62,7 +66,7 @@ class LISA(LISAdata, Bayes):
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
-    def readdata(self):
+    def read_mldc_data(self):
         '''
         Just a wrapper function to use the methods the LISAdata class to read data. Return frequency
         domain data. Since this was used primarily for the MLDC, this assumes that the data is doppler tracking
@@ -71,6 +75,14 @@ class LISA(LISAdata, Bayes):
         
         h1, h2, h3 = self.read_data()
         
+        ## Calculate other tdi combinations if necessary. 
+        if self.params['tdi_lev']='aet':
+            h1 = (1.0/3.0)*(2*h1 - h2 - h3)
+            h2 = (1.0/np.sqrt(3.0))*(h3 - h2)
+            h3 = (1.0/3.0)*(h1 + h2 + h3)
+
+
+
         ## Generate lisa freq domain data from time domain data
         r1, r2, r3, self.fdata = self.tser2fser(h1, h2, h3)
 
@@ -209,7 +221,9 @@ def blip(paramsfile='params.ini'):
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
     params['lmax'] = int(config.get("params", "lmax"))
-    
+    params['tdi_lev'] = str(config.get("params", "tdi_lev"))
+
+
     ## Extract truevals if any
     tlist = config.get('params', 'truevals')
     if len(tlist) >0:
