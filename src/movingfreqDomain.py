@@ -35,25 +35,25 @@ class movingfreqDomain():
         ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = L/(2*a*np.sqrt(3))
         
-        ph = np.zeros((len(timearray),3))
+        ph = np.zeros(len(timearray))
         ## Initialize arrays
 #        beta_n = np.array([[0],[0],[0]])
 #        x_n = np.array([[0],[0],[0]])
 #        y_n = np.array([[0],[0],[0]])
 #        z_n = np.array([[0],[0],[0]])
-        beta_n = ph
-        x_n = ph
-        y_n = ph
-        z_n = ph
+        beta_n = np.array([ph,ph,ph])
+        x_n = np.array([ph,ph,ph])
+        y_n = np.array([ph,ph,ph])
+        z_n = np.array([ph,ph,ph])
         
         import pdb
         pdb.set_trace()
         ## Calculate inclination and positions for each satellite.
         for n in sats:
-            beta_n[n-1] = (n-1) + (2/3)*np.pi + betaphase
-            x_n[n-1] = a*np.cos(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.sin(at)**2)*np.cos(beta_n[n-1]))
-            y_n[n-1] = a*np.sin(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.cos(at)**2)*np.sin(beta_n[n-1]))
-            z_n[n-1] = -np.sqrt(3)*a*e*np.cos(at-beta_n[n-1])
+            beta_n[n-1][:] = (n-1) + (2/3)*np.pi + betaphase
+            x_n[n-1][:] = a*np.cos(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.sin(at)**2)*np.cos(beta_n[n-1]))
+            y_n[n-1][:] = a*np.sin(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.cos(at)**2)*np.sin(beta_n[n-1]))
+            z_n[n-1][:] = -np.sqrt(3)*a*e*np.cos(at-beta_n[n-1])
         
         ## Construct position vectors r_n
         rs1 = np.array([x_n[0],y_n[0],z_n[0]])
@@ -111,7 +111,7 @@ class movingfreqDomain():
         ## Define vector u at time timearray[ti]
         uvec = rs2[:,ti] - rs1[:,ti]
         ## Calculate arm length for the u arm
-        Lu = np.dot(uvec,uvec)
+        Lu = np.sqrt(np.dot(uvec,uvec))
         ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
         udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
 
@@ -191,9 +191,9 @@ class movingfreqDomain():
         wvec = rs3[:,ti] - rs2[:,ti]
         
         ## Calculate arm lengths
-        Lu = np.dot(uvec,uvec)
-        Lv = np.dot(vvec,vvec)
-        Lw = np.dot(wvec,wvec)
+        Lu = np.sqrt(np.dot(uvec,uvec))
+        Lv = np.sqrt(np.dot(vvec,vvec))
+        Lw = np.sqrt(np.dot(wvec,wvec))
 
         ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
         udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
@@ -337,9 +337,9 @@ class movingfreqDomain():
         wvec = rs3[:,ti] - rs2[:,ti]
         
         ## Calculate arm lengths
-        Lu = np.dot(uvec,uvec)
-        Lv = np.dot(vvec,vvec)
-        Lw = np.dot(wvec,wvec)
+        Lu = np.sqrt(np.dot(uvec,uvec))
+        Lv = np.sqrt(np.dot(vvec,vvec))
+        Lw = np.sqrt(np.dot(wvec,wvec))
 
         ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
         udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
@@ -466,11 +466,13 @@ class movingfreqDomain():
         uvec = rs2[:,ti] - rs1[:,ti]
         vvec = rs3[:,ti] - rs1[:,ti]
         wvec = rs3[:,ti] - rs2[:,ti]
-        
+
         ## Calculate arm lengths
-        Lu = np.dot(uvec,uvec)
-        Lv = np.dot(vvec,vvec)
-        Lw = np.dot(wvec,wvec)
+        Lu = np.sqrt(np.dot(uvec,uvec))
+        Lv = np.sqrt(np.dot(vvec,vvec))
+        Lw = np.sqrt(np.dot(wvec,wvec))
+        import pdb
+        pdb.set_trace()
 
         ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
         udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct

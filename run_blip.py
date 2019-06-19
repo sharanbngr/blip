@@ -83,7 +83,7 @@ class LISA(LISAdata, Bayes):
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
         
         self.timearray = timearray
-        self.ti = 2
+        self.ti = 6000
 
     
     def diag_spectra(self):
