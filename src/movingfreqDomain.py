@@ -25,7 +25,7 @@ class movingfreqDomain():
         ## Semimajor axis in m
         a = 1.496e11
         ## LISA arm length in m
-        L = 1.5e9
+        L = 2.5e9
         sats = np.array([1,2,3])
         ## Alpha and beta phases allow for changing of initial satellite orbital phases; default initial conditions are alphaphase=betaphase=0.
         betaphase = 0
@@ -50,7 +50,7 @@ class movingfreqDomain():
         pdb.set_trace()
         ## Calculate inclination and positions for each satellite.
         for n in sats:
-            beta_n[n-1][:] = (n-1) + (2/3)*np.pi + betaphase
+            beta_n[n-1][:] = (n-1)*(2/3)*np.pi + betaphase
             x_n[n-1][:] = a*np.cos(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.sin(at)**2)*np.cos(beta_n[n-1]))
             y_n[n-1][:] = a*np.sin(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.cos(at)**2)*np.sin(beta_n[n-1]))
             z_n[n-1][:] = -np.sqrt(3)*a*e*np.cos(at-beta_n[n-1])
