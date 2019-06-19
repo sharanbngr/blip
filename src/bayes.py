@@ -108,8 +108,7 @@ class Bayes():
         Np, Na =  10**(log_Np), 10**(log_Na)
 
         # Modelled Noise PSD
-        SAA, SEE, STT = self.aet_noise_spectrum(self.fdata,self.f0, Np, Na)        
-
+        SAA, SEE, STT = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
         ## Signal PSD
         H0 = 2.2*10**(-18)

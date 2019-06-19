@@ -302,7 +302,7 @@ class LISAdata(freqDomain):
 
         return h1_gw, h2_gw, h3_gw
 
-    def read_mldc_data(self):
+    def read_data(self):
         
         '''
         Read mldc domain data from an ascii txt file. Since this was used primarily for 

@@ -171,7 +171,7 @@ class freqDomain():
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
 
-def isgwb_mich_response(f0): 
+    def isgwb_mich_response(self, f0):
 
         '''
         Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using basic michelson
@@ -279,7 +279,7 @@ def isgwb_mich_response(f0):
 
 
 
-def isgwb_xyz_response(f0): 
+    def isgwb_xyz_response(self, f0):
 
         '''
         Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using X, Y and Z TDI
@@ -393,7 +393,7 @@ def isgwb_xyz_response(f0):
 
 
 
-    def isgwb_aet_response(self, f0): 
+    def isgwb_aet_response(self, f0):
 
         '''
         Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. 
@@ -493,7 +493,7 @@ def isgwb_xyz_response(f0):
 
         return R1, R2, R3
 
-    def asgwb_aet_response(self, f0): 
+    def asgwb_aet_response(self, f0):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using A, E and T TDI channels,
@@ -692,5 +692,85 @@ def isgwb_xyz_response(f0):
 
 
         return SAA, SEE, STT
+
+
+    def xyz_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
+
+        '''
+        Calculates X,Y,Z channel noise spectra for a stationary lisa. Following the defintions in
+        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
+
+
+        Parameters
+        -----------
+
+        freqs   : float
+            A numpy array of frequencies
+
+        Np (optional) : float
+            Position noise value
+        
+        Na (optional) : float
+            Acceleration noise level
+    
+
+        Returns
+        ---------
+
+        SAA, SEE, STT   :   float
+            Frequencies arrays with the noise PSD for the A, E and T TDI channels
+
+
+        '''
+
+        # Get Sp and Sa
+        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
+
+
+        ## Noise spectra of the X, Y and Z channels
+        SX = 16.0 * np.sin(2*f0)**2 * (2.0 * (1.0 + np.cos(2*f0)**2) * Sa + Sp)
+
+
+        return SX, SX, SX
+
+    def mich_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
+
+        '''
+        Calculates michelson channel noise spectra for a stationary lisa. Following the defintions in
+        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308. We assume that
+        there is no phase noise. 
+
+
+        Parameters
+        -----------
+
+        freqs   : float
+            A numpy array of frequencies
+
+        Np (optional) : float
+            Position noise value
+        
+        Na (optional) : float
+            Acceleration noise level
+    
+
+        Returns
+        ---------
+
+        SAA, SEE, STT   :   float
+            Frequencies arrays with the noise PSD for the A, E and T TDI channels
+
+
+        '''
+
+        # Get Sp and Sa
+        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
+
+
+        ## Noise spectra of the X, Y and Z channels
+        SX = 4.0 * (2.0 * (1.0 + np.cos(2*f0)**2) * Sa + Sp)
+
+
+        return SX, SX, SX
 
 

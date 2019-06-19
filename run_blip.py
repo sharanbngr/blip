@@ -30,19 +30,21 @@ class LISA(LISAdata, Bayes):
             self.makedata()
 
         ## Calculate the desired antenna patterns
-        if self.params['modeltype'] == 'isgwb' and params['tdi_lev']='aet':
+        if self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='aet':
             self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']='xyz':
+        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='xyz':
             self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']='xyz':
+        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='michelson':
             self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
-        elif params['modeltype']=='sph_sgwb' and params['tdi_lev']='aet':
+        elif params['modeltype']=='sph_sgwb' and params['tdi_lev']=='aet':
             self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
         else:
            raise ValueError('Unknown recovery model selected')
        
+
+        self.which_noise_spectrum()
         #self.diag_spectra()
-   
+
 
     def makedata(self):
         '''
@@ -76,7 +78,7 @@ class LISA(LISAdata, Bayes):
         h1, h2, h3 = self.read_data()
         
         ## Calculate other tdi combinations if necessary. 
-        if self.params['tdi_lev']='aet':
+        if self.params['tdi_lev']=='aet':
             h1 = (1.0/3.0)*(2*h1 - h2 - h3)
             h2 = (1.0/np.sqrt(3.0))*(h3 - h2)
             h3 = (1.0/3.0)*(h1 + h2 + h3)
@@ -94,7 +96,13 @@ class LISA(LISAdata, Bayes):
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
         
 
-
+    def which_noise_spectrum(self):
+        if self.params['tdi_lev']=='aet':
+            self.instr_noise_spectrum = self.aet_noise_spectrum 
+        elif self.params['tdi_lev']=='xyz':
+            self.instr_noise_spectrum = self.xyz_noise_spectrum
+        elif self.params['tdi_lev']=='michelson':
+            self.instr_noise_spectrum = self.mich_noise_spectrum
     
     def diag_spectra(self):
 
@@ -126,7 +134,7 @@ class LISA(LISAdata, Bayes):
         #psdfreqs, data_PSDA = sg.welch(hA, fs=self.params['fs'], window='hanning', nperseg=Nperseg, noverlap=int(0.5*Nperseg))
         rA, rE, rT, psdfreqs = self.tser2fser(hA, hE, hT)
 
-        data_PSDA = np.mean(np.abs(rA)**2, axis=1) 
+        data_PSDA = np.mean(np.abs(rA)**2, axis=1)/(4*self.f0)**2 
 
         # "Cut" to desired frequencies
         idx = np.logical_and(psdfreqs >=  self.params['fmin'] , psdfreqs <=  self.params['fmax'])
@@ -151,9 +159,9 @@ class LISA(LISAdata, Bayes):
         Np, Na = 10**truevals[2], 10**truevals[3]
 
         # Modelled Noise PSD
-        SAA, SEE, STT = self.aet_noise_spectrum(self.fdata,self.f0, Np, Na)        
+        SAA, SEE, STT = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
-        SAA = SAA * (4*np.pi*self.fdata*self.armlength/3e8)**2   
+        SAA = SAA    
         ## SGWB signal levels of the mldc data
         Omega0, alpha = 10**truevals[1], truevals[0]
 
@@ -167,7 +175,7 @@ class LISA(LISAdata, Bayes):
         Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
         
         ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-        SA_gw = Sgw*self.R1* (4*np.pi*self.fdata*self.armlength/3e8)**2  
+        SA_gw = Sgw*self.R1 
 
         ## The total noise spectra is the sum of the instrumental + astrophysical 
         SAA = SAA + SA_gw
@@ -216,7 +224,7 @@ def blip(paramsfile='params.ini'):
     params['seglen']   = float(config.get("params", "seglen"))
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
-    params['readData'] = int(config.get("params", "readData"))
+    params['mldc'] = int(config.get("params", "mldc"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
