@@ -15,6 +15,37 @@ class Bayes():
         '''
         aa = 1
 
+    def instr_prior(self, theta):
+
+
+        '''
+        Prior function for only instrumental noise
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube. 
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
+    
+        '''
+
+
+        # Unpack: Theta is defined in the unit cube
+        log_Np, log_Na = theta
+
+        # Transform to actual priors
+        log_Np = 5*log_Np - 44
+        log_Na = 5*log_Na - 51
+
+        return (log_Np, log_Na)
+
+
     def isgwb_prior(self, theta):
 
 
@@ -82,6 +113,50 @@ class Bayes():
     
         return theta
 
+    def instr_log_likelihood(self, theta):
+
+        '''
+        Calculate likelihood for only instrumental noise
+        
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for  Np and Na respectively. 
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
+        '''
+
+
+        # unpack priors
+        log_Np, log_Na  = theta
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        # Modelled Noise PSD
+        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+
+        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
+        ## This is true for an equal arm stationary lisa. 
+
+        S1 = np.repeat(S1.reshape(S1.size, 1), self.r1.shape[1], axis=1)
+        S2 = np.repeat(S2.reshape(S2.size, 1), self.r2.shape[1], axis=1)
+        S3 = np.repeat(S3.reshape(S3.size, 1), self.r3.shape[1], axis=1)
+
+        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/S1 + (np.abs(self.r2)**2)/S3 + \
+             np.log(2*np.pi*S1) + np.log(2*np.pi*S3) )
+
+    
+        return Loglike
+
+
+
+
     def isgwb_log_likelihood(self, theta):
 
         '''
@@ -133,9 +208,10 @@ class Bayes():
         ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
         SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
 
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
-             np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
+        #Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+        #     np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
 
+        Loglike = -np.sum( (np.abs(self.r1)**2)/SA_net +  np.log(2*np.pi*SA_net))
     
         return Loglike
 
@@ -183,9 +259,9 @@ class Bayes():
         # detector response tensor. R1, R2 and R3 here are 2-d arrays over frequency and spherical 
         # harmonic coeffcients
      
-        SA_gw = np.sum(Sgw.T*self.R1, axis=1)
-        SE_gw = np.sum(Sgw.T*self.R2, axis=1)
-        ST_gw = np.sum(Sgw.T*self.R3, axis=1)
+        SA_gw = 0.5*np.sum(Sgw.T*self.R1, axis=1)
+        SE_gw = 0.5*np.sum(Sgw.T*self.R2, axis=1)
+        ST_gw = 0.5*np.sum(Sgw.T*self.R3, axis=1)
 
         ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
         ## This is true for an equal arm stationary lisa. 
@@ -195,8 +271,9 @@ class Bayes():
         ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
         SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
         
-        Loglike  = -0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+        Loglike  = -np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
              np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
+
 
         if np.isnan(Loglike):
             import pdb; pdb.set_trace()

@@ -38,7 +38,9 @@ class LISA(LISAdata, Bayes):
             self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
         elif params['modeltype']=='sph_sgwb' and params['tdi_lev']=='aet':
             self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
-        else:
+        elif self.params['modeltype'] == 'noise_only':
+            print('Noise only model chosen ...')
+        else:       
            raise ValueError('Unknown recovery model selected')
        
 
@@ -182,7 +184,7 @@ class LISA(LISAdata, Bayes):
         
         ## Plot data PSD with the expected level SAA
         plt.loglog(self.fdata, SAA, label='required')
-        plt.loglog(self.fdata, SA_gw, label='gw required')
+        plt.loglog(self.fdata, 0.5*SA_gw, label='gw required')
 
         plt.loglog(psdfreqs, data_PSDA,label='PSDA', alpha=0.6)
         fmin, fmax = 1e-4, 1e-1
@@ -297,6 +299,13 @@ def blip(paramsfile='params.ini'):
 
         npar = len(parameters)
         engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
+                 npar, bound='multi', sample='rwalk', nlive=nlive)
+
+    elif params['modeltype']=='noise_only':
+        print "Doing an instrumental noise only analysis ..."
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+        npar = len(parameters)     
+        engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
                  npar, bound='multi', sample='rwalk', nlive=nlive)
 
     else:
