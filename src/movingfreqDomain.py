@@ -31,28 +31,21 @@ class movingfreqDomain():
         betaphase = 0
         alphaphase = 0
         ## Orbital angle alpha(t)
-        at = (2*np.pi/3.154e7)*timearray + alphaphase
+        at = (2*np.pi/31557600)*timearray + alphaphase
         ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = L/(2*a*np.sqrt(3))
         
         ph = np.zeros(len(timearray))
         ## Initialize arrays
-#        beta_n = np.array([[0],[0],[0]])
-#        x_n = np.array([[0],[0],[0]])
-#        y_n = np.array([[0],[0],[0]])
-#        z_n = np.array([[0],[0],[0]])
-        beta_n = np.array([ph,ph,ph])
+        beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase
         x_n = np.array([ph,ph,ph])
         y_n = np.array([ph,ph,ph])
         z_n = np.array([ph,ph,ph])
         
-        import pdb
-        pdb.set_trace()
         ## Calculate inclination and positions for each satellite.
         for n in sats:
-            beta_n[n-1][:] = (n-1)*(2/3)*np.pi + betaphase
-            x_n[n-1][:] = a*np.cos(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.sin(at)**2)*np.cos(beta_n[n-1]))
-            y_n[n-1][:] = a*np.sin(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+np.cos(at)**2)*np.sin(beta_n[n-1]))
+            x_n[n-1][:] = a*np.cos(at) + a*e*(np.sin(at)*np.cos(at)*np.sin(beta_n[n-1]) - (1+(np.sin(at))**2)*np.cos(beta_n[n-1]))
+            y_n[n-1][:] = a*np.sin(at) + a*e*(np.sin(at)*np.cos(at)*np.cos(beta_n[n-1]) - (1+(np.cos(at))**2)*np.sin(beta_n[n-1]))
             z_n[n-1][:] = -np.sqrt(3)*a*e*np.cos(at-beta_n[n-1])
         
         ## Construct position vectors r_n
@@ -471,9 +464,7 @@ class movingfreqDomain():
         Lu = np.sqrt(np.dot(uvec,uvec))
         Lv = np.sqrt(np.dot(vvec,vvec))
         Lw = np.sqrt(np.dot(wvec,wvec))
-        import pdb
-        pdb.set_trace()
-
+     
         ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
         udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
         vdir = ((x3-x1)/Lv)*np.cos(phi)*st + ((y3-y1)/Lv)*np.sin(phi)*st + ((z3-z1)/Lv)*ct

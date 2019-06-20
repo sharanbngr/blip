@@ -81,9 +81,10 @@ class LISA(LISAdata, Bayes):
         self.f0 = self.fdata/(2*fstar)
         
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
-        
+        #Pull orbital time increments from the data file
         self.timearray = timearray
-        self.ti = 6000
+        #Dummy time index (temporary until I get the time integration architecture up and running)
+        self.ti = 50000
 
     
     def diag_spectra(self):
