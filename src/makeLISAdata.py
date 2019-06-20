@@ -118,18 +118,12 @@ class LISAdata(freqDomain):
         '''
         Generate interferometric michelson (time-domain) noise, using freqDomain.fundamental_noise_spectrum
 
-
-
         Returns
         ---------
-    
         h1, h2, h3 : float
             Time series data for the three michelson channels
-
-
-
         '''
-          
+
         # --------------------- Generate Fake Noise -----------------------------
         print("Simulating michelson data ...")
 
@@ -150,7 +144,7 @@ class LISAdata(freqDomain):
         np31 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
         np23 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
         np32 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-
+        
         na12 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
         na21 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
         na13 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
@@ -192,6 +186,37 @@ class LISAdata(freqDomain):
         np.interp(tshift, tarr, h32, left=h32[0]) - h23
 
         return h1, h2, h3
+
+    def gen_xyz_noise(self):
+        
+        '''
+        Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum
+
+        Returns
+        ---------
+    
+        h1_noi, h2_noi, h3_noi : float
+            Time series data for the three TDI channels
+
+        '''
+        cspeed = 3e8 #m/s
+
+        # michelson channels
+        hm1, hm2, hm3 = self.gen_michelson_noise()
+
+        ## In time domain we need to do some interpolation to get to the appropriate TDI channels
+        tarr = np.linspace(0, self.params['dur'] , num= hm1.size, endpoint=False)
+
+        # shifted time series
+        tshift = tarr - 2*self.armlength/cspeed
+
+        hX = hm1 - np.interp(tshift, tarr, hm1, left=hm1[0])
+        hY = hm2 - np.interp(tshift, tarr, hm2, left=hm2[0])
+        hZ = hm3 - np.interp(tshift, tarr, hm3, left=hm3[0])
+
+        return hX, hY, hZ
+
+
 
     def gen_aet_noise(self):
         
