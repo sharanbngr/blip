@@ -44,7 +44,7 @@ class LISA(LISAdata, Bayes):
 
         ## Generate TDI noise
         h1, h2, h3 = self.gen_noise_spectrum()
-        import pdb; pdb.set_trace()
+    
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
             h1_gw, h2_gw, h3_gw = self.gen_aet_isgwb()
