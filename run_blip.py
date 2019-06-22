@@ -8,6 +8,7 @@ from src.makeLISAdata import LISAdata
 from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
+import scipy.signal as sg
 
 class LISA(LISAdata, Bayes):
 
@@ -43,15 +44,28 @@ class LISA(LISAdata, Bayes):
         '''
 
         ## Generate TDI noise
-        h1, h2, h3 = self.gen_noise_spectrum()
-    
+        times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
+        delt = times[1] - times[0]
+
+        ## If we increased the sample rate above for doing time-shifts, we will now downsample.
+        if self.params['fs'] < 1.0/delt:
+            self.h1 = sg.decimate(self.h1, int(1.0/(self.params['fs']*delt)))
+            self.h2 = sg.decimate(self.h2, int(1.0/(self.params['fs']*delt)))
+            self.h3 = sg.decimate(self.h3, int(1.0/(self.params['fs']*delt)))
+            
+            self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
+            times = self.params['fs']*np.arange(0, self.h1.size, 1)
+        else:
+            self.params['fs'] = 1.0/delt
+
+
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
             h1_gw, h2_gw, h3_gw = self.gen_aet_isgwb()
-            h1, h2, h3 = h1 + h1_gw, h2 + h2_gw, h3 + h3_gw
+            self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
         ## Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata = self.tser2fser(h1, h2, h3)
+        self.r1, self.r2, self.r3, self.fdata = self.tser2fser(self.h1, self.h2, self.h3)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -133,7 +147,7 @@ class LISA(LISAdata, Bayes):
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
         ## PSD from the FFTs
-        data_PSD = np.mean(np.abs(self.r1)**2, axis=1)
+        data_PSD1, data_PSD2, data_PSD3  = np.mean(np.abs(self.r1)**2, axis=1), np.mean(np.abs(self.r2)**2, axis=1), np.mean(np.abs(self.r3)**2, axis=1)
 
         # "Cut" to desired frequencies
         idx = np.logical_and(self.fdata >=  self.params['fmin'] , self.fdata <=  self.params['fmax'])
@@ -148,7 +162,7 @@ class LISA(LISAdata, Bayes):
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
         # Also convert from doppler-shift spectra to strain spectra
-        data_PSD = data_PSD[idx]
+        data_PSD1,data_PSD2, data_PSD3 = data_PSD1[idx], data_PSD2[idx], data_PSD3[idx]
 
         truevals = self.params['truevals']
         ## The last two elements are the position and the acceleration noise levels. 
@@ -156,6 +170,9 @@ class LISA(LISAdata, Bayes):
 
         # Modelled Noise PSD
         S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+
+        ## start a plot instance. 
+        plt.subplot(3, 1, 1)
 
         if self.params['modeltype'] != 'noise_only':
             ## SGWB signal levels of the mldc data
@@ -171,29 +188,51 @@ class LISA(LISAdata, Bayes):
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
         
             ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw = Sgw*self.R1 
+            S1_gw, S2_gw, S3_gw = Sgw*self.R1, Sgw*self.R2, Sgw*self.R3 
 
             ## The total noise spectra is the sum of the instrumental + astrophysical 
-            S1 = S1+ S1_gw
+            S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
 
-            plt.loglog(self.fdata, 0.5*S1_gw, label='gw required')
+            plt.loglog(self.fdata, S1_gw, label='gw required')
+            plt.subplot(3, 1, 2)
+            plt.loglog(self.fdata, S2_gw, label='gw required')
+            plt.subplot(3, 1, 3)
+            plt.loglog(self.fdata, S3_gw, label='gw required')
+       
 
-        
-        ## Plot data PSD with the expected level SAA
+        ## Plot data PSD with the expected level
+        plt.subplot(3, 1, 1)
         plt.loglog(self.fdata, S1, label='required')
-
-        plt.loglog(psdfreqs, data_PSD,label='PSD of the data series', alpha=0.6)
-        fmin, fmax = 1e-4, 1e-1
-        ymin, ymax = 1e-45, 1e-38
-        plt.xlim(fmin, fmax)
-        plt.ylim(ymin, ymax)
+        plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=125)
-        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
+        plt.ylim(3e-42, 1e-37)
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+      
+        plt.subplot(3, 1, 2)
+        plt.loglog(self.fdata, S2, label='required')
+        plt.loglog(psdfreqs, data_PSD2,label='PSD of the data series', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel('Power Spectrum ')
+        plt.legend()
+        plt.ylim(3e-42, 1e-37)
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+      
+        plt.subplot(3, 1, 3)
+        plt.loglog(self.fdata, S3, label='required')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel('Power Spectrum ')
+        plt.legend()
+        #plt.ylim(3e-42, 1e-37)
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+
+
+        plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
         import pdb; pdb.set_trace()
-        plt.close()
+        plt.close() 
         
 
 
