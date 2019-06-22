@@ -139,7 +139,7 @@ class LISAdata(freqDomain):
         # To implement TDI we need time shifts of multiples of L.
         tlag  = self.armlength/cspeed
 
-        ## If we have a smaller fs than tlag/2, we will use pick a factor of 2 greater than that as the sampling freq
+        ## If we have a smaller fs than 2/tlag, we will use pick a factor of 2 greater than that as the sampling freq
         if self.params['fs'] < 2.0/tlag:
             fs_eff = 2**(np.floor(np.log2(2.0/tlag)))
     
@@ -163,7 +163,7 @@ class LISAdata(freqDomain):
         tarr = np.linspace(0, 1.1*self.params['dur'] , num=np12.size, endpoint=False)
         delt = tarr[2] - tarr[1]
 
-        tlag_idx = int(round(tlag/delt))
+        tlag_idx = int(round(tlag*fs_eff))
 
         if 1.0/delt != fs_eff:
             raise ValueError('Time series generated not consistant with the sampling frequency')
