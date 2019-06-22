@@ -8,6 +8,7 @@ from src.makeLISAdata import LISAdata
 from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
+import scipy.signal as sg
 
 class LISA(LISAdata, Bayes):
 
@@ -23,29 +24,17 @@ class LISA(LISAdata, Bayes):
         # Set up the Bayes class
         Bayes.__init__(self)
 
+        ## Make noise spectra
+        self.which_noise_spectrum()
+        self.which_response()
+
         ## Generate or get mldc data
         if self.params['mldc']:
             self.read_mldc_data()
         else:
             self.makedata()
-
-        ## Calculate the desired antenna patterns
-        if self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='aet':
-            self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='xyz':
-            self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='michelson':
-            self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
-        elif params['modeltype']=='sph_sgwb' and params['tdi_lev']=='aet':
-            self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
-        elif self.params['modeltype'] == 'noise_only':
-            print('Noise only model chosen ...')
-        else:       
-           raise ValueError('Unknown recovery model selected')
-       
-
-        self.which_noise_spectrum()
-        #self.diag_spectra()
+        
+        self.diag_spectra()
 
 
     def makedata(self):
@@ -55,15 +44,28 @@ class LISA(LISAdata, Bayes):
         '''
 
         ## Generate TDI noise
-        h1, h2, h3 = self.gen_aet_noise()
+        times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
+        delt = times[1] - times[0]
+
+        ## If we increased the sample rate above for doing time-shifts, we will now downsample.
+        if self.params['fs'] < 1.0/delt:
+            self.h1 = sg.decimate(self.h1, int(1.0/(self.params['fs']*delt)))
+            self.h2 = sg.decimate(self.h2, int(1.0/(self.params['fs']*delt)))
+            self.h3 = sg.decimate(self.h3, int(1.0/(self.params['fs']*delt)))
+            
+            self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
+            times = self.params['fs']*np.arange(0, self.h1.size, 1)
+        else:
+            self.params['fs'] = 1.0/delt
+
 
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
             h1_gw, h2_gw, h3_gw = self.gen_aet_isgwb()
-            h1, h2, h3 = h1 + h1_gw, h2 + h2_gw, h3 + h3_gw
+            self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
         ## Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata = self.tser2fser(h1, h2, h3)
+        self.r1, self.r2, self.r3, self.fdata = self.tser2fser(self.h1, self.h2, self.h3)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -99,13 +101,37 @@ class LISA(LISAdata, Bayes):
         
 
     def which_noise_spectrum(self):
+
+        ## Figure out which instrumental noise spectra to use
+
         if self.params['tdi_lev']=='aet':
             self.instr_noise_spectrum = self.aet_noise_spectrum 
+            self.gen_noise_spectrum = self.gen_aet_noise
         elif self.params['tdi_lev']=='xyz':
             self.instr_noise_spectrum = self.xyz_noise_spectrum
+            self.gen_noise_spectrum = self.gen_xyz_noise
         elif self.params['tdi_lev']=='michelson':
             self.instr_noise_spectrum = self.mich_noise_spectrum
+            self.gen_noise_spectrum = self.gen_michelson_noise
+
+    def which_response(self):
     
+        ## Figure out which antenna patterns to use
+
+        if self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='aet':
+            self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
+        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='xyz':
+            self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
+        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='michelson':
+            self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
+        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
+            self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
+        elif self.params['modeltype'] == 'noise_only':
+            print('Noise only model chosen ...')
+        else:       
+           raise ValueError('Unknown recovery model selected')
+
+
     def diag_spectra(self):
 
         '''
@@ -114,35 +140,18 @@ class LISA(LISAdata, Bayes):
 
         import scipy.signal as sg
 
-        ## Read in data from the mldc
-        hA, hE, hT = self.read_data()
-
-
         ## ------------ Calculate PSD ------------------
  
         # Number of segmants
     
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
-        # Apply band pass filter
-        order = 8
-        zz, pp, kk = sg.butter(order, [0.5*self.params['fmin']/(self.params['fs']/2), \
-                 0.4*self.params['fs']/(self.params['fs']/2)], btype='bandpass', output='zpk')
-        sos = sg.zpk2sos(zz, pp, kk)
-
-        hA = sg.sosfiltfilt(sos, hA)
-
-        ## Calcualate hann-windowed PSD with 50% overlapping
-        #psdfreqs, data_PSDA = sg.welch(hA, fs=self.params['fs'], window='hanning', nperseg=Nperseg, noverlap=int(0.5*Nperseg))
-        rA, rE, rT, psdfreqs = self.tser2fser(hA, hE, hT)
-
-        data_PSDA = np.mean(np.abs(rA)**2, axis=1)/(4*self.f0)**2 
+        ## PSD from the FFTs
+        data_PSD1, data_PSD2, data_PSD3  = np.mean(np.abs(self.r1)**2, axis=1), np.mean(np.abs(self.r2)**2, axis=1), np.mean(np.abs(self.r3)**2, axis=1)
 
         # "Cut" to desired frequencies
-        idx = np.logical_and(psdfreqs >=  self.params['fmin'] , psdfreqs <=  self.params['fmax'])
-
-        # Output arrays
-        psdfreqs = psdfreqs[idx]
+        idx = np.logical_and(self.fdata >=  self.params['fmin'] , self.fdata <=  self.params['fmax'])
+        psdfreqs = self.fdata[idx]
 
         #Charactersitic frequency
         fstar = 3e8/(2*np.pi*self.armlength)
@@ -150,53 +159,80 @@ class LISA(LISAdata, Bayes):
         # define f0 = f/2f*
         f0 = self.fdata/(2*fstar)
 
-
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
         # Also convert from doppler-shift spectra to strain spectra
-        data_PSDA = data_PSDA[idx]
-        
+        data_PSD1,data_PSD2, data_PSD3 = data_PSD1[idx], data_PSD2[idx], data_PSD3[idx]
 
         truevals = self.params['truevals']
-        Np, Na = 10**truevals[2], 10**truevals[3]
+        ## The last two elements are the position and the acceleration noise levels. 
+        Np, Na = 10**truevals[-2], 10**truevals[-1]
 
         # Modelled Noise PSD
-        SAA, SEE, STT = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
-        SAA = SAA    
-        ## SGWB signal levels of the mldc data
-        Omega0, alpha = 10**truevals[1], truevals[0]
+        ## start a plot instance. 
+        plt.subplot(3, 1, 1)
 
-        ## Hubble constant
-        H0 = 2.2*10**(-18)
+        if self.params['modeltype'] != 'noise_only':
+            ## SGWB signal levels of the mldc data
+            Omega0, alpha = 10**truevals[1], truevals[0]
 
-        ## Calculate astrophysical power law noise
-        Omegaf = Omega0*(self.fdata/25)**alpha
+            ## Hubble constant
+            H0 = 2.2*10**(-18)
 
-        ## Power spectra of the SGWB
-        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+            ## Calculate astrophysical power law noise
+            Omegaf = Omega0*(self.fdata/25)**alpha
+
+            ## Power spectra of the SGWB
+            Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
         
-        ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-        SA_gw = Sgw*self.R1 
+            ## Spectrum of the SGWB signal convoluted with the detector response tensor.
+            S1_gw, S2_gw, S3_gw = Sgw*self.R1, Sgw*self.R2, Sgw*self.R3 
 
-        ## The total noise spectra is the sum of the instrumental + astrophysical 
-        SAA = SAA + SA_gw
-        
-        ## Plot data PSD with the expected level SAA
-        plt.loglog(self.fdata, SAA, label='required')
-        plt.loglog(self.fdata, 0.5*SA_gw, label='gw required')
+            ## The total noise spectra is the sum of the instrumental + astrophysical 
+            S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
 
-        plt.loglog(psdfreqs, data_PSDA,label='PSDA', alpha=0.6)
-        fmin, fmax = 1e-4, 1e-1
-        ymin, ymax = 1e-45, 1e-38
-        plt.xlim(fmin, fmax)
-        plt.ylim(ymin, ymax)
+            plt.loglog(self.fdata, S1_gw, label='gw required')
+            plt.subplot(3, 1, 2)
+            plt.loglog(self.fdata, S2_gw, label='gw required')
+            plt.subplot(3, 1, 3)
+            plt.loglog(self.fdata, S3_gw, label='gw required')
+       
+
+        ## Plot data PSD with the expected level
+        plt.subplot(3, 1, 1)
+        plt.loglog(self.fdata, S1, label='required')
+        plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
-        plt.ylabel('Power Spectrum 1/Hz')
+        plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.savefig(self.params['out_dir'] + '/psdA.png', dpi=125)
+        plt.ylim(3e-42, 1e-37)
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+      
+        plt.subplot(3, 1, 2)
+        plt.loglog(self.fdata, S2, label='required')
+        plt.loglog(psdfreqs, data_PSD2,label='PSD of the data series', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel('Power Spectrum ')
+        plt.legend()
+        plt.ylim(3e-42, 1e-37)
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+      
+        plt.subplot(3, 1, 3)
+        plt.loglog(self.fdata, S3, label='required')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel('Power Spectrum ')
+        plt.legend()
+        #plt.ylim(3e-42, 1e-37)
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+
+
+        plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
         import pdb; pdb.set_trace()
-        plt.close()
+        plt.close() 
         
 
 

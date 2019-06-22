@@ -118,18 +118,12 @@ class LISAdata(freqDomain):
         '''
         Generate interferometric michelson (time-domain) noise, using freqDomain.fundamental_noise_spectrum
 
-
-
         Returns
         ---------
-    
         h1, h2, h3 : float
             Time series data for the three michelson channels
-
-
-
         '''
-          
+
         # --------------------- Generate Fake Noise -----------------------------
         print("Simulating michelson data ...")
 
@@ -137,68 +131,85 @@ class LISAdata(freqDomain):
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
         frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        fstar = 3e8/(2*np.pi*self.armlength)
+        f0 = frange/(2*fstar)
 
-        Sp, Sa = self.fundamental_noise_spectrum(frange)
+        Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
         # To implement TDI we need time shifts of multiples of L.
         tlag  = self.armlength/cspeed
 
+        ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
+        ## If the sampling frequency is too low, that doesn't play well with the time-shifts
+        if self.params['fs'] < 2:
+            print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
+            fs_eff = 2
+        else:
+            fs_eff = self.params['fs']
+
         # Generate data
-        np12 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np21 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np13 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np31 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np23 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-        np32 = self.gaussianData(Sp, frange, self.params['fs'], self.params['dur'])
-
-        na12 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na21 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na13 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na31 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na23 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-        na32 = self.gaussianData(Sa, frange, self.params['fs'], self.params['dur'])
-    
-
+        np12 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        np21 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        np13 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        np31 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        np23 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        np32 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        
+        na12 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+        na21 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+        na13 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+        na31 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+        na23 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+        na32 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+ 
         # time array and time shift array
-        tarr = np.linspace(0, self.params['dur'] , num=np12.size, endpoint=False)
+        tarr = np.linspace(0, 1.1*self.params['dur'] , num=np12.size, endpoint=False)
         delt = tarr[2] - tarr[1]
 
-        if 1.0/delt != self.params['fs']:
+        tlag_idx = int(round(tlag*fs_eff))
+
+        if 1.0/delt != fs_eff:
             raise ValueError('Time series generated not consistant with the sampling frequency')
             
 
-        # shifted time series
-        tshift = tarr - tlag
+        ## One way dopper channels for each arms
+        h12  = np12[tlag_idx:] - na12[tlag_idx:] + na21[0:-tlag_idx] 
+        h21  = np21[tlag_idx:] + na21[tlag_idx:] - na12[0:-tlag_idx] 
 
-        ## The three dopper channels for each arms
-        h12  = np12 - na12 + np.interp(tshift, tarr, na21, left=na21[0])
-        h21  = np21 + na21 - np.interp(tshift, tarr, na12, left=na12[0])
+        h23  = np23[tlag_idx:] - na23[tlag_idx:] + na32[0:-tlag_idx] 
+        h32  = np32[tlag_idx:] + na32[tlag_idx:] - na23[0:-tlag_idx] 
 
-        h23  = np23 - na23 + np.interp(tshift, tarr, na32, left=na32[0])
-        h32  = np32 + na32 - np.interp(tshift, tarr, na23, left=np23[0])
+        h31  = np31[tlag_idx:] - na31[tlag_idx:] + na13[0:-tlag_idx] 
+        h13  = np13[tlag_idx:] + na13[tlag_idx:] - na31[0:-tlag_idx]
+        
 
-        h31  = np31 - na31 + np.interp(tshift, tarr, na13, left=na13[0])
-        h13  = np13 + na13 - np.interp(tshift, tarr, na31, left=na31[0])
-
-
-        # The michelson channels are formed from the doppler channels
+        # The Michelson channels, formed from the doppler channels
+        h1 = h12[0:-tlag_idx] + h21[tlag_idx:] - h13[0:-tlag_idx] - h31[tlag_idx:]
+        h2 = h23[0:-tlag_idx] + h32[tlag_idx:] - h21[0:-tlag_idx] - h12[tlag_idx:]
+        h3 = h31[0:-tlag_idx] + h13[tlag_idx:] - h32[0:-tlag_idx] - h23[tlag_idx:] 
+        
+        '''
+        Older way of doing time shifts is commented out here. Interp doesn't work since it
+        creates correlated samples, but I leave it here for reference. - Sharan
+        
         h1 = np.interp(tshift, tarr, h12, left=h12[0]) + h21 -\
         np.interp(tshift, tarr, h13, left=h13[0]) - h31
-
+        
         h2 = np.interp(tshift, tarr, h23, left=h23[0]) + h32 -\
         np.interp(tshift, tarr, h21, left=h21[0]) - h12
 
         h3 = np.interp(tshift, tarr, h31, left=h31[0]) + h13 -\
         np.interp(tshift, tarr, h32, left=h32[0]) - h23
+        '''
 
-        return h1, h2, h3
+        return tarr[tlag_idx:], h1, h2, h3
 
-    def gen_aet_noise(self):
+
+
+    def gen_xyz_noise(self):
         
         '''
         Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum
-
-
 
         Returns
         ---------
@@ -207,29 +218,47 @@ class LISAdata(freqDomain):
             Time series data for the three TDI channels
 
         '''
+        cspeed = 3e8 #m/s
+
+        # michelson channels
+        tarr, hm1, hm2, hm3 = self.gen_michelson_noise()
+
+        fs_eff = 1.0/(tarr[1] - tarr[0])
+        delt = 1.0/fs_eff
+        # Introduce time series
+        tshift = 2*self.armlength/cspeed
+        tshift_idx = int(round(tshift*fs_eff))
+
+        hX = hm1[tshift_idx:] - hm1[0:-tshift_idx]
+        hY = hm2[tshift_idx:] - hm2[0:-tshift_idx]
+        hZ = hm3[tshift_idx:] - hm3[0:-tshift_idx]
+
+        return tarr[tshift_idx:], hX, hY, hZ
 
 
+
+    def gen_aet_noise(self):
+        
+        '''
+        Generate interferometric A, E and T channel TDI (time-domain) noise, using freqDomain.fundamental_noise_spectrum
+
+        Returns
+        ---------    
+        h1_noi, h2_noi, h3_noi : float
+            Time series data for the three TDI channels
+
+        '''
 
         cspeed = 3e8 #m/s
 
         # michelson channels
-        hm1, hm2, hm3 = self.gen_michelson_noise()
-
-        ## In time domain we need to do some interpolation to get to the appropriate TDI channels
-        tarr = np.linspace(0, self.params['dur'] , num= hm1.size, endpoint=False)
-
-        # shifted time series
-        tshift = tarr - 2*self.armlength/cspeed
-
-        hX = hm1 - np.interp(tshift, tarr, hm1, left=hm1[0])
-        hY = hm2 - np.interp(tshift, tarr, hm2, left=hm2[0])
-        hZ = hm3 - np.interp(tshift, tarr, hm3, left=hm3[0])
+        tarr, hX, hY, hZ = self.gen_xyz_noise()
 
         h1_noi = (1.0/3.0)*(2*hX - hY - hZ)
         h2_noi = (1.0/np.sqrt(3.0))*(hZ - hY)
         h3_noi = (1.0/3.0)*(hX + hY + hZ)
 
-        return h1_noi, h2_noi, h3_noi
+        return tarr, h1_noi, h2_noi, h3_noi
 
     def gen_aet_isgwb(self):
         
@@ -407,8 +436,6 @@ class LISAdata(freqDomain):
             r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
             r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
             r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
-
-
 
         # "Cut" to desired frequencies
         fftfreqs = np.fft.rfftfreq(Nperseg, 1.0/self.params['fs'])

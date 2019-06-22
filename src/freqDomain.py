@@ -723,12 +723,10 @@ class freqDomain():
 
         '''
 
-        # Get Sp and Sa
-        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
-
+        SM1, SM2, SM3 = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        SX = 16.0 * np.sin(2*f0)**2 * (2.0 * (1.0 + np.cos(2*f0)**2) * Sa + Sp)
+        SX = 4 *SM1* np.sin(2*f0)**2 
 
 
         return SX, SX, SX
@@ -768,7 +766,7 @@ class freqDomain():
 
 
         ## Noise spectra of the X, Y and Z channels
-        SX = 4.0 * (2.0 * (1.0 + np.cos(2*f0)**2) * Sa + Sp)
+        SX = 4.0 * (2.0 * (1.0 + (np.cos(2*f0))**2) * Sa + Sp)
 
 
         return SX, SX, SX
