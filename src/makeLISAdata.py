@@ -141,7 +141,7 @@ class LISAdata(freqDomain):
 
         ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 2:
+        if self.params['fs'] < 4:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
             fs_eff = 2
         else:
@@ -422,6 +422,7 @@ class LISAdata(freqDomain):
         
         # Hann Window
         hwin = np.hanning(Nperseg)
+        win_fact = np.mean(hwin**2)
 
         # We will use 50% overlapping segments
         for ii in range(0, nsegs):
@@ -447,10 +448,10 @@ class LISAdata(freqDomain):
         
         # Get desired frequencies only
         # We want to normalize ffts so thier square give the psd
-        # 0.375 is to adjust for hann windowing, sqrt(2) for single sided
-        r1 = np.sqrt(2/0.375)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-        r2 = np.sqrt(2/0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-        r3 = np.sqrt(2/0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        # win_fact is to adjust for hann windowing, sqrt(2) for single sided
+        r1 = np.sqrt(2/win_fact)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r2 = np.sqrt(2/win_fact)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r3 = np.sqrt(2/win_fact)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
 

@@ -34,7 +34,7 @@ class LISA(LISAdata, Bayes):
         else:
             self.makedata()
         
-        self.diag_spectra()
+        #self.diag_spectra()
 
 
     def makedata(self):

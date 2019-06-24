@@ -726,7 +726,7 @@ class freqDomain():
         SM1, SM2, SM3 = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        SX = 4 *SM1* np.sin(2*f0)**2 
+        SX = 4*SM1*np.sin(2*f0)**2 
 
 
         return SX, SX, SX
