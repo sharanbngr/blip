@@ -31,8 +31,8 @@ class LISA(LISAdata, Bayes):
 
         ## Calculate the antenna patterns
         if self.params['modeltype'] == 'isgwb':
-            self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.timearray)
-            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.ti, self.rs1, self.rs2, self.rs3)
+            self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
+            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
         elif params['modeltype']=='sph_sgwb':
             self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
         else:
@@ -73,7 +73,7 @@ class LISA(LISAdata, Bayes):
         h1, h2, h3, timearray = self.read_data()
         
         ## Generate lisa freq domain data from time domain data
-        r1, r2, r3, self.fdata = self.tser2fser(h1, h2, h3)
+        r1, r2, r3, self.fdata, tsegstart, tsegmid = self.tser2fser(h1, h2, h3, timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -81,11 +81,15 @@ class LISA(LISAdata, Bayes):
         self.f0 = self.fdata/(2*fstar)
         
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
-        #Pull orbital time increments from the data file
+        
+        #Pull time segments
         self.timearray = timearray
+        self.tsegstart = tsegstart
+        self.tsegmid = tsegmid
         #Dummy time index (temporary until I get the time integration architecture up and running)
         self.ti = 50000
-
+        import pdb
+        pdb.set_trace()
     
     def diag_spectra(self):
 

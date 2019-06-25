@@ -7,9 +7,9 @@ class movingfreqDomain():
     '''
     Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. All methods are calculated for a moving LISA constellation given a particular set of satellite orbits.
     '''
-    def lisa_orbits(self, timearray):
+    def lisa_orbits(self, midpoints):
         '''
-        Define LISA orbits as functions of a predefined time array using analytic MLDC orbits.
+        Define LISA orbital positions at the midpoint of each time integration segment using analytic MLDC orbits.
         
         Parameters
         -----------
@@ -20,8 +20,9 @@ class movingfreqDomain():
         Returns
         -----------
         rs1, rs2, rs3  :  array
-            Arrays of satellite positions for reach time in timearray. e.g. rs1[1] is [x1,y1,z1] at t=timearray[1]. 
+            Arrays of satellite positions for each segment midpoint in timearray. e.g. rs1[1] is [x1,y1,z1] at t=midpoint[1]=timearray[1]+(segment length)/2. 
         '''
+
         ## Semimajor axis in m
         a = 1.496e11
         ## LISA arm length in m
@@ -31,11 +32,11 @@ class movingfreqDomain():
         betaphase = 0
         alphaphase = 0
         ## Orbital angle alpha(t)
-        at = (2*np.pi/31557600)*timearray + alphaphase
+        at = (2*np.pi/31557600)*midpoints + alphaphase
         ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = L/(2*a*np.sqrt(3))
         
-        ph = np.zeros(len(timearray))
+        ph = np.zeros(len(midpoints))
         ## Initialize arrays
         beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase
         x_n = np.array([ph,ph,ph])
@@ -52,7 +53,8 @@ class movingfreqDomain():
         rs1 = np.array([x_n[0],y_n[0],z_n[0]])
         rs2 = np.array([x_n[1],y_n[1],z_n[1]])
         rs3 = np.array([x_n[2],y_n[2],z_n[2]])
-        
+        import pdb
+        pdb.set_trace()
         return rs1, rs2, rs3
         
         
@@ -409,7 +411,7 @@ class movingfreqDomain():
 
 
 
-    def tdi_isgwb_response(self, f0, ti, rs1, rs2, rs3): 
+    def tdi_isgwb_response(self, f0, midpoints, rs1, rs2, rs3): 
 
         '''
         Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. Note that since this is the response to an isotropic background, the response function is integrated over sky direction and averaged over polarization. The angular integral is a linear and rectangular in the cos(theta) and phi space.  Note that f0 is (pi*L*f)/c and is input as an array
@@ -434,7 +436,9 @@ class movingfreqDomain():
         R1, R2 and R3   :   float
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
-
+        import pdb
+        pdb.set_trace()
+        timeindices = np.arange(len(midpoints))
         
         tt = np.arange(-1, 1, 0.01)
         pp = np.arange(0, 2*np.pi, np.pi/100)
@@ -443,97 +447,102 @@ class movingfreqDomain():
         dct = ct[0, 1] - ct[0,0]
         dphi = phi[1,0] - phi[0,0]
         st = np.sqrt(1-ct**2)
-
-        ## Define x/y/z for each satellite at time given by timearray[ti]
-        x1 = rs1[0][ti]
-        y1 = rs1[1][ti]
-        z1 = rs1[2][ti]
-        x2 = rs2[0][ti]
-        y2 = rs2[1][ti]
-        z2 = rs2[2][ti]
-        x3 = rs3[0][ti]
-        y3 = rs3[1][ti]
-        z3 = rs3[2][ti]
         
-        ## Define vector u at time timearray[ti]
-        uvec = rs2[:,ti] - rs1[:,ti]
-        vvec = rs3[:,ti] - rs1[:,ti]
-        wvec = rs3[:,ti] - rs2[:,ti]
-
-        ## Calculate arm lengths
-        Lu = np.sqrt(np.dot(uvec,uvec))
-        Lv = np.sqrt(np.dot(vvec,vvec))
-        Lw = np.sqrt(np.dot(wvec,wvec))
-     
-        ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
-        udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
-        vdir = ((x3-x1)/Lv)*np.cos(phi)*st + ((y3-y1)/Lv)*np.sin(phi)*st + ((z3-z1)/Lv)*ct
-        wdir = ((x3-x2)/Lw)*np.cos(phi)*st + ((y3-y2)/Lw)*np.sin(phi)*st + ((z3-z2)/Lw)*ct
-
         # Initlize arrays for the detector reponse
-        R1 = np.zeros(f0.size)
-        R2 = np.zeros(f0.size)
-        R3 = np.zeros(f0.size)
+        R1 = np.zeros((len(timeindices),f0.size))
+        R2 = np.zeros((len(timeindices),f0.size))
+        R3 = np.zeros((len(timeindices),f0.size))
+        
+        for ti in timeindices:
+            ## Define x/y/z for each satellite at time given by timearray[ti]
+            x1 = rs1[0][ti]
+            y1 = rs1[1][ti]
+            z1 = rs1[2][ti]
+            x2 = rs2[0][ti]
+            y2 = rs2[1][ti]
+            z2 = rs2[2][ti]
+            x3 = rs3[0][ti]
+            y3 = rs3[1][ti]
+            z3 = rs3[2][ti]
+            
+            ## Define vector u at time timearray[ti]
+            uvec = rs2[:,ti] - rs1[:,ti]
+            vvec = rs3[:,ti] - rs1[:,ti]
+            wvec = rs3[:,ti] - rs2[:,ti]
+    
+            ## Calculate arm lengths
+            Lu = np.sqrt(np.dot(uvec,uvec))
+            Lv = np.sqrt(np.dot(vvec,vvec))
+            Lw = np.sqrt(np.dot(wvec,wvec))
+         
+            ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
+            udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
+            vdir = ((x3-x1)/Lv)*np.cos(phi)*st + ((y3-y1)/Lv)*np.sin(phi)*st + ((z3-z1)/Lv)*ct
+            wdir = ((x3-x2)/Lw)*np.cos(phi)*st + ((y3-y2)/Lw)*np.sin(phi)*st + ((z3-z2)/Lw)*ct
+    
 
-        # Calculate the detector response for each frequency
-        for ii in range(0, f0.size):
-
-            # Calculate GW transfer function for the michelson channels
-            gammaU    =    1/2 * (np.sinc((f0[ii])*(1 - udir))*np.exp(-1j*f0[ii]*(3+udir)) + \
-                             np.sinc((f0[ii])*(1 + udir))*np.exp(-1j*f0[ii]*(1+udir)))
-
-            gammaV    =    1/2 * (np.sinc((f0[ii])*(1 - vdir))*np.exp(-1j*f0[ii]*(3+vdir)) + \
-                             np.sinc((f0[ii])*(1 + vdir))*np.exp(-1j*f0[ii]*(1+vdir)))
-
-            gammaW    =    1/2 * (np.sinc((f0[ii])*(1 - wdir))*np.exp(-1j*f0[ii]*(3+wdir)) + \
-                             np.sinc((f0[ii])*(1 + wdir))*np.exp(-1j*f0[ii]*(1+wdir)))
-
-            ## Michelson Channel Antenna patterns for + pol
-            ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
-
-            Fplus_u   = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
-                         (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)*gammaU
-
-            Fplus_v   = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
-                         (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)*gammaV
-
-            Fplus_w   = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
-                         (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)*gammaW
-
-
-            ## Michelson Channel Antenna patterns for x pol
-            ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-            Fcross_u  = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st) * gammaU
-            Fcross_v  = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st) * gammaV
-            Fcross_w  = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st) * gammaW
-
-
-            ## First Michelson antenna patterns
-            ## Calculate Fplus
-            Fplus1 = (Fplus_u - Fplus_v)
-            Fplus2 = (Fplus_w - Fplus_u)
-            Fplus3 = (Fplus_v - Fplus_w)
-
-            ## Calculate Fcross
-            Fcross1 = (Fcross_u - Fcross_v)
-            Fcross2 = (Fcross_w - Fcross_u)
-            Fcross3 = (Fcross_v - Fcross_w)
-
-            ## Calculate antenna patterns for the A, E and T channels -  We are switiching to doppler channel.
-            FAplus = (1/3)*np.sin(2*f0[ii])*(2*Fplus1 - Fplus2 - Fplus3)
-            FEplus = (1/np.sqrt(3))*np.sin(2*f0[ii])*(Fplus3 - Fplus2)
-            FTplus = (1/3)*np.sin(2*f0[ii])*(Fplus1 + Fplus3 + Fplus2)
-
-            FAcross = (1/3)*np.sin(2*f0[ii])*(2*Fcross1 - Fcross2 - Fcross3)
-            FEcross = (1/np.sqrt(3))*np.sin(2*f0[ii])*(Fcross3 - Fcross2)
-            FTcross = (1/3)*np.sin(2*f0[ii])*(Fcross1 + Fcross3 + Fcross2)
-
-            ## Detector response for the TDI Channels, summed over polarization
-            ## and integrated over sky direction
-            R1[ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FAplus))**2 + (np.absolute(FAcross))**2)
-            R2[ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FEplus))**2 + (np.absolute(FEcross))**2)
-            R3[ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FTplus))**2 + (np.absolute(FTcross))**2)
-
+    
+            # Calculate the detector response for each frequency
+            for ii in range(0, f0.size):
+    
+                # Calculate GW transfer function for the michelson channels
+                gammaU    =    1/2 * (np.sinc((f0[ii])*(1 - udir))*np.exp(-1j*f0[ii]*(3+udir)) + \
+                                 np.sinc((f0[ii])*(1 + udir))*np.exp(-1j*f0[ii]*(1+udir)))
+    
+                gammaV    =    1/2 * (np.sinc((f0[ii])*(1 - vdir))*np.exp(-1j*f0[ii]*(3+vdir)) + \
+                                 np.sinc((f0[ii])*(1 + vdir))*np.exp(-1j*f0[ii]*(1+vdir)))
+    
+                gammaW    =    1/2 * (np.sinc((f0[ii])*(1 - wdir))*np.exp(-1j*f0[ii]*(3+wdir)) + \
+                                 np.sinc((f0[ii])*(1 + wdir))*np.exp(-1j*f0[ii]*(1+wdir)))
+    
+                ## Michelson Channel Antenna patterns for + pol
+                ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
+    
+                Fplus_u   = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
+                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)*gammaU
+    
+                Fplus_v   = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
+                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)*gammaV
+    
+                Fplus_w   = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
+                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)*gammaW
+    
+    
+                ## Michelson Channel Antenna patterns for x pol
+                ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
+                Fcross_u  = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st) * gammaU
+                Fcross_v  = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st) * gammaV
+                Fcross_w  = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st) * gammaW
+    
+    
+                ## First Michelson antenna patterns
+                ## Calculate Fplus
+                Fplus1 = (Fplus_u - Fplus_v)
+                Fplus2 = (Fplus_w - Fplus_u)
+                Fplus3 = (Fplus_v - Fplus_w)
+    
+                ## Calculate Fcross
+                Fcross1 = (Fcross_u - Fcross_v)
+                Fcross2 = (Fcross_w - Fcross_u)
+                Fcross3 = (Fcross_v - Fcross_w)
+    
+                ## Calculate antenna patterns for the A, E and T channels -  We are switiching to doppler channel.
+                FAplus = (1/3)*np.sin(2*f0[ii])*(2*Fplus1 - Fplus2 - Fplus3)
+                FEplus = (1/np.sqrt(3))*np.sin(2*f0[ii])*(Fplus3 - Fplus2)
+                FTplus = (1/3)*np.sin(2*f0[ii])*(Fplus1 + Fplus3 + Fplus2)
+    
+                FAcross = (1/3)*np.sin(2*f0[ii])*(2*Fcross1 - Fcross2 - Fcross3)
+                FEcross = (1/np.sqrt(3))*np.sin(2*f0[ii])*(Fcross3 - Fcross2)
+                FTcross = (1/3)*np.sin(2*f0[ii])*(Fcross1 + Fcross3 + Fcross2)
+    
+                ## Detector response for the TDI Channels, summed over polarization
+                ## and integrated over sky direction
+                R1[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FAplus))**2 + (np.absolute(FAcross))**2)
+                R2[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FEplus))**2 + (np.absolute(FEcross))**2)
+                R3[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FTplus))**2 + (np.absolute(FTcross))**2)
+                if ti == 5:
+                    import pdb
+                    pdb.set_trace()
 
 
         return R1, R2, R3

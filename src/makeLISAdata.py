@@ -339,7 +339,7 @@ class LISAdata(movingfreqDomain):
             hY = sg.decimate(hY, int(1.0/(self.params['fs']*delt)))
             hZ = sg.decimate(hZ, int(1.0/(self.params['fs']*delt)))
             self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
-            times = self.params['fs']*np.arange(0, hX.size, 1)
+            times = (1/self.params['fs'])*np.arange(0, hX.size, 1)
         else:
             self.params['fs'] = 1.0/delt
                 
@@ -347,11 +347,10 @@ class LISAdata(movingfreqDomain):
         hA = (1.0/3.0)*(2*hX - hY - hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
         hT = (1.0/3.0)*(hX + hY + hZ)
-        
         return hA, hE, hT, times
 
 
-    def tser2fser(self, h1, h2, h3):
+    def tser2fser(self, h1, h2, h3, timearray):
         
         '''
         Convert time domain data to fourier domain and return ffts. The convention is that the 
@@ -361,8 +360,11 @@ class LISAdata(movingfreqDomain):
 
         Parameters
         -----------
-        h1,h2, h3 : float
+        h1, h2, h3 : float
             time series data for the three input channels
+            
+        timearray : float
+            times corresponding to data in h1, h2, h3
 
         Returns
         ---------
@@ -372,6 +374,13 @@ class LISAdata(movingfreqDomain):
 
         fdata : float
             Reference frequency series
+            
+        tsegstart : float
+            Segmented time array giving segment start points
+            
+        tsegmid : float
+            Segmented time array giving segment midpoints
+
 
         '''
 
@@ -400,12 +409,16 @@ class LISAdata(movingfreqDomain):
         # Hann Window
         hwin = np.hanning(Nperseg)
 
+        ## Initiate time segment arrays
+        tsegstart = np.zeros(nsegs)
+        tsegmid = np.zeros(nsegs)
+
         # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
             idxmin = int(0.5*ii*Nperseg)
             idxmax = idxmin + Nperseg
-
+            idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:
                 import pdb; pdb.set_trace()
 
@@ -413,7 +426,9 @@ class LISAdata(movingfreqDomain):
             r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
             r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
             r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
-
+            ## There's probably a more pythonic way of doing this, but it'll work for now.
+            tsegstart[ii] = timearray[idxmin]
+            tsegmid[ii] = timearray[idxmid]
 
 
         # "Cut" to desired frequencies
@@ -423,6 +438,7 @@ class LISAdata(movingfreqDomain):
 
         # Output arrays
         fdata = fftfreqs[idx]
+
         
         # Get desired frequencies only
         # We want to normalize ffts so thier square give the psd
@@ -432,5 +448,5 @@ class LISAdata(movingfreqDomain):
         r3 = np.sqrt(2/0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         
         
-        return r1, r2, r3, fdata
+        return r1, r2, r3, fdata, tsegstart, tsegmid
         
