@@ -53,8 +53,7 @@ class movingfreqDomain():
         rs1 = np.array([x_n[0],y_n[0],z_n[0]])
         rs2 = np.array([x_n[1],y_n[1],z_n[1]])
         rs3 = np.array([x_n[2],y_n[2],z_n[2]])
-        import pdb
-        pdb.set_trace()
+
         return rs1, rs2, rs3
         
         
@@ -436,8 +435,9 @@ class movingfreqDomain():
         R1, R2 and R3   :   float
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
-        import pdb
-        pdb.set_trace()
+        
+        print('Calculating detector response functions...')
+        
         timeindices = np.arange(len(midpoints))
         
         tt = np.arange(-1, 1, 0.01)
@@ -540,11 +540,13 @@ class movingfreqDomain():
                 R1[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FAplus))**2 + (np.absolute(FAcross))**2)
                 R2[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FEplus))**2 + (np.absolute(FEcross))**2)
                 R3[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FTplus))**2 + (np.absolute(FTcross))**2)
-                if ti == 5:
-                    import pdb
-                    pdb.set_trace()
+            
 
 
+        np.savetxt('R1array.txt',R1)
+        np.savetxt('R2array.txt',R2)
+        np.savetxt('R3array.txt',R3)
+        
         return R1, R2, R3
 
     def tdi_aniso_sph_sgwb_response(self, f0): 

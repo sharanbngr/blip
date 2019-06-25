@@ -126,13 +126,16 @@ class Bayes():
 
         ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
         ## This is true for an equal arm stationary lisa. 
-
-
+        
         SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
       
-        SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
-        ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
-        SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
+#        SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
+#        ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
+#        SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
+        
+        SA_net = SA_net.T
+        SE_net = SE_net.T
+        ST_net = ST_net.T
 
         Loglike  = - np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
              np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )

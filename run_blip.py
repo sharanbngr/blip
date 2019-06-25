@@ -32,6 +32,7 @@ class LISA(LISAdata, Bayes):
         ## Calculate the antenna patterns
         if self.params['modeltype'] == 'isgwb':
             self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
+            #self.R1, self.R2, self.R3 = np.loadtxt('R1array.txt'), np.loadtxt('R2array.txt'), np.loadtxt('R3array.txt')
             self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
         elif params['modeltype']=='sph_sgwb':
             self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
@@ -88,8 +89,6 @@ class LISA(LISAdata, Bayes):
         self.tsegmid = tsegmid
         #Dummy time index (temporary until I get the time integration architecture up and running)
         self.ti = 50000
-        import pdb
-        pdb.set_trace()
     
     def diag_spectra(self):
 
