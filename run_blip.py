@@ -32,8 +32,10 @@ class LISA(LISAdata, Bayes):
         ## Calculate the antenna patterns
         if self.params['modeltype'] == 'isgwb':
             self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
-            #self.R1, self.R2, self.R3 = np.loadtxt('R1array.txt'), np.loadtxt('R2array.txt'), np.loadtxt('R3array.txt')
-            self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+            if self.params['loadResponse']:
+                self.R1, self.R2, self.R3 = np.loadtxt('R1array.txt'), np.loadtxt('R2array.txt'), np.loadtxt('R3array.txt')
+            else:
+                self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
         elif params['modeltype']=='sph_sgwb':
             self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
         else:
@@ -211,6 +213,7 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['readData'] = int(config.get("params", "readData"))
+    params['loadResponse'] = int(config.get("params", "loadResponse"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
