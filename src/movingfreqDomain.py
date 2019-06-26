@@ -437,6 +437,7 @@ class movingfreqDomain():
         '''
         
         print('Calculating detector response functions...')
+       
         
         timeindices = np.arange(len(midpoints))
         
@@ -452,6 +453,9 @@ class movingfreqDomain():
         R1 = np.zeros((len(timeindices),f0.size))
         R2 = np.zeros((len(timeindices),f0.size))
         R3 = np.zeros((len(timeindices),f0.size))
+ 
+        import pdb
+        pdb.set_trace()
         
         for ti in timeindices:
             ## Define x/y/z for each satellite at time given by timearray[ti]

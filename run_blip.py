@@ -8,6 +8,8 @@ from src.makeLISAdata import LISAdata
 from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
+from src.isgwbresponse import cython_tdi_isgwb_response as cytdi
+
 
 class LISA(LISAdata, Bayes):
 
@@ -34,8 +36,18 @@ class LISA(LISAdata, Bayes):
             self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
             if self.params['loadResponse']:
                 self.R1, self.R2, self.R3 = np.loadtxt('R1array.txt'), np.loadtxt('R2array.txt'), np.loadtxt('R3array.txt')
+            elif self.params['cyResponse']:
+                import time
+                starttime = time.time()
+                self.R1, self.R2, self.R3 = cytdi(self, self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                endtime = time.time()
+                print(endtime-starttime)
             else:
+                import time
+                starttime = time.time()
                 self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                endtime = time.time()
+                print(endtime-starttime)
         elif params['modeltype']=='sph_sgwb':
             self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
         else:
@@ -214,6 +226,7 @@ def blip(paramsfile='params.ini'):
     params['Shfile']   = config.get("params", "Shfile")
     params['readData'] = int(config.get("params", "readData"))
     params['loadResponse'] = int(config.get("params", "loadResponse"))
+    params['cyResponse'] = int(config.get("params", "cyResponse"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))

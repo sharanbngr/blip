@@ -23,24 +23,43 @@ Returns
 R1, R2 and R3   :   float
     Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
 '''
+from __future__ import division
+from __future__ cimport division
+import numpy as np
+cimport numpy as np
 
-def tdi_isgwb_response(self, f0, midpoints, rs1, rs2, rs3): 
-    print('Calculating detector response functions...')
-    
-    timeindices = np.arange(len(midpoints))
-    
-    tt = np.arange(-1, 1, 0.01)
-    pp = np.arange(0, 2*np.pi, np.pi/100)
+DTYPE = np.float64
+ctypedef np.float64_t DTYPE_t
 
+CDTYPE = np.complex128
+ctypedef np.complex128_t CDTYPE_t
+
+def cython_tdi_isgwb_response(np.ndarray[DTYPE_t, ndim=1] f0, np.ndarray[DTYPE_t, ndim=1] midpoints, np.ndarray[DTYPE_t, ndim=2] rs1, np.ndarray[DTYPE_t, ndim=2] rs2, np.ndarray[DTYPE_t, ndim=2] rs3): 
+    
+    cdef np.ndarray[long int, ndim=1] timeindices = np.arange(len(midpoints))
+    
+    cdef np.ndarray[DTYPE_t, ndim=1] tt = np.arange(-1, 1, 0.01)
+    cdef np.ndarray[DTYPE_t, ndim=1] pp = np.arange(0, 2*np.pi, np.pi/100)
+
+    cdef np.ndarray[DTYPE_t, ndim=2] ct, phi
+    
     [ct, phi] = np.meshgrid(tt,pp)
-    dct = ct[0, 1] - ct[0,0]
-    dphi = phi[1,0] - phi[0,0]
-    st = np.sqrt(1-ct**2)
+    cdef DTYPE_t dct = ct[0, 1] - ct[0,0]
+    cdef DTYPE_t dphi = phi[1,0] - phi[0,0]
+    cdef np.ndarray[DTYPE_t, ndim=2] st = np.sqrt(1-ct**2)
     
     # Initlize arrays for the detector reponse
-    R1 = np.zeros((len(timeindices),f0.size))
-    R2 = np.zeros((len(timeindices),f0.size))
-    R3 = np.zeros((len(timeindices),f0.size))
+    cdef np.ndarray[DTYPE_t, ndim=2] R1 = np.zeros((len(timeindices),f0.size))
+    cdef np.ndarray[DTYPE_t, ndim=2] R2 = np.zeros((len(timeindices),f0.size))
+    cdef np.ndarray[DTYPE_t, ndim=2] R3 = np.zeros((len(timeindices),f0.size))
+    
+    ## Type remaining variables
+    cdef long int ti, ii
+    cdef DTYPE_t x1, y1, z1, x2, y2, z2, x3, y3, z3, Lu, Lv, Lw
+    cdef np.ndarray[DTYPE_t, ndim=1] uvec, vvec, wvec
+    cdef np.ndarray[DTYPE_t, ndim=2] udir, vdir, wdir
+    cdef np.ndarray[CDTYPE_t, ndim=2] gammaU, gammaV, gammaW, Fplus_u, Fplus_v, Fplus_w, Fcross_u, Fcross_v, Fcross_w
+    cdef np.ndarray[CDTYPE_t, ndim=2] Fplus1, Fplus2, Fplus3, Fcross1, Fcross2, Fcross3, FAplus, FEplus, FTplus, FAcross, FEcross, FTcross
     
     for ti in timeindices:
         ## Define x/y/z for each satellite at time given by timearray[ti]
