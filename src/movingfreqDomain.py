@@ -580,7 +580,7 @@ class movingfreqDomain():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
         import time
-        
+        t0 = time.time()
         print('Calculating detector response functions...')
        
         t1 = time.time()
@@ -648,14 +648,25 @@ class movingfreqDomain():
             for ii in range(0, f0.size):
     
                 # Calculate GW transfer function for the michelson channels
-                gammaU    =    1/2 * (np.sinc((f0[ii])*(1 - udir))*np.exp(-1j*f0[ii]*(3+udir)) + \
-                                 np.sinc((f0[ii])*(1 + udir))*np.exp(-1j*f0[ii]*(1+udir)))
-    
-                gammaV    =    1/2 * (np.sinc((f0[ii])*(1 - vdir))*np.exp(-1j*f0[ii]*(3+vdir)) + \
-                                 np.sinc((f0[ii])*(1 + vdir))*np.exp(-1j*f0[ii]*(1+vdir)))
-    
-                gammaW    =    1/2 * (np.sinc((f0[ii])*(1 - wdir))*np.exp(-1j*f0[ii]*(3+wdir)) + \
-                                 np.sinc((f0[ii])*(1 + wdir))*np.exp(-1j*f0[ii]*(1+wdir)))
+#                gammaU    =    1/2 * (np.sinc((f0[ii])*(1 - udir))*np.exp(-1j*f0[ii]*(3+udir)) + \
+#                                 np.sinc((f0[ii])*(1 + udir))*np.exp(-1j*f0[ii]*(1+udir)))
+#    
+#                gammaV    =    1/2 * (np.sinc((f0[ii])*(1 - vdir))*np.exp(-1j*f0[ii]*(3+vdir)) + \
+#                                 np.sinc((f0[ii])*(1 + vdir))*np.exp(-1j*f0[ii]*(1+vdir)))
+#    
+#                gammaW    =    1/2 * (np.sinc((f0[ii])*(1 - wdir))*np.exp(-1j*f0[ii]*(3+wdir)) + \
+#                                 np.sinc((f0[ii])*(1 + wdir))*np.exp(-1j*f0[ii]*(1+wdir)))
+                
+                ## Gamma functions w/ expanded sinc(x) = sinx/x
+                gammaU    =    1/2 * (((np.sin((f0[ii])*(1 - udir)))/((f0[ii])*(1 - udir)))*np.exp(-1j*f0[ii]*(3+udir)) + \
+                                      ((np.sin((f0[ii])*(1 + udir)))/((f0[ii])*(1 + udir)))*np.exp(-1j*f0[ii]*(1+udir)))
+                
+                gammaV    =    1/2 * (((np.sin((f0[ii])*(1 - vdir)))/((f0[ii])*(1 - vdir)))*np.exp(-1j*f0[ii]*(3+vdir)) + \
+                                      ((np.sin((f0[ii])*(1 + vdir)))/((f0[ii])*(1 + vdir)))*np.exp(-1j*f0[ii]*(1+vdir)))
+                
+                gammaW    =    1/2 * (((np.sin((f0[ii])*(1 - wdir)))/((f0[ii])*(1 - wdir)))*np.exp(-1j*f0[ii]*(3+wdir)) + \
+                                      ((np.sin((f0[ii])*(1 + wdir)))/((f0[ii])*(1 + wdir)))*np.exp(-1j*f0[ii]*(1+wdir)))
+                
                 gammas = time.time() - t6
                 #print("Time to calc gammas: %f" % gammas)
                 t7 = time.time()
@@ -722,8 +733,10 @@ class movingfreqDomain():
                     counts = np.array([xyzs, vecs, arms, dirs, gammas, plus, cross, t123, aet, Rs])
                     efficacy[ti,:] = counts
 
-        np.savetxt('EfficacyOutput2.txt',efficacy)
-        np.savetxt('GammatimesOutput.txt',gammatimes)
+        tall = time.time() - t0
+        print("Total time elapsed: %f" % tall)
+        np.savetxt('EfficacyOutput3.txt',efficacy)
+        np.savetxt('GammatimesOutput2.txt',gammatimes)
         import pdb
         pdb.set_trace()
         np.savetxt('R1array.txt',R1)
