@@ -36,7 +36,7 @@ ctypedef np.complex128_t CDTYPE_t
 
 def cython_tdi_isgwb_response(np.ndarray[DTYPE_t, ndim=1] f0, np.ndarray[DTYPE_t, ndim=1] midpoints, np.ndarray[DTYPE_t, ndim=2] rs1, np.ndarray[DTYPE_t, ndim=2] rs2, np.ndarray[DTYPE_t, ndim=2] rs3): 
     
-    cdef np.ndarray[long int, ndim=1] timeindices = np.arange(len(midpoints))
+    cdef np.ndarray[long int, ndim=1] timeindices = np.arange(midpoints.size)
     
     cdef np.ndarray[DTYPE_t, ndim=1] tt = np.arange(-1, 1, 0.01)
     cdef np.ndarray[DTYPE_t, ndim=1] pp = np.arange(0, 2*np.pi, np.pi/100)
