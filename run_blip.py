@@ -45,7 +45,7 @@ class LISA(LISAdata, Bayes):
             else:
                 import time
                 starttime = time.time()
-                self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                self.R1, self.R2, self.R3 = self.tdi_isgwb_response_timed(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
                 endtime = time.time()
                 print(endtime-starttime)
         elif params['modeltype']=='sph_sgwb':
