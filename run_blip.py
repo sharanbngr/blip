@@ -37,8 +37,8 @@ class LISA(LISAdata, Bayes):
 
         ## Figure out which response function to use for recoveries
         self.which_response()
-        self.diag_spectra()
-
+        #self.diag_spectra()
+        
 
     def makedata(self):
         '''
@@ -47,7 +47,7 @@ class LISA(LISAdata, Bayes):
         '''
 
         ## Generate TDI noise
-        times, h1, h2, h3 = self.gen_noise_spectrum()
+        times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
         delt = times[1] - times[0]
         
         ##Cut to required size
@@ -58,7 +58,7 @@ class LISA(LISAdata, Bayes):
         if self.inj['doInj']:
 
             h1_gw, h2_gw, h3_gw = self.add_astro_signal()
-            self.h1, self.h2, self.h3 = h1 + h1_gw, h2 + h2_gw, h3 + h3_gw
+            self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
 
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.

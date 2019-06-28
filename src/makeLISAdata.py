@@ -4,7 +4,7 @@ import scipy.signal as sg
 from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
-
+from scipy.signal.windows import nuttall
 
 class LISAdata(freqDomain):
 
@@ -202,9 +202,9 @@ class LISAdata(freqDomain):
 
         ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 4:
+        if self.params['fs'] < 8:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 2
+            fs_eff = 8
         else:
             fs_eff = self.params['fs']
 
@@ -372,8 +372,8 @@ class LISAdata(freqDomain):
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
 
-        #hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
-        #hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+        hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+        hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
     
         ## Instrumental channel data
         #htilda1 = np.abs(hplus)*np.interp(fout, freqs, R1[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R1[:, 1])
@@ -537,7 +537,7 @@ class LISAdata(freqDomain):
         print ("Calculating fourier spectra... ")
 
         # Number of segmants
-        nsegs = 2*int(np.floor(self.params['dur']/self.params['seglen'])) -1
+        nsegs = int(np.floor(self.params['dur']/self.params['seglen'])) -1
 
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
@@ -551,31 +551,33 @@ class LISAdata(freqDomain):
         h3 = sg.sosfiltfilt(sos, h3)
 
         # Map of spectrum
-        r1 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
-        r2 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
-        r3 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
+        r1 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
+        r2 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
+        r3 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
 
         
         # Hann Window
-        hwin = np.hanning(Nperseg)
+        #hwin = np.hanning(Nperseg)
+        hwin = nuttall(Nperseg)
         win_fact = np.mean(hwin**2)
 
-        # We will use 50% overlapping segments
+        zpad = np.zeros(Nperseg)
+        # No overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(0.5*ii*Nperseg)
+            idxmin = int(ii*Nperseg)
             idxmax = idxmin + Nperseg
 
             if hwin.size != h1[idxmin:idxmax].size:
                 import pdb; pdb.set_trace()
 
             
-            r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
-            r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
-            r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
+            r1[:, ii] =   np.fft.rfft(np.concatenate((hwin*h1[idxmin:idxmax], zpad ), axis=0))
+            r2[:, ii] =   np.fft.rfft(np.concatenate((hwin*h2[idxmin:idxmax], zpad ), axis=0))
+            r3[:, ii] =   np.fft.rfft(np.concatenate((hwin*h3[idxmin:idxmax], zpad ), axis=0))
 
         # "Cut" to desired frequencies
-        fftfreqs = np.fft.rfftfreq(Nperseg, 1.0/self.params['fs'])
+        fftfreqs = np.fft.rfftfreq(2*Nperseg, 1.0/self.params['fs'])
 
         idx = np.logical_and(fftfreqs >=  self.params['fmin'] , fftfreqs <=  self.params['fmax'])
 
