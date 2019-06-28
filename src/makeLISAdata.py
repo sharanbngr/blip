@@ -372,8 +372,8 @@ class LISAdata(freqDomain):
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
 
-        hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
-        hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+        #hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+        #hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
     
         ## Instrumental channel data
         #htilda1 = np.abs(hplus)*np.interp(fout, freqs, R1[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R1[:, 1])
