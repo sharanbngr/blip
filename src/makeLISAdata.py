@@ -4,7 +4,7 @@ import scipy.signal as sg
 from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
-
+from scipy.signal.windows import nuttall
 
 class LISAdata(freqDomain):
 
@@ -113,6 +113,67 @@ class LISAdata(freqDomain):
 
         return ht
 
+    def freqdomain_gaussianData(self, Sh,freqs, fs=1, dur=1e5):
+   
+        '''
+        Script to generate freq Domain gaussian data of a given spectral density. 
+
+        Parameters
+        -----------
+        
+        Sh : (float)
+            A frequency array with the desired power spectral density
+        freqs : (float)
+            An array with corresponding frequencies to Sh
+
+        fs : (float)
+            SampleRate in Hz
+        
+        dur : (int)
+            Duration in seconds
+
+     
+        Returns
+        ---------
+    
+        ht : float
+        frequency domain gaussian. 
+        '''
+    
+        # Number of data points in the time series
+        N = int(fs*dur)
+
+        # prepare for FFT
+        if  np.mod(N,2)== 0 :
+            numFreqs = N/2 - 1;
+        else:
+            numFreqs = (N-1)/2;
+
+        # We will make an array of the desired frequencies
+        delF = 1/dur
+        fmin = 1/dur
+        fmax = np.around(dur*fs/2)/dur
+        delF = 1/dur
+
+        # The output frequency series
+        fout = np.linspace(fmin, fmax, numFreqs)
+
+        # Interpolate to the desired frequencies
+        norms = np.interp(fout, freqs, Sh)
+
+        # Amplitude for for ifft
+        norms = np.sqrt(norms*fs*N)/2.0
+
+        # Normally distributed in frequency space
+        re1 = norms*np.random.normal(size=fout.size)
+        im1 = norms*np.random.normal(size=fout.size)
+
+        htilda = re1 + 1j*im1
+
+
+        return htilda, fout
+
+
     def gen_michelson_noise(self):
         
         '''
@@ -141,9 +202,9 @@ class LISAdata(freqDomain):
 
         ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 2:
+        if self.params['fs'] < 8:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 2
+            fs_eff = 8
         else:
             fs_eff = self.params['fs']
 
@@ -169,8 +230,8 @@ class LISAdata(freqDomain):
         tlag_idx = int(round(tlag*fs_eff))
 
         if 1.0/delt != fs_eff:
+            import pdb; pdb.set_trace()
             raise ValueError('Time series generated not consistant with the sampling frequency')
-            
 
         ## One way dopper channels for each arms
         h12  = np12[tlag_idx:] - na12[tlag_idx:] + na21[0:-tlag_idx] 
@@ -260,6 +321,128 @@ class LISAdata(freqDomain):
 
         return tarr, h1_noi, h2_noi, h3_noi
 
+    def gen_mich_isgwb(self, fs=0.25, dur=1e5):
+        
+        '''
+        Generate time isotropic SGWB mock LISA data. The output are time domain data in Michelson
+        channels at the three vertices oft the constellation. 
+
+        Returns
+        ---------
+    
+        h1_gw, h2_gw, h3_gw : float
+            Time series isotropic stochastic noise for the three Michelson noise
+
+        '''
+
+        # --------------------- Generate Fake Data + Noise -----------------------------
+        print("Simulating isgwb data for analysis ...")
+
+        ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
+        ## If the sampling frequency is too low, that doesn't play well with the time-shifts
+        if self.params['fs'] < 4:
+            print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
+            fs_eff = 2
+        else:
+            fs_eff = self.params['fs']
+
+        dur  = 1.1*self.params['dur']
+
+        # speed of light
+        cspeed = 3e8 #m/s
+
+        N = int(fs_eff*dur)
+
+        delf  = 1.0/dur
+        freqs = np.arange(self.params['fmin'], self.params['fmax'] + delf, delf)
+
+        #Charactersitic frequency
+        fstar = cspeed/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = freqs/(2*fstar)
+
+        ## There are the responses for the three arms
+        R1, R2, R3 = self.isgwb_mich_strain_response(f0)
+        
+        H0 = 2.2*10**(-18) ## in SI units
+
+        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
+
+        hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+        hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+    
+        ## Instrumental channel data
+        #htilda1 = np.abs(hplus)*np.interp(fout, freqs, R1[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R1[:, 1])
+        #htilda2 = np.abs(hplus)*np.interp(fout, freqs, R2[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R2[:, 1])
+        #htilda3 = np.abs(hplus)*np.interp(fout, freqs, R3[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R3[:, 1])
+
+        Sgw = np.interp(fout, freqs, Sgw)
+
+        htilda1 = np.sqrt(Sgw)*np.interp(fout, freqs, R1[:, 0])  +  np.sqrt(Sgw)*np.interp(fout, freqs, R1[:, 1]) 
+        htilda2 = np.sqrt(Sgw)*np.interp(fout, freqs, R2[:, 0])  +  np.sqrt(Sgw)*np.interp(fout, freqs, R2[:, 1]) 
+        htilda3 = np.sqrt(Sgw)*np.interp(fout, freqs, R3[:, 0])  +  np.sqrt(Sgw)*np.interp(fout, freqs, R3[:, 1]) 
+
+        # Generate time series data for the channels
+        if np.mod(N, 2) == 0:
+            htilda1 = np.concatenate((np.zeros(1), htilda1,np.zeros(1), np.flipud(np.conjugate(htilda1))))
+            htilda2 = np.concatenate((np.zeros(1), htilda2,np.zeros(1), np.flipud(np.conjugate(htilda2))))
+            htilda3 = np.concatenate((np.zeros(1), htilda3,np.zeros(1), np.flipud(np.conjugate(htilda3))))
+        else:
+            htilda1 = np.concatenate((np.zeros(1),htilda1, np.conjugate(np.flipud(htilda1))))
+            htilda2 = np.concatenate((np.zeros(1),htilda2, np.conjugate(np.flipud(htilda2))))
+            htilda3 = np.concatenate((np.zeros(1),htilda3, np.conjugate(np.flipud(htilda3))))
+
+        # Take inverse fft to get time series data
+        h1 = np.real(np.fft.ifft(htilda1, N))
+        h2 = np.real(np.fft.ifft(htilda2, N))
+        h3 = np.real(np.fft.ifft(htilda3, N))
+        
+        times = np.linspace(0, dur, N, endpoint=False)
+        import pdb; pdb.set_trace()
+        return h1, h2, h3, times
+
+    def gen_xyz_isgwb(self):    
+        
+        '''
+        Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson 
+        channels are manipulated to generate the X, Y and. We implement TDI as described in
+
+        http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
+
+
+        Returns
+        ---------
+    
+        h1_gw, h2_gw, h3_gw : float
+            Time series isotropic stochastic noise for the three TDI channels
+
+        '''
+
+
+        h1, h2, h3, times = self.gen_mich_isgwb()
+
+        fs_eff = 1.0/(times[1] - times[0])
+
+        # Introduce time series
+        tshift = 2*self.armlength/3.0e8
+        tshift_idx = int(round(tshift*fs_eff))
+
+        hX = h1[tshift_idx:] - h1[0:-tshift_idx]
+        hY = h2[tshift_idx:] - h2[0:-tshift_idx]
+        hZ = h3[tshift_idx:] - h3[0:-tshift_idx]
+
+        ## Cut to require size
+        N = int(fs_eff*(self.params['dur'] + 10))
+        hX, hY, hZ = hX[0:N], hZ[0:N], hY[0:N]
+
+
+
+        return hX, hY, hZ
+
     def gen_aet_isgwb(self):
         
         '''
@@ -276,60 +459,13 @@ class LISAdata(freqDomain):
             Time series isotropic stochastic noise for the three TDI channels
 
         '''
+        hX, hY, hZ = self.gen_xyz_isgwb()
 
-        # --------------------- Generate Fake Data + Noise -----------------------------
-        print("Simulating isgwb data for analysis ...")
+        hA = (1.0/3)*(2*hX - hY + hZ)
+        hE = (1.0/np.sqrt(3.0))*(hZ - hY)
+        hT = (1.0/3)*(hX + hY + hz)
 
-        # speed of light
-        cspeed = 3e8 #m/s
-
-
-        delf  = 1.0/self.params['dur']
-        freqs = np.arange(self.params['fmin'], self.params['fmax'], delf)
-
-        #Charactersitic frequency
-        fstar = cspeed/(2*np.pi*self.armlength)
-
-        # define f0 = f/2f*
-        f0 = freqs/(2*fstar)
-
-        ## There are the responses for the three arms
-        RAA, REE, RTT = self.tdi_isgwb_response(f0)
-
-        H0 = 2.2*10**(-18) ## in SI units
-
-        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
-
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
-
-        # Generate time series data for the doppler channels
-        wht_data = np.random.normal(size=int(self.params['fs']*self.params['dur']))
-        f_wht  = np.fft.rfftfreq(wht_data.size, 1.0/self.params['fs'])
-
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor, and interpolated to the psd frequencies.
-        SAA_gw = np.interp(f_wht,freqs, Sgw*RAA)
-        SEE_gw = np.interp(f_wht,freqs,Sgw*REE)
-        STT_gw = np.interp(f_wht,freqs,Sgw*RTT)
-
-        # PSD of band-limited white gaussian noise
-        N02 = 1.0/(f_wht[-1] - f_wht[0])
-
-        ## Do an rrft
-        wht_rfft = np.fft.rfft(wht_data)
-
-        # Generate colored ffts
-        hA_fft = wht_rfft*np.sqrt(SAA_gw)/np.sqrt(N02)
-        hE_fft = wht_rfft*np.sqrt(SEE_gw)/np.sqrt(N02)
-        hT_fft = wht_rfft*np.sqrt(STT_gw)/np.sqrt(N02)
-
-        ## Generate time series data
-        h1_gw = np.fft.irfft(hA_fft, n=wht_data.size)
-        h2_gw = np.fft.irfft(hE_fft, n=wht_data.size)
-        h3_gw = np.fft.irfft(hT_fft, n=wht_data.size)
-
-        return h1_gw, h2_gw, h3_gw
+        return hA, hE, hT
 
     def read_data(self):
         
@@ -401,7 +537,7 @@ class LISAdata(freqDomain):
         print ("Calculating fourier spectra... ")
 
         # Number of segmants
-        nsegs = 2*int(np.floor(self.params['dur']/self.params['seglen'])) -1
+        nsegs = int(np.floor(self.params['dur']/self.params['seglen'])) -1
 
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
@@ -415,30 +551,33 @@ class LISAdata(freqDomain):
         h3 = sg.sosfiltfilt(sos, h3)
 
         # Map of spectrum
-        r1 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
-        r2 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
-        r3 = np.zeros((1 + int(Nperseg/2), nsegs), dtype='complex')
+        r1 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
+        r2 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
+        r3 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
 
         
         # Hann Window
-        hwin = np.hanning(Nperseg)
+        #hwin = np.hanning(Nperseg)
+        hwin = nuttall(Nperseg)
+        win_fact = np.mean(hwin**2)
 
-        # We will use 50% overlapping segments
+        zpad = np.zeros(Nperseg)
+        # No overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(0.5*ii*Nperseg)
+            idxmin = int(ii*Nperseg)
             idxmax = idxmin + Nperseg
 
             if hwin.size != h1[idxmin:idxmax].size:
                 import pdb; pdb.set_trace()
 
             
-            r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax])
-            r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax])
-            r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax])
+            r1[:, ii] =   np.fft.rfft(np.concatenate((hwin*h1[idxmin:idxmax], zpad ), axis=0))
+            r2[:, ii] =   np.fft.rfft(np.concatenate((hwin*h2[idxmin:idxmax], zpad ), axis=0))
+            r3[:, ii] =   np.fft.rfft(np.concatenate((hwin*h3[idxmin:idxmax], zpad ), axis=0))
 
         # "Cut" to desired frequencies
-        fftfreqs = np.fft.rfftfreq(Nperseg, 1.0/self.params['fs'])
+        fftfreqs = np.fft.rfftfreq(2*Nperseg, 1.0/self.params['fs'])
 
         idx = np.logical_and(fftfreqs >=  self.params['fmin'] , fftfreqs <=  self.params['fmax'])
 
@@ -447,10 +586,10 @@ class LISAdata(freqDomain):
         
         # Get desired frequencies only
         # We want to normalize ffts so thier square give the psd
-        # 0.375 is to adjust for hann windowing, sqrt(2) for single sided
-        r1 = np.sqrt(2/0.375)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-        r2 = np.sqrt(2/0.375)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
-        r3 = np.sqrt(2/0.375)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        # win_fact is to adjust for hann windowing, sqrt(2) for single sided
+        r1 = np.sqrt(2/win_fact)*r1[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r2 = np.sqrt(2/win_fact)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
+        r3 = np.sqrt(2/win_fact)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
 

@@ -1,3 +1,4 @@
+
 from __future__ import division
 import numpy as np
 
@@ -148,12 +149,11 @@ class Bayes():
         S2 = np.repeat(S2.reshape(S2.size, 1), self.r2.shape[1], axis=1)
         S3 = np.repeat(S3.reshape(S3.size, 1), self.r3.shape[1], axis=1)
 
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/S1 + (np.abs(self.r2)**2)/S3 + \
-             np.log(2*np.pi*S1) + np.log(2*np.pi*S3) )
 
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1 + (np.abs(self.r2)**2)/S2 + (np.abs(self.r3)**2)/S3 + \
+             np.log(2*np.pi*S1) + np.log(2*np.pi*S2) + np.log(2*np.pi*S3) )
     
         return Loglike
-
 
 
 
