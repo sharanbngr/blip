@@ -26,7 +26,7 @@ class LISA(LISAdata, Bayes):
 
         ## Make noise spectra
         self.which_noise_spectrum()
-        self.which_response()
+        self.which_astro_signal()
 
         ## Generate or get mldc data
         if self.params['mldc']:
@@ -34,8 +34,11 @@ class LISA(LISAdata, Bayes):
         else:
             self.makedata()
         
-        self.diag_spectra()
 
+        ## Figure out which response function to use for recoveries
+        self.which_response()
+        #self.diag_spectra()
+        
 
     def makedata(self):
         '''
@@ -46,6 +49,18 @@ class LISA(LISAdata, Bayes):
         ## Generate TDI noise
         times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
         delt = times[1] - times[0]
+        
+        ##Cut to required size
+        N = int((self.params['dur'] + 10)/delt)
+        self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
+    
+        ## Generate TDI isotropic signal
+        if self.inj['doInj']:
+
+            h1_gw, h2_gw, h3_gw = self.add_astro_signal()
+            
+            self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
+
 
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] < 1.0/delt:
@@ -58,11 +73,6 @@ class LISA(LISAdata, Bayes):
         else:
             self.params['fs'] = 1.0/delt
 
-
-        ## Generate TDI isotropic signal
-        if self.inj['doInj']:
-            h1_gw, h2_gw, h3_gw = self.gen_aet_isgwb()
-            self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
         ## Generate lisa freq domain data from time domain data
         self.r1, self.r2, self.r3, self.fdata = self.tser2fser(self.h1, self.h2, self.h3)
@@ -118,11 +128,11 @@ class LISA(LISAdata, Bayes):
     
         ## Figure out which antenna patterns to use
 
-        if self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='aet':
+        if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
             self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='xyz':
+        elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
             self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and params['tdi_lev']=='michelson':
+        elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
             self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
@@ -130,6 +140,21 @@ class LISA(LISAdata, Bayes):
             print('Noise only model chosen ...')
         else:       
            raise ValueError('Unknown recovery model selected')
+
+    def which_astro_signal(self):
+    
+        ## Figure out which antenna patterns to use
+        if self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.gen_aet_isgwb
+        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.gen_xyz_isgwb
+        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.gen_mich_isgwb  
+        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.gen_aet_asgwb
+        else:       
+           raise ValueError('Unknown recovery model selected')
+
 
 
     def diag_spectra(self):
@@ -172,7 +197,7 @@ class LISA(LISAdata, Bayes):
         S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
         ## start a plot instance. 
-        plt.subplot(3, 1, 1)
+        #plt.subplot(3, 1, 1)
 
         if self.params['modeltype'] != 'noise_only':
             ## SGWB signal levels of the mldc data
@@ -194,22 +219,23 @@ class LISA(LISAdata, Bayes):
             S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
 
             plt.loglog(self.fdata, S1_gw, label='gw required')
-            plt.subplot(3, 1, 2)
-            plt.loglog(self.fdata, S2_gw, label='gw required')
-            plt.subplot(3, 1, 3)
-            plt.loglog(self.fdata, S3_gw, label='gw required')
+            #plt.subplot(3, 1, 2)
+            #plt.loglog(self.fdata, S2_gw, label='gw required')
+            #plt.subplot(3, 1, 3)
+            #plt.loglog(self.fdata, S3_gw, label='gw required')
        
 
         ## Plot data PSD with the expected level
-        plt.subplot(3, 1, 1)
+        #plt.subplot(3, 1, 1)
         plt.loglog(self.fdata, S1, label='required')
         plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.ylim(3e-42, 1e-37)
+        #plt.ylim(3e-42, 1e-37)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
+        '''
         plt.subplot(3, 1, 2)
         plt.loglog(self.fdata, S2, label='required')
         plt.loglog(psdfreqs, data_PSD2,label='PSD of the data series', alpha=0.6)
@@ -225,9 +251,9 @@ class LISA(LISAdata, Bayes):
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        #plt.ylim(3e-42, 1e-37)
+        plt.ylim(3e-42, 1e-37)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-
+        '''
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
