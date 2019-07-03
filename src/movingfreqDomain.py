@@ -432,7 +432,8 @@ class movingfreqDomain():
         R1, R2 and R3   :   float
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
-        
+        import time
+        t0 = time.time()
         print('Calculating detector response functions...')
        
         
@@ -450,13 +451,7 @@ class movingfreqDomain():
         R1 = np.zeros((len(timeindices),f0.size))
         R2 = np.zeros((len(timeindices),f0.size))
         R3 = np.zeros((len(timeindices),f0.size))
- 
-        import pdb
-        pdb.set_trace()
-        
-        
-        
-        
+
         for ti in timeindices:
             ## Define x/y/z for each satellite at time given by timearray[ti]
             x1 = rs1[0][ti]
@@ -483,7 +478,21 @@ class movingfreqDomain():
             udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
             vdir = ((x3-x1)/Lv)*np.cos(phi)*st + ((y3-y1)/Lv)*np.sin(phi)*st + ((z3-z1)/Lv)*ct
             wdir = ((x3-x2)/Lw)*np.cos(phi)*st + ((y3-y2)/Lw)*np.sin(phi)*st + ((z3-z2)/Lw)*ct
-    
+            
+            ## Calculate 1/2(u x u):eplus
+            Pcontract_u = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
+                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)
+            Pcontract_v = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
+                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)
+            Pcontract_w = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
+                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)
+            
+            ## Calculate 1/2(u x u):ecross
+            Ccontract_u = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)
+            
+            Ccontract_v = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)
+            
+            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)
 
     
             # Calculate the detector response for each frequency
@@ -502,21 +511,18 @@ class movingfreqDomain():
                 ## Michelson Channel Antenna patterns for + pol
                 ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
     
-                Fplus_u   = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
-                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)*gammaU
+                Fplus_u   = Pcontract_u*gammaU
+                
+                Fplus_v   = Pcontract_v*gammaV
     
-                Fplus_v   = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
-                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)*gammaV
-    
-                Fplus_w   = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
-                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)*gammaW
+                Fplus_w   = Pcontract_w*gammaW
     
     
                 ## Michelson Channel Antenna patterns for x pol
                 ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-                Fcross_u  = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st) * gammaU
-                Fcross_v  = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st) * gammaV
-                Fcross_w  = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st) * gammaW
+                Fcross_u  = Ccontract_u*gammaU
+                Fcross_v  = Ccontract_v*gammaV
+                Fcross_w  = Ccontract_w*gammaW
     
     
                 ## First Michelson antenna patterns
@@ -546,7 +552,10 @@ class movingfreqDomain():
                 R3[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FTplus))**2 + (np.absolute(FTcross))**2)
 
 
-
+        tall = time.time() - t0
+        print("Total time elapsed: %f" % tall)
+        import pdb
+        pdb.set_trace()
         np.savetxt('R1array.txt',R1)
         np.savetxt('R2array.txt',R2)
         np.savetxt('R3array.txt',R3)
@@ -601,8 +610,9 @@ class movingfreqDomain():
         initialize = time.time() - t1
         print("Time to initialize: %f" % initialize)
         print(f0.size)
-        efficacy = np.zeros((len(timeindices),10))
-        gammatimes = np.zeros(len(timeindices)*f0.size)
+        efficacy = np.zeros((len(timeindices),13))
+        #gammatimes = np.zeros(len(timeindices)*f0.size)
+        altgammatimes = np.zeros(len(timeindices)*f0.size)
         ahaha = 0
         import pdb
         pdb.set_trace()
@@ -641,55 +651,80 @@ class movingfreqDomain():
             wdir = ((x3-x2)/Lw)*np.cos(phi)*st + ((y3-y2)/Lw)*np.sin(phi)*st + ((z3-z2)/Lw)*ct
             dirs = time.time() - t5
             #print("Time to calc dirs: %f" % dirs)
-
-    
+            t5a = time.time()
+            ## Pre-calculate u/v/w-dir additions
+            udir1m = 1 - udir
+            udir1p = 1 + udir
+            udir3p = 3 + udir
+            vdir1m = 1 - vdir
+            vdir1p = 1 + vdir
+            vdir3p = 3 + vdir
+            wdir1m = 1 - wdir
+            wdir1p = 1 + wdir
+            wdir3p = 3 + wdir
+            diradd = time.time()-t5a
+            t5b = time.time()
+            ## Calculate 1/2(u x u):eplus
+            Pcontract_u = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
+                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)
+            Pcontract_v = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
+                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)
+            Pcontract_w = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
+                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)
+            pc = time.time()-t5b
+            t5c = time.time()
+            ## Calculate 1/2(u x u):ecross
+            Ccontract_u = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)
+            
+            Ccontract_v = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)
+            
+            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)
+            cc = time.time()-t5c
             # Calculate the detector response for each frequency
-            t6 = time.time()
+            #t6 = time.time()
             for ii in range(0, f0.size):
-    
+                t6a = time.time()
                 # Calculate GW transfer function for the michelson channels
-#                gammaU    =    1/2 * (np.sinc((f0[ii])*(1 - udir))*np.exp(-1j*f0[ii]*(3+udir)) + \
-#                                 np.sinc((f0[ii])*(1 + udir))*np.exp(-1j*f0[ii]*(1+udir)))
-#    
-#                gammaV    =    1/2 * (np.sinc((f0[ii])*(1 - vdir))*np.exp(-1j*f0[ii]*(3+vdir)) + \
-#                                 np.sinc((f0[ii])*(1 + vdir))*np.exp(-1j*f0[ii]*(1+vdir)))
-#    
-#                gammaW    =    1/2 * (np.sinc((f0[ii])*(1 - wdir))*np.exp(-1j*f0[ii]*(3+wdir)) + \
-#                                 np.sinc((f0[ii])*(1 + wdir))*np.exp(-1j*f0[ii]*(1+wdir)))
+                gammaU    =    1/2 * (np.sinc((1/np.pi)*(f0[ii])*(udir1m))*np.exp(-1j*f0[ii]*(udir3p)) + \
+                                 np.sinc((1/np.pi)*(f0[ii])*(udir1p))*np.exp(-1j*f0[ii]*(udir1p)))
+    
+                gammaV    =    1/2 * (np.sinc((1/np.pi)*(f0[ii])*(vdir1m))*np.exp(-1j*f0[ii]*(vdir3p)) + \
+                                 np.sinc((1/np.pi)*(f0[ii])*(vdir1p))*np.exp(-1j*f0[ii]*(vdir1p)))
+    
+                gammaW    =    1/2 * (np.sinc((1/np.pi)*(f0[ii])*(wdir1m))*np.exp(-1j*f0[ii]*(wdir3p)) + \
+                                 np.sinc((1/np.pi)*(f0[ii])*(wdir1p))*np.exp(-1j*f0[ii]*(wdir1p)))
                 
                 ## Gamma functions w/ expanded sinc(x) = sinx/x
-                gammaU    =    1/2 * (((np.sin((f0[ii])*(1 - udir)))/((f0[ii])*(1 - udir)))*np.exp(-1j*f0[ii]*(3+udir)) + \
-                                      ((np.sin((f0[ii])*(1 + udir)))/((f0[ii])*(1 + udir)))*np.exp(-1j*f0[ii]*(1+udir)))
+#                gammaU    =    1/2 * (((np.sin((f0[ii])*(udir1m)))/((f0[ii])*(1 - udir)))*np.exp(-1j*f0[ii]*(udir3p)) + \
+#                                      ((np.sin((f0[ii])*(udir1p)))/((f0[ii])*(1 + udir)))*np.exp(-1j*f0[ii]*(udir1p)))
+#                
+#                gammaV    =    1/2 * (((np.sin((f0[ii])*(1 - vdir)))/((f0[ii])*(1 - vdir)))*np.exp(-1j*f0[ii]*(3+vdir)) + \
+#                                      ((np.sin((f0[ii])*(1 + vdir)))/((f0[ii])*(1 + vdir)))*np.exp(-1j*f0[ii]*(1+vdir)))
+#                
+#                gammaW    =    1/2 * (((np.sin((f0[ii])*(1 - wdir)))/((f0[ii])*(1 - wdir)))*np.exp(-1j*f0[ii]*(3+wdir)) + \
+#                                      ((np.sin((f0[ii])*(1 + wdir)))/((f0[ii])*(1 + wdir)))*np.exp(-1j*f0[ii]*(1+wdir)))
                 
-                gammaV    =    1/2 * (((np.sin((f0[ii])*(1 - vdir)))/((f0[ii])*(1 - vdir)))*np.exp(-1j*f0[ii]*(3+vdir)) + \
-                                      ((np.sin((f0[ii])*(1 + vdir)))/((f0[ii])*(1 + vdir)))*np.exp(-1j*f0[ii]*(1+vdir)))
-                
-                gammaW    =    1/2 * (((np.sin((f0[ii])*(1 - wdir)))/((f0[ii])*(1 - wdir)))*np.exp(-1j*f0[ii]*(3+wdir)) + \
-                                      ((np.sin((f0[ii])*(1 + wdir)))/((f0[ii])*(1 + wdir)))*np.exp(-1j*f0[ii]*(1+wdir)))
-                
-                gammas = time.time() - t6
+                #gammas = time.time() - t6
+                altgammas = time.time() - t6a
                 #print("Time to calc gammas: %f" % gammas)
                 t7 = time.time()
                 ## Michelson Channel Antenna patterns for + pol
                 ##  Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
     
-                Fplus_u   = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
-                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)*gammaU
+                Fplus_u   = Pcontract_u*gammaU
+                
+                Fplus_v   = Pcontract_v*gammaV
     
-                Fplus_v   = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
-                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)*gammaV
-    
-                Fplus_w   = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
-                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)*gammaW
+                Fplus_w   = Pcontract_w*gammaW
     
                 plus = time.time() - t7
                 #print("Time to calc plus: %f" % plus)
                 t8 = time.time()
                 ## Michelson Channel Antenna patterns for x pol
                 ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-                Fcross_u  = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st) * gammaU
-                Fcross_v  = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st) * gammaV
-                Fcross_w  = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st) * gammaW
+                Fcross_u  = Ccontract_u*gammaU
+                Fcross_v  = Ccontract_v*gammaV
+                Fcross_w  = Ccontract_w*gammaW
                 cross = time.time() - t8
                 #print("Time to calc cross: %f" % cross)
                 t9 = time.time()
@@ -726,17 +761,19 @@ class movingfreqDomain():
                 R3[ti][ii] = dct*dphi/(4*np.pi)*np.sum((np.absolute(FTplus))**2 + (np.absolute(FTcross))**2)
                 Rs = time.time() - t11
                 #print("Time to calc Rs: %f" % Rs)
-                gammatimes[ahaha] = gammas
+                #gammatimes[ahaha] = gammas
+                altgammatimes[ahaha] = altgammas
                 ahaha = ahaha + 1
                 
                 if ii == f0.size - 1:
-                    counts = np.array([xyzs, vecs, arms, dirs, gammas, plus, cross, t123, aet, Rs])
+                    counts = np.array([xyzs, vecs, arms, dirs, altgammas, plus, cross, t123, aet, Rs, diradd, pc, cc])
                     efficacy[ti,:] = counts
 
         tall = time.time() - t0
         print("Total time elapsed: %f" % tall)
-        np.savetxt('EfficacyOutput3.txt',efficacy)
-        np.savetxt('GammatimesOutput2.txt',gammatimes)
+        np.savetxt('EfficacyOutput6.txt',efficacy)
+        #np.savetxt('GammatimesOutput3.txt',gammatimes)
+        np.savetxt('AltGammatimesOutput3.txt',altgammatimes)
         import pdb
         pdb.set_trace()
         np.savetxt('R1array.txt',R1)
