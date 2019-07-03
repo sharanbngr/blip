@@ -465,7 +465,7 @@ class LISAdata(movingfreqDomain):
 
         hA = (1.0/3)*(2*hX - hY + hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
-        hT = (1.0/3)*(hX + hY + hz)
+        hT = (1.0/3)*(hX + hY + hZ)
 
         return hA, hE, hT
 
