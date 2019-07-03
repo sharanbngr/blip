@@ -84,7 +84,7 @@ class LISAdata(freqDomain):
 
         # We will make an array of the desired frequencies
         delF = 1/dur
-        fmin = 1/dur
+        fmin = 0
         fmax = np.around(dur*fs/2)/dur
         delF = 1/dur
 
@@ -200,11 +200,11 @@ class LISAdata(freqDomain):
         # To implement TDI we need time shifts of multiples of L.
         tlag  = self.armlength/cspeed
 
-        ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
+        ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 8:
+        if self.params['fs'] < 4:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 8
+            fs_eff = 4
         else:
             fs_eff = self.params['fs']
 
@@ -230,8 +230,9 @@ class LISAdata(freqDomain):
         tlag_idx = int(round(tlag*fs_eff))
 
         if 1.0/delt != fs_eff:
-            import pdb; pdb.set_trace()
-            raise ValueError('Time series generated not consistant with the sampling frequency')
+            #import pdb; pdb.set_trace()
+            #raise ValueError('Time series generated not consistant with the sampling frequency')
+            fs_eff = 1.0/delt
 
         ## One way dopper channels for each arms
         h12  = np12[tlag_idx:] - na12[tlag_idx:] + na21[0:-tlag_idx] 
@@ -338,11 +339,11 @@ class LISAdata(freqDomain):
         # --------------------- Generate Fake Data + Noise -----------------------------
         print("Simulating isgwb data for analysis ...")
 
-        ## If we have a smaller fs than 2 samples a second, we will use 2 Hz as the sampling freq
+        ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
         if self.params['fs'] < 4:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 2
+            fs_eff = 4
         else:
             fs_eff = self.params['fs']
 
@@ -354,14 +355,16 @@ class LISAdata(freqDomain):
         N = int(fs_eff*dur)
 
         delf  = 1.0/dur
-        freqs = np.arange(self.params['fmin'], self.params['fmax'] + delf, delf)
+        freqs = np.arange(0.5*self.params['fmin'], self.params['fmax'] + delf, delf)
 
         #Charactersitic frequency
         fstar = cspeed/(2*np.pi*self.armlength)
 
         # define f0 = f/2f*
-        f0 = freqs/(2*fstar)
 
+        #ftemp  = np.arange(1.0/self.params['seglen'], )
+        f0 = freqs/(2*fstar)
+  
         ## There are the responses for the three arms
         R1, R2, R3 = self.isgwb_mich_strain_response(f0)
         
@@ -372,8 +375,8 @@ class LISAdata(freqDomain):
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
 
-        hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
-        hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs, dur)
+        hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs_eff, dur)
+        hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs_eff, dur)
     
         ## Instrumental channel data
         #htilda1 = np.abs(hplus)*np.interp(fout, freqs, R1[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R1[:, 1])
@@ -382,9 +385,9 @@ class LISAdata(freqDomain):
 
         Sgw = np.interp(fout, freqs, Sgw)
 
-        htilda1 = np.sqrt(Sgw)*np.interp(fout, freqs, R1[:, 0])  +  np.sqrt(Sgw)*np.interp(fout, freqs, R1[:, 1]) 
-        htilda2 = np.sqrt(Sgw)*np.interp(fout, freqs, R2[:, 0])  +  np.sqrt(Sgw)*np.interp(fout, freqs, R2[:, 1]) 
-        htilda3 = np.sqrt(Sgw)*np.interp(fout, freqs, R3[:, 0])  +  np.sqrt(Sgw)*np.interp(fout, freqs, R3[:, 1]) 
+        htilda1 = np.sqrt(Sgw/2)*np.interp(fout, freqs, R1[:, 0])  +  np.sqrt(Sgw/2)*np.interp(fout, freqs, R1[:, 1]) 
+        htilda2 = np.sqrt(Sgw/2)*np.interp(fout, freqs, R2[:, 0])  +  np.sqrt(Sgw/2)*np.interp(fout, freqs, R2[:, 1]) 
+        htilda3 = np.sqrt(Sgw/2)*np.interp(fout, freqs, R3[:, 0])  +  np.sqrt(Sgw/2)*np.interp(fout, freqs, R3[:, 1]) 
 
         # Generate time series data for the channels
         if np.mod(N, 2) == 0:
@@ -402,7 +405,6 @@ class LISAdata(freqDomain):
         h3 = np.real(np.fft.ifft(htilda3, N))
         
         times = np.linspace(0, dur, N, endpoint=False)
-        import pdb; pdb.set_trace()
         return h1, h2, h3, times
 
     def gen_xyz_isgwb(self):    

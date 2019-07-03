@@ -274,9 +274,9 @@ class freqDomain():
             rand_cross = np.random.normal(size=Fplus1.shape) + 1j* np.random.normal(size=Fplus1.shape)
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii, 0], R1[ii, 1] = (2*np.pi)*np.sum(Fplus1*rand_plus), dct*dphi*np.sum(Fcross1*rand_cross) 
-            R2[ii, 0], R2[ii, 1] = (2*np.pi)*np.sum(Fplus2*rand_plus), dct*dphi*np.sum(Fcross2*rand_cross) 
-            R3[ii, 0], R3[ii, 1] = (2*np.pi)*np.sum(Fplus3*rand_plus), dct*dphi*np.sum(Fcross3*rand_cross) 
+            R1[ii, 0], R1[ii, 1] = (2*np.pi)*np.sum(Fplus1*rand_plus), (2*np.pi)*np.sum(Fcross1*rand_cross) 
+            R2[ii, 0], R2[ii, 1] = (2*np.pi)*np.sum(Fplus2*rand_plus), (2*np.pi)*np.sum(Fcross2*rand_cross) 
+            R3[ii, 0], R3[ii, 1] = (2*np.pi)*np.sum(Fplus3*rand_plus), (2*np.pi)*np.sum(Fcross3*rand_cross) 
 
   
 
