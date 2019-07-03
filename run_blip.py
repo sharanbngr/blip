@@ -9,6 +9,7 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
+from src.isgwbresponse import cython_tdi_isgwb_response as cytdi
 
 class LISA(LISAdata, Bayes):
 
@@ -35,8 +36,32 @@ class LISA(LISAdata, Bayes):
             self.makedata()
         
 
+
         ## Figure out which response function to use for recoveries
         self.which_response()
+
+        ## Calculate the antenna patterns
+        if self.params['modeltype'] == 'isgwb':
+            self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
+            if self.params['loadResponse']:
+                self.R1, self.R2, self.R3 = np.loadtxt('R1array.txt'), np.loadtxt('R2array.txt'), np.loadtxt('R3array.txt')
+            elif self.params['cyResponse']:
+                import time
+                starttime = time.time()
+                self.R1, self.R2, self.R3 = cytdi(self, self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                endtime = time.time()
+                print(endtime-starttime)
+            else:
+                import time
+                starttime = time.time()
+                self.R1, self.R2, self.R3 = self.tdi_isgwb_response_ab(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                endtime = time.time()
+                print(endtime-starttime)
+        elif params['modeltype']=='sph_sgwb':
+            self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
+        else:
+           raise ValueError('Unknown recovery model selected')
+
         #self.diag_spectra()
         
 
@@ -89,7 +114,7 @@ class LISA(LISAdata, Bayes):
         and converts to strain data. 
         '''
         
-        h1, h2, h3 = self.read_data()
+        h1, h2, h3, timearray = self.read_data()
         
         ## Calculate other tdi combinations if necessary. 
         if self.params['tdi_lev']=='aet':
@@ -100,7 +125,7 @@ class LISA(LISAdata, Bayes):
 
 
         ## Generate lisa freq domain data from time domain data
-        r1, r2, r3, self.fdata = self.tser2fser(h1, h2, h3)
+        r1, r2, r3, self.fdata, tsegstart, tsegmid = self.tser2fser(h1, h2, h3, timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -109,6 +134,13 @@ class LISA(LISAdata, Bayes):
         
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
         
+          #Pull time segments
+        self.timearray = timearray
+        self.tsegstart = tsegstart
+        self.tsegmid = tsegmid
+
+        
+
 
     def which_noise_spectrum(self):
 
@@ -125,6 +157,7 @@ class LISA(LISAdata, Bayes):
             self.gen_noise_spectrum = self.gen_michelson_noise
 
     def which_response(self):
+
     
         ## Figure out which antenna patterns to use
 
@@ -289,6 +322,9 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
+    params['readData'] = int(config.get("params", "readData"))
+    params['loadResponse'] = int(config.get("params", "loadResponse"))
+    params['cyResponse'] = int(config.get("params", "cyResponse"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
