@@ -585,7 +585,7 @@ class LISAdata(movingfreqDomain):
         # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(ii*Nperseg)
+            idxmin = int(0.5*ii*Nperseg)
             idxmax = idxmin + Nperseg
             idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:
