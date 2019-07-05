@@ -55,7 +55,7 @@ class LISA(LISAdata, Bayes):
                 import time
                 starttime = time.time()
                 #self.R1, self.R2, self.R3 = self.tdi_isgwb_xyz_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
-                self.R1, self.R2, self.R3 = self.tdi_isgwb_response_ab(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
                 #self.R1plus, self.R1cross, self.R2plus, self.R2cross, self.R3plus, self.R3cross = self.michelson_response(self.f0, np.pi/3, 2*np.pi/6, self.tsegmid, self.rs1, self.rs2, self.rs3)
                 endtime = time.time()
                 print(endtime-starttime)
