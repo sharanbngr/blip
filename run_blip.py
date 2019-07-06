@@ -232,7 +232,7 @@ class LISA(LISAdata, Bayes):
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        #plt.ylim(3e-42, 1e-37)
+        plt.ylim(1e-42, 5e-37)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
         '''

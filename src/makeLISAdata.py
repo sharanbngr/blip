@@ -208,6 +208,7 @@ class LISAdata(freqDomain):
         else:
             fs_eff = self.params['fs']
 
+      
         # Generate data
         np12 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
         np21 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
@@ -235,20 +236,28 @@ class LISAdata(freqDomain):
             fs_eff = 1.0/delt
 
         ## One way dopper channels for each arms
-        h12  = np12[tlag_idx:] - na12[tlag_idx:] + na21[0:-tlag_idx] 
-        h21  = np21[tlag_idx:] + na21[tlag_idx:] - na12[0:-tlag_idx] 
+        h12  = np12[tlag_idx:] - na12[tlag_idx:] #+ np.interp(tarr[tlag_idx:]-tlag, tarr,  na21)
+        h21  = np21[tlag_idx:] + na21[tlag_idx:] #- np.interp(tarr[tlag_idx:]-tlag, tarr,  na12) 
 
-        h23  = np23[tlag_idx:] - na23[tlag_idx:] + na32[0:-tlag_idx] 
-        h32  = np32[tlag_idx:] + na32[tlag_idx:] - na23[0:-tlag_idx] 
+        h23  = np23[tlag_idx:] - na23[tlag_idx:] #+ np.interp(tarr[tlag_idx:]-tlag, tarr,  na32)
+        h32  = np32[tlag_idx:] + na32[tlag_idx:] #- np.interp(tarr[tlag_idx:]-tlag, tarr,  na23)
 
-        h31  = np31[tlag_idx:] - na31[tlag_idx:] + na13[0:-tlag_idx] 
-        h13  = np13[tlag_idx:] + na13[tlag_idx:] - na31[0:-tlag_idx]
+        h31  = np31[tlag_idx:] - na31[tlag_idx:] #+ np.interp(tarr[tlag_idx:]-tlag, tarr,  na13)
+        h13  = np13[tlag_idx:] + na13[tlag_idx:] #- np.interp(tarr[tlag_idx:]-tlag, tarr,  na31)
         
+        ## reduce tarr
+        tarr = tarr[tlag_idx:]
 
         # The Michelson channels, formed from the doppler channels
-        h1 = h12[0:-tlag_idx] + h21[tlag_idx:] - h13[0:-tlag_idx] - h31[tlag_idx:]
-        h2 = h23[0:-tlag_idx] + h32[tlag_idx:] - h21[0:-tlag_idx] - h12[tlag_idx:]
-        h3 = h31[0:-tlag_idx] + h13[tlag_idx:] - h32[0:-tlag_idx] - h23[tlag_idx:] 
+        h1 = np.interp(tarr[tlag_idx:]-tlag, tarr,  h12) + h21[tlag_idx:] - \
+                np.interp(tarr[tlag_idx:]-tlag, tarr,  h13)  - h31[tlag_idx:]
+
+        h2 = np.interp(tarr[tlag_idx:]-tlag, tarr,  h23) + h32[tlag_idx:] - \
+                np.interp(tarr[tlag_idx:]-tlag, tarr,  h21)  - h12[tlag_idx:]
+
+        h3 = np.interp(tarr[tlag_idx:]-tlag, tarr,  h31)  + h13[tlag_idx:] - \
+                np.interp(tarr[tlag_idx:]-tlag, tarr,  h32)  - h23[tlag_idx:] 
+
         
         '''
         Older way of doing time shifts is commented out here. Interp doesn't work since it
@@ -264,7 +273,7 @@ class LISAdata(freqDomain):
         np.interp(tshift, tarr, h32, left=h32[0]) - h23
         '''
 
-        return tarr[tlag_idx:], h1, h2, h3
+        return tarr[tlag_idx:], h12, h13, h32
 
 
 
@@ -544,6 +553,7 @@ class LISAdata(freqDomain):
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
         # Apply band pass filter
+        '''
         order = 8
         zz, pp, kk = sg.butter(order, [0.5*self.params['fmin']/(self.params['fs']/2), 0.4*self.params['fs']/(self.params['fs']/2)], btype='bandpass', output='zpk')
         sos = sg.zpk2sos(zz, pp, kk)
@@ -551,6 +561,7 @@ class LISAdata(freqDomain):
         h1 = sg.sosfiltfilt(sos, h1)
         h2 = sg.sosfiltfilt(sos, h2)
         h3 = sg.sosfiltfilt(sos, h3)
+        '''
 
         # Map of spectrum
         r1 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
@@ -559,8 +570,8 @@ class LISAdata(freqDomain):
 
         
         # Hann Window
-        #hwin = np.hanning(Nperseg)
-        hwin = nuttall(Nperseg)
+        hwin = np.hanning(Nperseg)
+        #hwin = nuttall(Nperseg)
         win_fact = np.mean(hwin**2)
 
         zpad = np.zeros(Nperseg)

@@ -138,10 +138,10 @@ class Bayes():
         log_Np, log_Na  = theta
 
         Np, Na =  10**(log_Np), 10**(log_Na)
-
+        
         # Modelled Noise PSD
         S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
-
+    
         ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
         ## This is true for an equal arm stationary lisa. 
 
