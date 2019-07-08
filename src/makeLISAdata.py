@@ -197,66 +197,70 @@ class LISAdata(freqDomain):
 
         Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
-        # To implement TDI we need time shifts of multiples of L.
-        tlag  = self.armlength/cspeed
-
-        ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
-        ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 2:
-            print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 2
-        else:
-            fs_eff = self.params['fs']
-
-      
         # Generate data
-        np12 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
-        np21 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
-        np13 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
-        np31 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
-        np23 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
-        np32 = self.gaussianData(Sp, frange, fs_eff, 1.1*self.params['dur'])
+        np12 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
+        np21 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
+        np13 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
+        np31 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
+        np23 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
+        np32 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
         
-        na12 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
-        na21 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
-        na13 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
-        na31 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
-        na23 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
-        na32 = self.gaussianData(Sa, frange, fs_eff, 1.1*self.params['dur'])
+        na12 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
+        na21 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
+        na13 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
+        na31 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
+        na23 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
+        na32 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
  
         # time array and time shift array
         tarr = np.linspace(0, 1.1*self.params['dur'] , num=np12.size, endpoint=False)
         delt = tarr[2] - tarr[1]
 
-        tlag_idx = int(round(tlag*fs_eff))
+        # We start with assuming a padding of 20 seconds on the beginning for the 
+        # Michelson channels
+        ## Using up ten seconds here. 
+        ten_idx = int(self.params['fs']*10)
 
-        if 1.0/delt != fs_eff:
+        if 1.0/delt != self.params['fs']:
             #import pdb; pdb.set_trace()
             #raise ValueError('Time series generated not consistant with the sampling frequency')
-            fs_eff = 1.0/delt
+            self.params['fs'] = 1.0/delt
 
-        ## One way dopper channels for each arms
-        h12  = np12[tlag_idx:] - na12[tlag_idx:] + np.interp(tarr[tlag_idx:]-tlag, tarr,  na21)
-        h21  = np21[tlag_idx:] + na21[tlag_idx:] - np.interp(tarr[tlag_idx:]-tlag, tarr,  na12) 
 
-        h23  = np23[tlag_idx:] - na23[tlag_idx:] + np.interp(tarr[tlag_idx:]-tlag, tarr,  na32)
-        h32  = np32[tlag_idx:] + na32[tlag_idx:] - np.interp(tarr[tlag_idx:]-tlag, tarr,  na23)
+        # To implement TDI we need time shifts of multiples of L.
+        tlag  = self.armlength/cspeed
 
-        h31  = np31[tlag_idx:] - na31[tlag_idx:] + np.interp(tarr[tlag_idx:]-tlag, tarr,  na13)
-        h13  = np13[tlag_idx:] + na13[tlag_idx:] - np.interp(tarr[tlag_idx:]-tlag, tarr,  na31)
+        ## One way dopper channels for each arms. Using up seconds of the pad here for doing tlag
+        f21 = intrp(tarr, na21, kind='cubic', fill_value='extrapolate')
+        f12 = intrp(tarr, na12, kind='cubic', fill_value='extrapolate')
+        f32 = intrp(tarr, na32, kind='cubic', fill_value='extrapolate')
+        f23 = intrp(tarr, na23, kind='cubic', fill_value='extrapolate')
+        f13 = intrp(tarr, na13, kind='cubic', fill_value='extrapolate')
+        f31 = intrp(tarr, na31, kind='cubic', fill_value='extrapolate')
+
+        h12  = np12[ten_idx:] - na12[ten_idx:] + np.interp(tarr[ten_idx:]-tlag, tarr,  na21)
+        h21  = np21[ten_idx:] + na21[ten_idx:] - np.interp(tarr[ten_idx:]-tlag, tarr,  na12) 
+
+        h23  = np23[ten_idx:] - na23[ten_idx:] + np.interp(tarr[ten_idx:]-tlag, tarr,  na32)
+        h32  = np32[ten_idx:] + na32[ten_idx:] - np.interp(tarr[ten_idx:]-tlag, tarr,  na23)
+
+        h31  = np31[ten_idx:] - na31[ten_idx:] + np.interp(tarr[ten_idx:]-tlag, tarr,  na13)
+        h13  = np13[ten_idx:] + na13[ten_idx:] - np.interp(tarr[ten_idx:]-tlag, tarr,  na31)
         
         ## reduce tarr
-        tarr = tarr[tlag_idx:]
+        tarr = tarr[ten_idx:]
 
-        # The Michelson channels, formed from the doppler channels
-        h1 = np.interp(tarr[tlag_idx:]-tlag, tarr,  h12) + h21[tlag_idx:] - \
-                np.interp(tarr[tlag_idx:]-tlag, tarr,  h13)  - h31[tlag_idx:]
+        # The Michelson channels, formed from the doppler channels. Using the other 
+        # ten seconds here
 
-        h2 = np.interp(tarr[tlag_idx:]-tlag, tarr,  h23) + h32[tlag_idx:] - \
-                np.interp(tarr[tlag_idx:]-tlag, tarr,  h21)  - h12[tlag_idx:]
+        h1 = np.interp(tarr[ten_idx:]-tlag, tarr,  h12) + h21[ten_idx:] - \
+                np.interp(tarr[ten_idx:]-tlag, tarr,  h13)  - h31[ten_idx:]
 
-        h3 = np.interp(tarr[tlag_idx:]-tlag, tarr,  h31)  + h13[tlag_idx:] - \
-                np.interp(tarr[tlag_idx:]-tlag, tarr,  h32)  - h23[tlag_idx:] 
+        h2 = np.interp(tarr[ten_idx:]-tlag, tarr,  h23) + h32[ten_idx:] - \
+                np.interp(tarr[ten_idx:]-tlag, tarr,  h21)  - h12[ten_idx:]
+
+        h3 = np.interp(tarr[ten_idx:]-tlag, tarr,  h31)  + h13[ten_idx:] - \
+                np.interp(tarr[ten_idx:]-tlag, tarr,  h32)  - h23[ten_idx:] 
 
         
         '''
@@ -273,7 +277,7 @@ class LISAdata(freqDomain):
         np.interp(tshift, tarr, h32, left=h32[0]) - h23
         '''
 
-        return tarr[tlag_idx:], h1, h2, h3
+        return tarr[ten_idx:], h1, h2, h3
 
 
 
@@ -294,17 +298,17 @@ class LISAdata(freqDomain):
         # michelson channels
         tarr, hm1, hm2, hm3 = self.gen_michelson_noise()
 
-        fs_eff = 1.0/(tarr[1] - tarr[0])
-        delt = 1.0/fs_eff
+        ## Using up ten seconds here. 
+        ten_idx = int(self.params['fs']*10)
+
         # Introduce time series
         tshift = 2*self.armlength/cspeed
-        tshift_idx = int(round(tshift*fs_eff))
+        
+        hX = hm1[ten_idx:] - np.interp(tarr[ten_idx:] - tshift, tarr, hm1)
+        hY = hm2[ten_idx:] - np.interp(tarr[ten_idx:] - tshift, tarr, hm2)
+        hZ = hm3[ten_idx:] - np.interp(tarr[ten_idx:] - tshift, tarr, hm3)
 
-        hX = hm1[tshift_idx:] - hm1[0:-tshift_idx]
-        hY = hm2[tshift_idx:] - hm2[0:-tshift_idx]
-        hZ = hm3[tshift_idx:] - hm3[0:-tshift_idx]
-
-        return tarr[tshift_idx:], hX, hY, hZ
+        return tarr[ten_idx:], hX, hY, hZ
 
 
 
@@ -505,19 +509,9 @@ class LISAdata(freqDomain):
 
         delt = times[1] - times[0]
 
-        ## Downsample
-        if self.params['fs'] < 1.0/delt:
-
+        ## Check if the requested sampel rate is consistant
+        if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
-            #h1 = sg.decimate(h1, int(1.0/(self.params['fs']*delt)))
-            #h2 = sg.decimate(h2, int(1.0/(self.params['fs']*delt)))
-            #h3 = sg.decimate(h3, int(1.0/(self.params['fs']*delt)))
-            
-            #self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
-            #times = self.params['fs']*np.arange(0, h1.size, 1)
-        else:
-            self.params['fs'] = 1.0/delt
-
         
         return h1, h2, h3
 
