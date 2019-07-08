@@ -238,14 +238,14 @@ class LISAdata(freqDomain):
         f13 = intrp(tarr, na13, kind='cubic', fill_value='extrapolate')
         f31 = intrp(tarr, na31, kind='cubic', fill_value='extrapolate')
 
-        h12  = np12[ten_idx:] - na12[ten_idx:] + np.interp(tarr[ten_idx:]-tlag, tarr,  na21)
-        h21  = np21[ten_idx:] + na21[ten_idx:] - np.interp(tarr[ten_idx:]-tlag, tarr,  na12) 
+        h12  = np12[ten_idx:] - na12[ten_idx:] + f21(tarr[ten_idx:]-tlag)
+        h21  = np21[ten_idx:] + na21[ten_idx:] - f12(tarr[ten_idx:]-tlag) 
 
-        h23  = np23[ten_idx:] - na23[ten_idx:] + np.interp(tarr[ten_idx:]-tlag, tarr,  na32)
-        h32  = np32[ten_idx:] + na32[ten_idx:] - np.interp(tarr[ten_idx:]-tlag, tarr,  na23)
+        h23  = np23[ten_idx:] - na23[ten_idx:] + f32(tarr[ten_idx:]-tlag)
+        h32  = np32[ten_idx:] + na32[ten_idx:] - f23(tarr[ten_idx:]-tlag)
 
-        h31  = np31[ten_idx:] - na31[ten_idx:] + np.interp(tarr[ten_idx:]-tlag, tarr,  na13)
-        h13  = np13[ten_idx:] + na13[ten_idx:] - np.interp(tarr[ten_idx:]-tlag, tarr,  na31)
+        h31  = np31[ten_idx:] - na31[ten_idx:] + f13(tarr[ten_idx:]-tlag)
+        h13  = np13[ten_idx:] + na13[ten_idx:] - f31(tarr[ten_idx:]-tlag)
         
         ## reduce tarr
         tarr = tarr[ten_idx:]
@@ -253,14 +253,22 @@ class LISAdata(freqDomain):
         # The Michelson channels, formed from the doppler channels. Using the other 
         # ten seconds here
 
-        h1 = np.interp(tarr[ten_idx:]-tlag, tarr,  h12) + h21[ten_idx:] - \
-                np.interp(tarr[ten_idx:]-tlag, tarr,  h13)  - h31[ten_idx:]
+        f12 = intrp(tarr, h12, kind='cubic', fill_value='extrapolate')
+        f13 = intrp(tarr, h13, kind='cubic', fill_value='extrapolate')
+        f23 = intrp(tarr, h23, kind='cubic', fill_value='extrapolate')
+        f21 = intrp(tarr, h21, kind='cubic', fill_value='extrapolate')
+        f31 = intrp(tarr, h31, kind='cubic', fill_value='extrapolate')
+        f32 = intrp(tarr, h32, kind='cubic', fill_value='extrapolate')
 
-        h2 = np.interp(tarr[ten_idx:]-tlag, tarr,  h23) + h32[ten_idx:] - \
-                np.interp(tarr[ten_idx:]-tlag, tarr,  h21)  - h12[ten_idx:]
 
-        h3 = np.interp(tarr[ten_idx:]-tlag, tarr,  h31)  + h13[ten_idx:] - \
-                np.interp(tarr[ten_idx:]-tlag, tarr,  h32)  - h23[ten_idx:] 
+        h1 = f12(tarr[ten_idx:]-tlag) + h21[ten_idx:] - \
+                f13(tarr[ten_idx:]-tlag)  - h31[ten_idx:]
+
+        h2 = f23(tarr[ten_idx:]-tlag) + h32[ten_idx:] - \
+                f21(tarr[ten_idx:]-tlag)  - h12[ten_idx:]
+
+        h3 = f31(tarr[ten_idx:]-tlag)  + h13[ten_idx:] - \
+                f32(tarr[ten_idx:]-tlag)  - h23[ten_idx:] 
 
         
         '''
@@ -304,9 +312,14 @@ class LISAdata(freqDomain):
         # Introduce time series
         tshift = 2*self.armlength/cspeed
         
-        hX = hm1[ten_idx:] - np.interp(tarr[ten_idx:] - tshift, tarr, hm1)
-        hY = hm2[ten_idx:] - np.interp(tarr[ten_idx:] - tshift, tarr, hm2)
-        hZ = hm3[ten_idx:] - np.interp(tarr[ten_idx:] - tshift, tarr, hm3)
+        f1 = intrp(tarr, hm1, kind='cubic', fill_value='extrapolate')
+        f2 = intrp(tarr, hm2, kind='cubic', fill_value='extrapolate')
+        f3 = intrp(tarr, hm3, kind='cubic', fill_value='extrapolate')
+
+
+        hX = hm1[ten_idx:] - f1(tarr[ten_idx:] - tshift)
+        hY = hm2[ten_idx:] - f2(tarr[ten_idx:] - tshift)
+        hZ = hm3[ten_idx:] - f3(tarr[ten_idx:] - tshift)
 
         return tarr[ten_idx:], hX, hY, hZ
 
