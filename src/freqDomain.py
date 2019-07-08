@@ -880,8 +880,8 @@ class freqDomain():
 
      
         ## Noise spectra of the X, Y and Z channels
-        #SX = 4.0 * (2.0 * (1.0 + (np.cos(2*f0))**2) * Sa + Sp)
-        SX = Sp + Sa
+        SX = 4.0 * (2.0 * (1.0 + (np.cos(2*f0))**2) * Sa + Sp)
+        
 
         return SX, SX, SX
 

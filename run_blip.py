@@ -64,9 +64,11 @@ class LISA(LISAdata, Bayes):
 
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] < 1.0/delt:
-            self.h1 = sg.decimate(self.h1, int(1.0/(self.params['fs']*delt)))
-            self.h2 = sg.decimate(self.h2, int(1.0/(self.params['fs']*delt)))
-            self.h3 = sg.decimate(self.h3, int(1.0/(self.params['fs']*delt)))
+            
+            self.params['fs'] = 1.0/delt
+            #self.h1 = sg.decimate(self.h1, int(1.0/(self.params['fs']*delt)))
+            #self.h2 = sg.decimate(self.h2, int(1.0/(self.params['fs']*delt)))
+            #self.h3 = sg.decimate(self.h3, int(1.0/(self.params['fs']*delt)))
             
             self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
             times = self.params['fs']*np.arange(0, self.h1.size, 1)

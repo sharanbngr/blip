@@ -202,9 +202,9 @@ class LISAdata(freqDomain):
 
         ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 4:
+        if self.params['fs'] < 2:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 4
+            fs_eff = 2
         else:
             fs_eff = self.params['fs']
 
@@ -236,14 +236,14 @@ class LISAdata(freqDomain):
             fs_eff = 1.0/delt
 
         ## One way dopper channels for each arms
-        h12  = np12[tlag_idx:] - na12[tlag_idx:] #+ np.interp(tarr[tlag_idx:]-tlag, tarr,  na21)
-        h21  = np21[tlag_idx:] + na21[tlag_idx:] #- np.interp(tarr[tlag_idx:]-tlag, tarr,  na12) 
+        h12  = np12[tlag_idx:] - na12[tlag_idx:] + np.interp(tarr[tlag_idx:]-tlag, tarr,  na21)
+        h21  = np21[tlag_idx:] + na21[tlag_idx:] - np.interp(tarr[tlag_idx:]-tlag, tarr,  na12) 
 
-        h23  = np23[tlag_idx:] - na23[tlag_idx:] #+ np.interp(tarr[tlag_idx:]-tlag, tarr,  na32)
-        h32  = np32[tlag_idx:] + na32[tlag_idx:] #- np.interp(tarr[tlag_idx:]-tlag, tarr,  na23)
+        h23  = np23[tlag_idx:] - na23[tlag_idx:] + np.interp(tarr[tlag_idx:]-tlag, tarr,  na32)
+        h32  = np32[tlag_idx:] + na32[tlag_idx:] - np.interp(tarr[tlag_idx:]-tlag, tarr,  na23)
 
-        h31  = np31[tlag_idx:] - na31[tlag_idx:] #+ np.interp(tarr[tlag_idx:]-tlag, tarr,  na13)
-        h13  = np13[tlag_idx:] + na13[tlag_idx:] #- np.interp(tarr[tlag_idx:]-tlag, tarr,  na31)
+        h31  = np31[tlag_idx:] - na31[tlag_idx:] + np.interp(tarr[tlag_idx:]-tlag, tarr,  na13)
+        h13  = np13[tlag_idx:] + na13[tlag_idx:] - np.interp(tarr[tlag_idx:]-tlag, tarr,  na31)
         
         ## reduce tarr
         tarr = tarr[tlag_idx:]
@@ -273,7 +273,7 @@ class LISAdata(freqDomain):
         np.interp(tshift, tarr, h32, left=h32[0]) - h23
         '''
 
-        return tarr[tlag_idx:], h12, h13, h32
+        return tarr[tlag_idx:], h1, h2, h3
 
 
 
@@ -508,12 +508,13 @@ class LISAdata(freqDomain):
         ## Downsample
         if self.params['fs'] < 1.0/delt:
 
-            h1 = sg.decimate(h1, int(1.0/(self.params['fs']*delt)))
-            h2 = sg.decimate(h2, int(1.0/(self.params['fs']*delt)))
-            h3 = sg.decimate(h3, int(1.0/(self.params['fs']*delt)))
+            self.params['fs'] = 1.0/delt
+            #h1 = sg.decimate(h1, int(1.0/(self.params['fs']*delt)))
+            #h2 = sg.decimate(h2, int(1.0/(self.params['fs']*delt)))
+            #h3 = sg.decimate(h3, int(1.0/(self.params['fs']*delt)))
             
-            self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
-            times = self.params['fs']*np.arange(0, h1.size, 1)
+            #self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
+            #times = self.params['fs']*np.arange(0, h1.size, 1)
         else:
             self.params['fs'] = 1.0/delt
 
@@ -563,10 +564,13 @@ class LISAdata(freqDomain):
         h3 = sg.sosfiltfilt(sos, h3)
         '''
 
+        fftfreqs = np.fft.rfftfreq(Nperseg, 1.0/self.params['fs'])
+
+
         # Map of spectrum
-        r1 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
-        r2 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
-        r3 = np.zeros((1 + int(Nperseg), nsegs), dtype='complex')
+        r1 = np.zeros((fftfreqs.size, nsegs), dtype='complex')
+        r2 = np.zeros((fftfreqs.size, nsegs), dtype='complex')
+        r3 = np.zeros((fftfreqs.size, nsegs), dtype='complex')
 
         
         # Hann Window
@@ -585,13 +589,11 @@ class LISAdata(freqDomain):
                 import pdb; pdb.set_trace()
 
             
-            r1[:, ii] =   np.fft.rfft(np.concatenate((hwin*h1[idxmin:idxmax], zpad ), axis=0))
-            r2[:, ii] =   np.fft.rfft(np.concatenate((hwin*h2[idxmin:idxmax], zpad ), axis=0))
-            r3[:, ii] =   np.fft.rfft(np.concatenate((hwin*h3[idxmin:idxmax], zpad ), axis=0))
+            r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax], axis=0)
+            r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax], axis=0)
+            r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax], axis=0)
 
         # "Cut" to desired frequencies
-        fftfreqs = np.fft.rfftfreq(2*Nperseg, 1.0/self.params['fs'])
-
         idx = np.logical_and(fftfreqs >=  self.params['fmin'] , fftfreqs <=  self.params['fmax'])
 
         # Output arrays
