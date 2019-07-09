@@ -37,7 +37,7 @@ class LISA(LISAdata, Bayes):
 
         ## Figure out which response function to use for recoveries
         self.which_response()
-        #self.diag_spectra()
+        self.diag_spectra()
         
 
     def makedata(self):
@@ -53,11 +53,11 @@ class LISA(LISAdata, Bayes):
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
-    
+        self.h1, self.h2, self.h3 = 0, 0, 0
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
 
-            h1_gw, h2_gw, h3_gw = self.add_astro_signal()
+            h1_gw, h2_gw, h3_gw, times = self.add_astro_signal()
             
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 

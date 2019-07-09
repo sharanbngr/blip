@@ -367,9 +367,9 @@ class LISAdata(freqDomain):
 
         ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 4:
+        if self.params['fs'] < 0.5:
             print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 4
+            fs_eff = 0.5
         else:
             fs_eff = self.params['fs']
 
@@ -381,14 +381,12 @@ class LISAdata(freqDomain):
         N = int(fs_eff*dur)
 
         delf  = 1.0/dur
-        freqs = np.arange(0.5*self.params['fmin'], self.params['fmax'] + delf, delf)
-
+        freqs = np.arange(delf, 0.5*fs_eff, delf)
+    
         #Charactersitic frequency
         fstar = cspeed/(2*np.pi*self.armlength)
 
         # define f0 = f/2f*
-
-        #ftemp  = np.arange(1.0/self.params['seglen'], )
         f0 = freqs/(2*fstar)
   
         ## There are the responses for the three arms
@@ -400,20 +398,11 @@ class LISAdata(freqDomain):
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
+        norms = np.sqrt(Sgw*N/2)/2.0
 
-        hplus, fout   = self.freqdomain_gaussianData(Sgw/2, freqs, fs_eff, dur)
-        hcross, fout  = self.freqdomain_gaussianData(Sgw/2, freqs, fs_eff, dur)
-    
-        ## Instrumental channel data
-        #htilda1 = np.abs(hplus)*np.interp(fout, freqs, R1[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R1[:, 1])
-        #htilda2 = np.abs(hplus)*np.interp(fout, freqs, R2[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R2[:, 1])
-        #htilda3 = np.abs(hplus)*np.interp(fout, freqs, R3[:, 0]) + np.abs(hcross)*np.interp(fout, freqs, R3[:, 1])
-
-        Sgw = np.interp(fout, freqs, Sgw)
-
-        htilda1 = np.sqrt(Sgw/2)*np.interp(fout, freqs, R1[:, 0])  +  np.sqrt(Sgw/2)*np.interp(fout, freqs, R1[:, 1]) 
-        htilda2 = np.sqrt(Sgw/2)*np.interp(fout, freqs, R2[:, 0])  +  np.sqrt(Sgw/2)*np.interp(fout, freqs, R2[:, 1]) 
-        htilda3 = np.sqrt(Sgw/2)*np.interp(fout, freqs, R3[:, 0])  +  np.sqrt(Sgw/2)*np.interp(fout, freqs, R3[:, 1]) 
+        htilda1 = norms*R1[:, 0] + norms*R1[:, 1]
+        htilda2 = norms*R2[:, 0] + norms*R2[:, 1]
+        htilda3 = norms*R3[:, 0] + norms*R3[:, 1]
 
         # Generate time series data for the channels
         if np.mod(N, 2) == 0:
@@ -429,7 +418,7 @@ class LISAdata(freqDomain):
         h1 = np.real(np.fft.ifft(htilda1, N))
         h2 = np.real(np.fft.ifft(htilda2, N))
         h3 = np.real(np.fft.ifft(htilda3, N))
-        
+
         times = np.linspace(0, dur, N, endpoint=False)
         return h1, h2, h3, times
 
