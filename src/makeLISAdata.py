@@ -367,21 +367,17 @@ class LISAdata(freqDomain):
 
         ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
         ## If the sampling frequency is too low, that doesn't play well with the time-shifts
-        if self.params['fs'] < 0.5:
-            print('Desired sample rate is too low for time shifts. Temporarily increasing ...')
-            fs_eff = 0.5
-        else:
-            fs_eff = self.params['fs']
+
 
         dur  = 1.1*self.params['dur']
 
         # speed of light
         cspeed = 3e8 #m/s
 
-        N = int(fs_eff*dur)
+        N = int(self.params['fs']*dur)
 
         delf  = 1.0/dur
-        freqs = np.arange(delf, 0.5*fs_eff, delf)
+        freqs = np.arange(delf, 0.5*self.params['fs'], delf)
     
         #Charactersitic frequency
         fstar = cspeed/(2*np.pi*self.armlength)

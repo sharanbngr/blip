@@ -170,7 +170,7 @@ class freqDomain():
         RTcross = (1/3)*np.sin(2*f0)*(R1cross + R3cross + R2cross)
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
-
+    @profile
     def isgwb_mich_strain_response(self, f0):
 
         '''
