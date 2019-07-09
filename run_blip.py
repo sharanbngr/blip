@@ -187,7 +187,7 @@ class LISA(LISAdata, Bayes):
                 elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
                     self.R1, self.R2, self.R3 = np.loadtxt('R1arrayMich.txt'), np.loadtxt('R2arrayMich.txt'), np.loadtxt('R3arrayMich.txt')
                 else:
-                    raise ValueError('Unknown recovery model selected or recovery model is not implemented for orbiting case')
+                    raise ValueError('Unknown recovery model selected')
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
                 self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
                 self.R1, self.R2, self.R3 = self.orbiting_isgwb_aet_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
@@ -196,11 +196,11 @@ class LISA(LISAdata, Bayes):
                 self.R1, self.R2, self.R3 = self.orbiting_isgwb_xyz_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
                 self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
-                self.R1, self.R2, self.R3 = self.orbiting_isgwb_mich_response(self, self.f0, self.midpoints, self.rs1, self.rs2, self.rs3)
+                self.R1, self.R2, self.R3 = self.orbiting_isgwb_mich_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
             elif self.params['modeltype'] == 'noise_only':
                 print('Noise only model chosen ...')
             else:       
-               raise ValueError('Unknown recovery model selected or recovery model is not implemented for orbiting case')
+               raise ValueError('Unknown recovery model selected')
       
         else:
            raise ValueError('Unknown LISA configuration selected')
