@@ -36,7 +36,8 @@ class LISA(LISAdata, Bayes):
 
         ## Figure out which response function to use for recoveries
         self.which_response()
-        self.diag_spectra()
+        
+        #self.diag_spectra()
 
     def makedata(self):
         '''
@@ -145,10 +146,13 @@ class LISA(LISAdata, Bayes):
             
             if self.params['loadResponse']:
                 if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+                    print("Loading previously calculated AET detector responses...")
                     self.R1, self.R2, self.R3 = np.loadtxt('R1arrayAET.txt'), np.loadtxt('R2arrayAET.txt'), np.loadtxt('R3arrayAET.txt')
                 elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+                    print("Loading previously calculated XYZ detector responses...")
                     self.R1, self.R2, self.R3 = np.loadtxt('R1arrayXYZ.txt'), np.loadtxt('R2arrayXYZ.txt'), np.loadtxt('R3arrayXYZ.txt')
                 elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+                    print("Loading previously calculated Michelson detector responses...")
                     self.R1, self.R2, self.R3 = np.loadtxt('R1arrayMich.txt'), np.loadtxt('R2arrayMich.txt'), np.loadtxt('R3arrayMich.txt')
                 else:
                     raise ValueError('Unknown recovery model selected')
@@ -367,43 +371,79 @@ def blip(paramsfile='params.ini'):
     lisa =  LISA(params, inj)
 
     
-
-    if params['modeltype']=='isgwb':
-
-        print "Doing an isotropic stochastic analysis ..."
-        parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-        npar = len(parameters)     
-        engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
-                 npar, bound='multi', sample='rwalk', nlive=nlive)
-
-    elif params['modeltype']=='sph_sgwb':
-
-        print "Doing a spherical harmonic stochastic analysis ..."
-        parameters = []
-
-        parameters.append(r'$\alpha$')
-
-        for ii in range(params['lmax'] + 1):
-            omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
-            parameters.append(omega_params)
-        
-        parameters.append( r'$\log_{10} (Np)$')
-        parameters.append( r'$\log_{10} (Na)$')
-
-        npar = len(parameters)
-        engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
-                 npar, bound='multi', sample='rwalk', nlive=nlive)
-
-    elif params['modeltype']=='noise_only':
-        print "Doing an instrumental noise only analysis ..."
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-        npar = len(parameters)     
-        engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
-                 npar, bound='multi', sample='rwalk', nlive=nlive)
-
-    else:
-        raise ValueError('Unknown recovery model selected')
-
+    if params['lisa_config']=='stationary':
+        if params['modeltype']=='isgwb':
+    
+            print "Doing an isotropic stochastic analysis..."
+            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            npar = len(parameters)     
+            engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive)
+    
+        elif params['modeltype']=='sph_sgwb':
+    
+            print "Doing a spherical harmonic stochastic analysis ..."
+            parameters = []
+    
+            parameters.append(r'$\alpha$')
+    
+            for ii in range(params['lmax'] + 1):
+                omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
+                parameters.append(omega_params)
+            
+            parameters.append( r'$\log_{10} (Np)$')
+            parameters.append( r'$\log_{10} (Na)$')
+    
+            npar = len(parameters)
+            engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive)
+    
+        elif params['modeltype']=='noise_only':
+            print "Doing an instrumental noise only analysis ..."
+            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            npar = len(parameters)     
+            engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive)
+    
+        else:
+            raise ValueError('Unknown recovery model selected')
+    
+    if params['lisa_config']=='orbiting':
+        if params['modeltype']=='isgwb':
+    
+            print "Doing an isotropic stochastic analysis..."
+            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            npar = len(parameters)     
+            engine = NestedSampler(lisa.orbiting_isgwb_log_likelihood, lisa.isgwb_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive)
+    
+        elif params['modeltype']=='sph_sgwb':
+    
+            print "Doing a spherical harmonic stochastic analysis ..."
+            parameters = []
+    
+            parameters.append(r'$\alpha$')
+    
+            for ii in range(params['lmax'] + 1):
+                omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
+                parameters.append(omega_params)
+            
+            parameters.append( r'$\log_{10} (Np)$')
+            parameters.append( r'$\log_{10} (Na)$')
+    
+            npar = len(parameters)
+            engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive)
+    
+        elif params['modeltype']=='noise_only':
+            print "Doing an instrumental noise only analysis ..."
+            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            npar = len(parameters)     
+            engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive)
+    
+        else:
+            raise ValueError('Unknown recovery model selected')
 
     print "npar = " + str(npar)
     
