@@ -53,7 +53,7 @@ class LISA(LISAdata, Bayes):
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
-        self.h1, self.h2, self.h3 = 0, 0, 0
+
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
 
@@ -63,18 +63,8 @@ class LISA(LISAdata, Bayes):
 
 
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
-        if self.params['fs'] < 1.0/delt:
-            
+        if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
-            #self.h1 = sg.decimate(self.h1, int(1.0/(self.params['fs']*delt)))
-            #self.h2 = sg.decimate(self.h2, int(1.0/(self.params['fs']*delt)))
-            #self.h3 = sg.decimate(self.h3, int(1.0/(self.params['fs']*delt)))
-            
-            self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
-            times = self.params['fs']*np.arange(0, self.h1.size, 1)
-        else:
-            self.params['fs'] = 1.0/delt
-
 
         ## Generate lisa freq domain data from time domain data
         self.r1, self.r2, self.r3, self.fdata = self.tser2fser(self.h1, self.h2, self.h3)
@@ -259,7 +249,7 @@ class LISA(LISAdata, Bayes):
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         plt.close() 
         
 
