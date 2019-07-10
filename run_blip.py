@@ -35,7 +35,8 @@ class LISA(LISAdata, Bayes):
             self.makedata()
 
         ## Figure out which response function to use for recoveries
-        self.which_response()     
+        self.which_response()
+        self.diag_spectra()
 
     def makedata(self):
         '''
@@ -50,26 +51,18 @@ class LISA(LISAdata, Bayes):
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
-    
+
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
 
-            h1_gw, h2_gw, h3_gw = self.add_astro_signal()
+            h1_gw, h2_gw, h3_gw, times = self.add_astro_signal()
             
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
 
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
-        if self.params['fs'] < 1.0/delt:
-            self.h1 = sg.decimate(self.h1, int(1.0/(self.params['fs']*delt)))
-            self.h2 = sg.decimate(self.h2, int(1.0/(self.params['fs']*delt)))
-            self.h3 = sg.decimate(self.h3, int(1.0/(self.params['fs']*delt)))
-            
-            self.params['fs'] = (1.0/delt)/int(1.0/(self.params['fs']*delt))
-            times = self.params['fs']*np.arange(0, self.h1.size, 1)
-        else:
+        if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
-
 
         ## Generate lisa freq domain data from time domain data
         self.r1, self.r2, self.r3, self.fdata = self.tser2fser(self.h1, self.h2, self.h3)
@@ -267,7 +260,7 @@ class LISA(LISAdata, Bayes):
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        #plt.ylim(3e-42, 1e-37)
+        plt.ylim(1e-42, 5e-37)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
         '''
@@ -292,7 +285,7 @@ class LISA(LISAdata, Bayes):
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         plt.close() 
         
 
