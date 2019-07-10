@@ -9,7 +9,6 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
-from src.isgwbresponse import cython_tdi_isgwb_response as cytdi
 
 class LISA(LISAdata, Bayes):
 
@@ -34,14 +33,10 @@ class LISA(LISAdata, Bayes):
             self.read_mldc_data()
         else:
             self.makedata()
-        
-
 
         ## Figure out which response function to use for recoveries
         self.which_response()
         self.diag_spectra()
-
-        
 
     def makedata(self):
         '''
@@ -84,7 +79,7 @@ class LISA(LISAdata, Bayes):
         and converts to strain data. 
         '''
         
-        h1, h2, h3, timearray = self.read_data()
+        h1, h2, h3, self.timearray = self.read_data()
         
         ## Calculate other tdi combinations if necessary. 
         if self.params['tdi_lev']=='aet':
@@ -95,7 +90,7 @@ class LISA(LISAdata, Bayes):
 
 
         ## Generate lisa freq domain data from time domain data
-        r1, r2, r3, self.fdata, tsegstart, tsegmid = self.tser2fser(h1, h2, h3, timearray)
+        r1, r2, r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -105,9 +100,9 @@ class LISA(LISAdata, Bayes):
         self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
         
           #Pull time segments
-        self.timearray = timearray
-        self.tsegstart = tsegstart
-        self.tsegmid = tsegmid
+#        self.timearray = timearray
+#        self.tsegstart = tsegstart
+#        self.tsegmid = tsegmid
 
         
 
@@ -127,21 +122,52 @@ class LISA(LISAdata, Bayes):
             self.gen_noise_spectrum = self.gen_michelson_noise
 
     def which_response(self):
-    
         ## Figure out which antenna patterns to use
-
-        if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-            self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-            self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
-        elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-            self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
-        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-            self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
-        elif self.params['modeltype'] == 'noise_only':
-            print('Noise only model chosen ...')
-        else:       
-           raise ValueError('Unknown recovery model selected')
+        
+        ## Stationary LISA case:       
+        if self.params['lisa_config'] == 'stationary':
+            
+            if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+                self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
+            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+                self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
+            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+                self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
+            elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
+                self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
+            elif self.params['modeltype'] == 'noise_only':
+                print('Noise only model chosen ...')
+            else:       
+               raise ValueError('Unknown recovery model selected')
+               
+       ## Orbiting LISA case:
+        elif self.params['lisa_config'] == 'orbiting':
+            
+            if self.params['loadResponse']:
+                if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayAET.txt'), np.loadtxt('R2arrayAET.txt'), np.loadtxt('R3arrayAET.txt')
+                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayXYZ.txt'), np.loadtxt('R2arrayXYZ.txt'), np.loadtxt('R3arrayXYZ.txt')
+                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayMich.txt'), np.loadtxt('R2arrayMich.txt'), np.loadtxt('R3arrayMich.txt')
+                else:
+                    raise ValueError('Unknown recovery model selected')
+            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+                self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
+                self.R1, self.R2, self.R3 = self.orbiting_isgwb_aet_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+                self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
+                self.R1, self.R2, self.R3 = self.orbiting_isgwb_xyz_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+                self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
+                self.R1, self.R2, self.R3 = self.orbiting_isgwb_mich_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+            elif self.params['modeltype'] == 'noise_only':
+                print('Noise only model chosen ...')
+            else:       
+               raise ValueError('Unknown recovery model selected')
+      
+        else:
+           raise ValueError('Unknown LISA configuration selected')
 
     def which_astro_signal(self):
     
@@ -291,14 +317,14 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
-    params['readData'] = int(config.get("params", "readData"))
+    #params['readData'] = int(config.get("params", "readData"))
     params['loadResponse'] = int(config.get("params", "loadResponse"))
-    params['cyResponse'] = int(config.get("params", "cyResponse"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
     params['lmax'] = int(config.get("params", "lmax"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
+    params['lisa_config'] = str(config.get("params", "lisa_config"))
 
 
     ## Extract truevals if any

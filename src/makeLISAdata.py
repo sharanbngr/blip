@@ -2,11 +2,12 @@ from __future__ import division
 import numpy as np
 import scipy.signal as sg
 from src.movingfreqDomain import movingfreqDomain
+from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 from scipy.signal.windows import nuttall
 
-class LISAdata(movingfreqDomain):
+class LISAdata(freqDomain, movingfreqDomain):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -476,7 +477,7 @@ class LISAdata(movingfreqDomain):
 
         hA = (1.0/3)*(2*hX - hY + hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
-        hT = (1.0/3)*(hX + hY + hz)
+        hT = (1.0/3)*(hX + hY + hZ)
 
         return hA, hE, hT
 
@@ -592,7 +593,7 @@ class LISAdata(movingfreqDomain):
         # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(ii*Nperseg)
+            idxmin = int(0.5*ii*Nperseg)
             idxmax = idxmin + Nperseg
             idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:
