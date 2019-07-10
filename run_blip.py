@@ -33,38 +33,9 @@ class LISA(LISAdata, Bayes):
             self.read_mldc_data()
         else:
             self.makedata()
-        
-
 
         ## Figure out which response function to use for recoveries
-        self.which_response()
-
-        ## Calculate the antenna patterns
-#        if self.params['modeltype'] == 'isgwb':
-#            self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
-#            if self.params['loadResponse']:
-#                self.R1, self.R2, self.R3 = np.loadtxt('R1array.txt'), np.loadtxt('R2array.txt'), np.loadtxt('R3array.txt')
-#            elif self.params['cyResponse']:
-#                import time
-#                starttime = time.time()
-#                self.R1, self.R2, self.R3 = cytdi(self, self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
-#                endtime = time.time()
-#                print(endtime-starttime)
-#            else:
-#                import time
-#                starttime = time.time()
-#                #self.R1, self.R2, self.R3 = self.tdi_isgwb_xyz_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
-#                self.R1, self.R2, self.R3 = self.tdi_isgwb_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
-#                #self.R1plus, self.R1cross, self.R2plus, self.R2cross, self.R3plus, self.R3cross = self.michelson_response(self.f0, np.pi/3, 2*np.pi/6, self.tsegmid, self.rs1, self.rs2, self.rs3)
-#                endtime = time.time()
-#                print(endtime-starttime)
-#        elif params['modeltype']=='sph_sgwb':
-#            self.R1, self.R2, self.R3 = self.tdi_aniso_sph_sgwb_response(self.f0)
-#        else:
-#           raise ValueError('Unknown recovery model selected')
-
-        #self.diag_spectra()
-        
+        self.which_response()     
 
     def makedata(self):
         '''
