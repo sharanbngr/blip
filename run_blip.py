@@ -130,6 +130,12 @@ class LISA(LISAdata, Bayes):
             self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
         elif self.params['modeltype'] == 'noise_only':
             print('Noise only model chosen ...')
+        elif self.params['modeltype'] == 'isgwb_only':
+            print('ISGWB only model chosen ...')
+            if self.params['tdi_lev']=='xyz':
+                self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
+            if self.params['tdi_lev']=='michelson':
+                self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)
         else:       
            raise ValueError('Unknown recovery model selected')
 
@@ -219,12 +225,12 @@ class LISA(LISAdata, Bayes):
 
         ## Plot data PSD with the expected level
         #plt.subplot(3, 1, 1)
-        plt.loglog(self.fdata, S1, label='required')
+        #plt.loglog(self.fdata, S1, label='required')
         plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.ylim(1e-42, 5e-37)
+        plt.ylim(1e-43, 5e-41)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
         '''
@@ -361,7 +367,14 @@ def blip(paramsfile='params.ini'):
         npar = len(parameters)     
         engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
                  npar, bound='multi', sample='rwalk', nlive=nlive)
-
+    
+    elif params['modeltype']=='isgwb_only':
+        ## ISGWB only analysis. This is more of a diagnostic likelihood
+        print "Doing an isgwb only analysis ..."
+        parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+        npar = len(parameters)
+        engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,\
+                 npar, bound='multi', sample='rwalk', nlive=nlive)    
     else:
         raise ValueError('Unknown recovery model selected')
 

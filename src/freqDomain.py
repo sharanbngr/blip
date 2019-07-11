@@ -170,7 +170,7 @@ class freqDomain():
         RTcross = (1/3)*np.sin(2*f0)*(R1cross + R3cross + R2cross)
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
-
+    
     def isgwb_mich_strain_response(self, f0):
 
         '''
@@ -466,12 +466,12 @@ class freqDomain():
             ##  Fplus_u = (u x u):eplus
 
             Fplus_u   = (1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - \
-                             np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)  + \
-                                 0.5*((np.cos(phi))**2 - ct**2))
+                             np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)) #  + \
+                             #    0.5*((np.cos(phi))**2 - ct**2))
         
             Fplus_v   = (1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + \
-                             np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) + \
-                                 0.5*((np.cos(phi))**2 - ct**2))
+                             np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)) # + \
+                             #    0.5*((np.cos(phi))**2 - ct**2))
 
             Fplus_w   = (1 - (1+ct**2)*(np.cos(phi))**2)
 
