@@ -37,7 +37,8 @@ class LISA(LISAdata, Bayes):
         ## Figure out which response function to use for recoveries
         self.which_response()
         
-        #self.diag_spectra()
+        if self.params['lisa_config']=='stationary':
+            self.diag_spectra()
 
     def makedata(self):
         '''
