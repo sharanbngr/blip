@@ -146,7 +146,10 @@ class LISA(LISAdata, Bayes):
         elif self.params['lisa_config'] == 'orbiting':
             
             if self.params['loadResponse']:
-                if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+                if self.params['loadCustom']:
+                    print("Loading user specified detector responses...")
+                    self.R1, self.R2, self.R3 = np.loadtxt(self.params['responsefile1']), np.loadtxt(self.params['responsefile2']), np.loadtxt(self.params['responsefile3'])
+                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
                     print("Loading previously calculated AET detector responses...")
                     self.R1, self.R2, self.R3 = np.loadtxt('R1arrayAET.txt'), np.loadtxt('R2arrayAET.txt'), np.loadtxt('R3arrayAET.txt')
                 elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
@@ -324,6 +327,10 @@ def blip(paramsfile='params.ini'):
     params['mldc'] = int(config.get("params", "mldc"))
     #params['readData'] = int(config.get("params", "readData"))
     params['loadResponse'] = int(config.get("params", "loadResponse"))
+    params['loadCustom'] = int(config.get("params", "loadCustom"))
+    params['responsefile1']  = str(config.get("params", "responsefile1"))
+    params['responsefile2']  = str(config.get("params", "responsefile2"))
+    params['responsefile3']  = str(config.get("params", "responsefile3"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
