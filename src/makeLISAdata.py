@@ -1,12 +1,12 @@
 from __future__ import division
 import numpy as np
 import scipy.signal as sg
-from src.freqDomain import freqDomain
+from src.movingfreqDomain import movingfreqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 from scipy.signal.windows import nuttall
 
-class LISAdata(freqDomain):
+class LISAdata(movingfreqDomain):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -507,14 +507,15 @@ class LISAdata(freqDomain):
 
         delt = times[1] - times[0]
 
+
         ## Check if the requested sampel rate is consistant
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
         
-        return h1, h2, h3
+        return h1, h2, h3, times
 
 
-    def tser2fser(self, h1, h2, h3):
+    def tser2fser(self, h1, h2, h3, timearray):
         
         '''
         Convert time domain data to fourier domain and return ffts. The convention is that the 
@@ -524,8 +525,11 @@ class LISAdata(freqDomain):
 
         Parameters
         -----------
-        h1,h2, h3 : float
+        h1, h2, h3 : float
             time series data for the three input channels
+            
+        timearray : float
+            times corresponding to data in h1, h2, h3
 
         Returns
         ---------
@@ -535,6 +539,13 @@ class LISAdata(freqDomain):
 
         fdata : float
             Reference frequency series
+            
+        tsegstart : float
+            Segmented time array giving segment start points
+            
+        tsegmid : float
+            Segmented time array giving segment midpoints
+
 
         '''
 
@@ -570,13 +581,20 @@ class LISAdata(freqDomain):
         #hwin = nuttall(Nperseg)
         win_fact = np.mean(hwin**2)
 
+
         zpad = np.zeros(Nperseg)
         # No overlapping segments
+
+        ## Initiate time segment arrays
+        tsegstart = np.zeros(nsegs)
+        tsegmid = np.zeros(nsegs)
+
+        # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
             idxmin = int(ii*Nperseg)
             idxmax = idxmin + Nperseg
-
+            idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:
                 import pdb; pdb.set_trace()
 
@@ -585,11 +603,17 @@ class LISAdata(freqDomain):
             r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax], axis=0)
             r3[:, ii] =   np.fft.rfft(hwin*h3[idxmin:idxmax], axis=0)
 
+
+            ## There's probably a more pythonic way of doing this, but it'll work for now.
+            tsegstart[ii] = timearray[idxmin]
+            tsegmid[ii] = timearray[idxmid]
+
         # "Cut" to desired frequencies
         idx = np.logical_and(fftfreqs >=  self.params['fmin'] , fftfreqs <=  self.params['fmax'])
 
         # Output arrays
         fdata = fftfreqs[idx]
+
         
         # Get desired frequencies only
         # We want to normalize ffts so thier square give the psd
@@ -598,7 +622,10 @@ class LISAdata(freqDomain):
         r2 = np.sqrt(2/win_fact)*r2[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         r3 = np.sqrt(2/win_fact)*r3[idx, :]/(self.params['fs']*np.sqrt(self.params['seglen']))
         
+
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
 
-        return r1, r2, r3, fdata
+
+        return r1, r2, r3, fdata, tsegstart, tsegmid
+
         
