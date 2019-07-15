@@ -1,12 +1,12 @@
 from __future__ import division
 import numpy as np
 import scipy.signal as sg
-from src.movingfreqDomain import movingfreqDomain
+from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 from scipy.signal.windows import nuttall
 
-class LISAdata(movingfreqDomain):
+class LISAdata(freqDomain):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -385,8 +385,12 @@ class LISAdata(movingfreqDomain):
         # define f0 = f/2f*
         f0 = freqs/(2*fstar)
   
+        import time; tstart = time.time()
         ## There are the responses for the three arms
         R1, R2, R3 = self.isgwb_mich_strain_response(f0)
+
+        print(str(time.time() - tstart))
+        import pdb; pdb.set_trace()
         
         H0 = 2.2*10**(-18) ## in SI units
 
@@ -454,7 +458,7 @@ class LISAdata(movingfreqDomain):
 
 
 
-        return hX, hY, hZ
+        return hX, hY, hZ, times
 
     def gen_aet_isgwb(self):
         
@@ -472,13 +476,13 @@ class LISAdata(movingfreqDomain):
             Time series isotropic stochastic noise for the three TDI channels
 
         '''
-        hX, hY, hZ = self.gen_xyz_isgwb()
+        hX, hY, hZ, times = self.gen_xyz_isgwb()
 
         hA = (1.0/3)*(2*hX - hY + hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
         hT = (1.0/3)*(hX + hY + hz)
 
-        return hA, hE, hT
+        return hA, hE, hT, times
 
     def read_data(self):
         

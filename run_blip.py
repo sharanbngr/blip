@@ -9,7 +9,6 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
-from src.isgwbresponse import cython_tdi_isgwb_response as cytdi
 
 class LISA(LISAdata, Bayes):
 
@@ -34,8 +33,6 @@ class LISA(LISAdata, Bayes):
             self.read_mldc_data()
         else:
             self.makedata()
-        
-
 
         ## Figure out which response function to use for recoveries
         self.which_response()
@@ -75,7 +72,7 @@ class LISA(LISAdata, Bayes):
             self.params['fs'] = 1.0/delt
 
         ## Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata = self.tser2fser(self.h1, self.h2, self.h3)
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(self.h1, self.h2, self.h3, times)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -114,13 +111,9 @@ class LISA(LISAdata, Bayes):
         self.tsegstart = tsegstart
         self.tsegmid = tsegmid
 
-        
-
-
     def which_noise_spectrum(self):
 
         ## Figure out which instrumental noise spectra to use
-
         if self.params['tdi_lev']=='aet':
             self.instr_noise_spectrum = self.aet_noise_spectrum 
             self.gen_noise_spectrum = self.gen_aet_noise
@@ -302,9 +295,6 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
-    params['readData'] = int(config.get("params", "readData"))
-    params['loadResponse'] = int(config.get("params", "loadResponse"))
-    params['cyResponse'] = int(config.get("params", "cyResponse"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
