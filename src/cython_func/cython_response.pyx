@@ -8,19 +8,12 @@ cdef extern from "gsl/gsl_sf_trig.h":
     double gsl_sf_sinc(double)
     double gsl_sf_sin(double)
     double gsl_sf_cos(double)
-
-cdef extern from "gsl/gsl_complex.h":
-       ctypedef struct gsl_complex:
-        pass
-
-cdef extern from "gsl/gsl_complex_math.h":
-    gsl_complex gsl_complex_polar(double r, double theta)
-    gsl_complex gsl_complex_add(gsl_complex a, gsl_complex b)
-    gsl_complex gsl_complex_mul(gsl_complex a, gsl_complex b)
-    gsl_complex gsl_complex_mul_real(gsl_complex a, double x)
-
+    
 cdef extern from "math.h":
    double sqrt(double)
+
+#cdef extern from "gsl/gsl_math.h":
+
 
 cdef extern from "gsl/gsl_rng.h":
    ctypedef struct gsl_rng_type:
@@ -50,16 +43,13 @@ cdef double cos_gsl(double x):
 cdef double sinc_gsl(double x):
     return gsl_sf_sinc(x)
 
+  
 cdef double sqrt_gsl(double n):
    return sqrt(n)
 
-cdef gsl_complex cmp_exp_gsl(double x):
-    return  complex_polar(1.0, double x)
+cdef complex cmp_exp_gsl(double x):
+    return  gsl_sf_cos(x) + 1j*gsl_sf_sin(x)
 
-cdef gsl_complex sinc_time_exp (double x, double theta ):
-    
-
-### --------------------- Main code ------------------------------------
 def isgwb_mich_strain_response(object self):
 
         '''
@@ -89,8 +79,8 @@ def isgwb_mich_strain_response(object self):
 
         cdef double [:] f0 = self.f0
         cdef double pi_val = 3.141592653589793238462
-        cdef double[:] ct = np.linspace(-1, 1, 200)
-        cdef double[:] phi = np.linspace(0, 2*pi_val, 210, endpoint=False)
+        cdef double[:] ct = np.linspace(-1, 1, 150)
+        cdef double[:] phi = np.linspace(0, 2*pi_val, 150, endpoint=False)
 
         cdef double dct = ct[1] - ct[0]
         cdef double dphi = phi[1] - phi[0]
@@ -113,6 +103,10 @@ def isgwb_mich_strain_response(object self):
         cdef double[:,:] Fcross_w = np.zeros((numphi, numtheta))
 
         cdef norm = sqrt_gsl(0.5/udir.size)
+
+        cdef complex exp_3f0, exp_f0, exp_u, exp_v
+        cdef complex exp_u_minus, exp_v_minus, exp_w_minus
+        cdef complex exp_u_plus, exp_v_plus, exp_w_plus 
 
         # Initlize arrays for the detector reponse
         cdef complex[:,:] R1 = np.zeros((f0.size, 2), dtype='complex')
@@ -146,44 +140,55 @@ def isgwb_mich_strain_response(object self):
 
         # Calculate the detector response for each frequency
         for ii in range(numfreqs):
+
+            exp_3f0 = cmp_exp_gsl(-3*f0[ii])
+            exp_f0 = cmp_exp_gsl(-f0[ii])
+            
             for jj in range(numphi):
                 for kk in range(numtheta):
 
+                    exp_u_minus = cmp_exp_gsl(-f0[ii]*udir[jj, kk])
+                    exp_v_minus = cmp_exp_gsl(-f0[ii]*vdir[jj, kk])
+                    exp_w_minus = cmp_exp_gsl(-f0[ii]*wdir[jj, kk])
+
+                    exp_u_plus, exp_v_plus, exp_w_plus   = exp_u_minus.conjugate(), exp_v_minus.conjugate(), exp_w_minus.conjugate()
+
+
                     # Calculate GW transfer function for the michelson channels
-                    #gammaU_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - udir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3+udir[jj, kk])) + \
-                    #             sinc_gsl((f0[ii])*(1 + udir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1+udir[jj, kk])))
-
-                    gammaU_plus = 
+                    gammaU_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - udir[jj, kk])/pi_val)*exp_3f0 + \
+                                 sinc_gsl((f0[ii])*(1 + udir[jj, kk])/pi_val)*exp_3f0) * exp_u_minus
 
 
-                    gammaV_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - vdir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3+vdir[jj,kk])) + \
-                                 sinc_gsl((f0[ii])*(1 + vdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1+vdir[jj,kk])))
+                    gammaV_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - vdir[jj, kk])/pi_val)*exp_3f0 + \
+                                 sinc_gsl((f0[ii])*(1 + vdir[jj,kk])/pi_val)*exp_3f0) * exp_v_minus
 
-                    gammaW_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - wdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3+wdir[jj,kk])) + \
-                                 sinc_gsl((f0[ii])*(1 + wdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1+wdir[jj,kk])))
+                    gammaW_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - wdir[jj, kk])/pi_val)*exp_3f0 + \
+                                 sinc_gsl((f0[ii])*(1 + wdir[jj,kk])/pi_val)*exp_3f0) * exp_w_minus
             
                     # Calculate GW transfer function for the michelson channels
-                    gammaU_minus    =    1/2 * (sinc_gsl((f0[ii])*(1 + udir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3 - udir[jj,kk])) + \
-                                 sinc_gsl((f0[ii])*(1 - udir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1 - udir[jj,kk])))
+                    gammaU_minus    =    1/2 * (sinc_gsl((f0[ii])*(1 + udir[jj,kk])/pi_val)*exp_3f0 + \
+                                 sinc_gsl((f0[ii])*(1 - udir[jj,kk])/pi_val)*exp_3f0) * exp_u_plus
 
-                    gammaV_minus    =    1/2 * (sinc_gsl((f0[ii])*(1 + vdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3 - vdir[jj,kk])) + \
-                                 sinc_gsl((f0[ii])*(1 - vdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1 - vdir[jj,kk])))
+                    gammaV_minus    =    1/2 * (sinc_gsl((f0[ii])*(1 + vdir[jj,kk])/pi_val)*exp_3f0 + \
+                                 sinc_gsl((f0[ii])*(1 - vdir[jj,kk])/pi_val)*exp_3f0) * exp_v_plus
 
-                    gammaW_minus    =    1/2 * (sinc_gsl((f0[ii])*(1 + wdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3 - wdir[jj,kk])) + \
-                                 sinc_gsl((f0[ii])*(1 - wdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1 - wdir[jj,kk])))
+                    gammaW_minus    =    1/2 * (sinc_gsl((f0[ii])*(1 + wdir[jj,kk])/pi_val)*exp_3f0 + \
+                                 sinc_gsl((f0[ii])*(1 - wdir[jj,kk])/pi_val)*exp_3f0) * exp_w_plus
         
 
+                    exp_u  = cmp_exp_gsl(2*f0[ii]*udir[jj,kk])
+                    exp_v  = cmp_exp_gsl(2*f0[ii]*vdir[jj,kk])
 
                     ## Michelson antenna patterns: Calculate Fplus
                     Fplus1 = 0.5*(Fplus_u[jj, kk]*gammaU_plus - Fplus_v[jj, kk]*gammaV_plus)
-                    Fplus2 = 0.5*(Fplus_w[jj, kk]*gammaW_plus - Fplus_u[jj, kk]*gammaU_minus)*cmp_exp_gsl(2*f0[ii]*udir[jj,kk])
-                    Fplus3 = 0.5*(Fplus_v[jj, kk]*gammaV_minus - Fplus_w[jj, kk]*gammaW_minus)*cmp_exp_gsl(2*f0[ii]*vdir[jj,kk])
-
+                    Fplus2 = 0.5*(Fplus_w[jj, kk]*gammaW_plus - Fplus_u[jj, kk]*gammaU_minus)*exp_u
+                    Fplus3 = 0.5*(Fplus_v[jj, kk]*gammaV_minus - Fplus_w[jj, kk]*gammaW_minus)*exp_v
                     ## Michelson antenna patterns: Calculate Fcross
                     Fcross1 = 0.5*(Fcross_u[jj, kk]*gammaU_plus - Fcross_v[jj, kk]*gammaV_plus)
-                    Fcross2 = 0.5*(Fcross_w[jj, kk]*gammaW_plus - Fcross_u[jj, kk]*gammaU_minus)*cmp_exp_gsl(2*f0[ii]*udir[jj,kk])
-                    Fcross3 = 0.5*(Fcross_v[jj, kk]*gammaV_minus - Fcross_w[jj, kk]*gammaW_minus)*cmp_exp_gsl(2*f0[ii]*vdir[jj,kk])
+                    Fcross2 = 0.5*(Fcross_w[jj, kk]*gammaW_plus - Fcross_u[jj, kk]*gammaU_minus)*exp_u
+                    Fcross3 = 0.5*(Fcross_v[jj, kk]*gammaV_minus - Fcross_w[jj, kk]*gammaW_minus)*exp_v
 
+                    ## Directional random number
                     rand_plus = unit_nrm_gsl() + 1j*unit_nrm_gsl()
                     rand_cross = unit_nrm_gsl() + 1j* unit_nrm_gsl()
 

@@ -20,5 +20,6 @@ ext = Extension("cython_response", ["./src/cython_func/cython_response.pyx"],
 setup(ext_modules=[ext],
     cmdclass = {'build_ext': build_ext})
 
-os.system('rm ./src/cython_func/cython_response.so')
 os.system('mv cython_response.so src/cython_func/') 
+
+
