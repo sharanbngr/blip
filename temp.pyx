@@ -11,13 +11,10 @@ cdef extern from "gsl/gsl_sf_trig.h":
 
 cdef extern from "gsl/gsl_complex.h":
        ctypedef struct gsl_complex:
-        pass
+       pass
 
 cdef extern from "gsl/gsl_complex_math.h":
-    gsl_complex gsl_complex_polar(double r, double theta)
-    gsl_complex gsl_complex_add(gsl_complex a, gsl_complex b)
-    gsl_complex gsl_complex_mul(gsl_complex a, gsl_complex b)
-    gsl_complex gsl_complex_mul_real(gsl_complex a, double x)
+    
 
 cdef extern from "math.h":
    double sqrt(double)
@@ -50,16 +47,13 @@ cdef double cos_gsl(double x):
 cdef double sinc_gsl(double x):
     return gsl_sf_sinc(x)
 
+  
 cdef double sqrt_gsl(double n):
    return sqrt(n)
 
-cdef gsl_complex cmp_exp_gsl(double x):
-    return  complex_polar(1.0, double x)
+cdef complex cmp_exp_gsl(double x):
+    return  cos_gsl(x) + 1j*sine_gsl(x)
 
-cdef gsl_complex sinc_time_exp (double x, double theta ):
-    
-
-### --------------------- Main code ------------------------------------
 def isgwb_mich_strain_response(object self):
 
         '''
@@ -150,11 +144,8 @@ def isgwb_mich_strain_response(object self):
                 for kk in range(numtheta):
 
                     # Calculate GW transfer function for the michelson channels
-                    #gammaU_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - udir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3+udir[jj, kk])) + \
-                    #             sinc_gsl((f0[ii])*(1 + udir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1+udir[jj, kk])))
-
-                    gammaU_plus = 
-
+                    gammaU_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - udir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3+udir[jj, kk])) + \
+                                 sinc_gsl((f0[ii])*(1 + udir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1+udir[jj, kk])))
 
                     gammaV_plus    =    1/2 * (sinc_gsl((f0[ii])*(1 - vdir[jj, kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(3+vdir[jj,kk])) + \
                                  sinc_gsl((f0[ii])*(1 + vdir[jj,kk])/pi_val)*cmp_exp_gsl(-f0[ii]*(1+vdir[jj,kk])))
