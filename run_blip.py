@@ -359,6 +359,8 @@ def blip(paramsfile='params.ini'):
     params['out_dir']            = str(config.get("run_params", "out_dir"))
     params['doPreProc']          = int(config.get("run_params", "doPreProc"))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
+    params['FixSeed']            = str(config.get("run_params", "FixSeed"))
+    params['seed']               = int(config.get("run_params", "seed"))
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
@@ -377,16 +379,22 @@ def blip(paramsfile='params.ini'):
 
     # Initialize lisa class
     lisa =  LISA(params, inj)
-
+    
+    if params['FixSeed']:
+        from tools.SetRandomState import SetRandomState as setrs
+        seed = params['seed']
+        randst = setrs(seed)
+    else:
+        randst = None
     
     if params['lisa_config']=='stationary':
         if params['modeltype']=='isgwb':
-    
+            
             print "Doing an isotropic stochastic analysis..."
             parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
             npar = len(parameters)     
             engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive)
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
         elif params['modeltype']=='sph_sgwb':
     
@@ -404,26 +412,26 @@ def blip(paramsfile='params.ini'):
     
             npar = len(parameters)
             engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive)
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
         elif params['modeltype']=='noise_only':
             print "Doing an instrumental noise only analysis ..."
             parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
             npar = len(parameters)     
             engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive)
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
         else:
             raise ValueError('Unknown recovery model selected')
     
     if params['lisa_config']=='orbiting':
         if params['modeltype']=='isgwb':
-    
+            
             print "Doing an isotropic stochastic analysis..."
             parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
             npar = len(parameters)     
             engine = NestedSampler(lisa.orbiting_isgwb_log_likelihood, lisa.isgwb_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive)
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
         elif params['modeltype']=='sph_sgwb':
     
@@ -441,14 +449,14 @@ def blip(paramsfile='params.ini'):
     
             npar = len(parameters)
             engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive)
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
         elif params['modeltype']=='noise_only':
             print "Doing an instrumental noise only analysis ..."
             parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
             npar = len(parameters)     
             engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive)
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
         else:
             raise ValueError('Unknown recovery model selected')
@@ -465,6 +473,7 @@ def blip(paramsfile='params.ini'):
 
     # -------------------- Extract and Plot posteriors ---------------------------
     
+
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 

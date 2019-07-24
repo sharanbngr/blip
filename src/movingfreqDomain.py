@@ -413,7 +413,7 @@ class movingfreqDomain():
             Ccontract_v = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * \
                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)
             
-            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * \
+            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi)) * \
                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)
 
             # Calculate the detector response for each frequency
