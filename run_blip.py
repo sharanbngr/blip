@@ -483,10 +483,30 @@ def blip(paramsfile='params.ini'):
     weights[-1] = 1 - np.sum(weights[0:-1])
 
     post_samples = resample_equal(res.samples, weights)
-
+    
+    ## Pull the evidence and the evidence error
+    logz = res['logz']
+    logzerr = res['logzerr']
+    
+    ## Construct filenames based on parameter configuration
+    if params['lisa_config']=='stationary':
+        configchar = '_s'
+    elif params['lisa_config']=='orbiting':
+        configchar = '_o'
+    else:
+        configchar = ''
+    
+    if params['FixSeed']:
+        seedchar = '_rs'+str(seed)
+    else:
+        seedchar = ''
+    logzname = '/logz'+seedchar+configchar+'.txt'
+    logzerrname = '/logzerr'+seedchar+configchar+'.txt'
+    
     # Save posteriors to file
     np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
-    
+    np.savetxt(params['out_dir'] + logzname,logz)
+    np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, npar)
     
