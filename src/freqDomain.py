@@ -4,7 +4,7 @@ from scipy.special import lpmn
 
 ## cython datagen stuff
 import types
-##from src.cython_func import cython_response
+from src.cython_func import cython_response
 
 class freqDomain():
 
@@ -893,4 +893,4 @@ class freqDomain():
 
 
 ## Attach cythonized methods to the class
-#freqDomain.isgwb_mich_strain_response = types.MethodType(cython_response.isgwb_mich_strain_response, None, freqDomain )
+freqDomain.isgwb_mich_strain_response = types.MethodType(cython_response.isgwb_mich_strain_response, None, freqDomain )

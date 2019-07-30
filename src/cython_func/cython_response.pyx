@@ -284,7 +284,7 @@ def orbiting_isgwb_mich_strain_response(object self):
 
         for cc in range(ct.size):
             st[cc] = sqrt_gsl(1-ct[cc]**2)
-
+        print("I'm doing the thing!")
         for tt in range(numtime):
             ## Define x/y/z for each satellite at time given by midpoints[ti]
             x1 = rs1[0][tt]
@@ -403,7 +403,9 @@ def orbiting_isgwb_mich_strain_response(object self):
                         R1[ii, 0], R1[ii, 1] = R1[ii, 0] + norm*Fplus1*rand_plus, R1[ii, 1] + norm*Fcross1*rand_cross
                         R2[ii, 0], R2[ii, 1] = R2[ii, 0] + norm*Fplus2*rand_plus, R2[ii, 1] + norm*Fcross2*rand_cross 
                         R3[ii, 0], R3[ii, 1] = R3[ii, 0] + norm*Fplus3*rand_plus, R3[ii, 1] + norm*Fcross3*rand_cross 
-
+                        if ii==1:
+                            import pdb
+                            pdb.set_trace()
   
 
-        #return R1, R2, R3
+        return R1, R2, R3
