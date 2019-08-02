@@ -379,7 +379,7 @@ class LISAdata(freqDomain, movingfreqDomain):
 
         delf  = 1.0/dur
         freqs = np.arange(delf, 0.5*self.params['fs'], delf)
-    
+
         #Charactersitic frequency
         fstar = cspeed/(2*np.pi*self.armlength)
 
@@ -388,7 +388,7 @@ class LISAdata(freqDomain, movingfreqDomain):
   
         ## There are the responses for the three arms
         R1, R2, R3 = self.isgwb_mich_strain_response(f0)
-        
+
         H0 = 2.2*10**(-18) ## in SI units
 
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']

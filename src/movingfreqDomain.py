@@ -413,7 +413,7 @@ class movingfreqDomain():
             Ccontract_v = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * \
                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)
             
-            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * \
+            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi)) * \
                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)
 
             # Calculate the detector response for each frequency
@@ -915,83 +915,3 @@ class movingfreqDomain():
 
 
         return R1, R2, R3
-
-
-#    def fundamental_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
-#
-#        '''
-#        Creates a frequency array of fundamentla noise estimates for lisa. Currently we consisder only contain only position and acceleration noise sources. The default values are specifications pulled from 2017 Lisa proposal noise estimations.
-#
-#        Parameters
-#        -----------
-#
-#        freqs   : float
-#            A numpy array of frequencies
-#
-#        Np (optional) : float
-#            Position noise value
-#        
-#        Na (optional) : float
-#            Acceleration noise level
-#    
-#
-#        Returns
-#        ---------
-#
-#        Sp, Sa   :   float
-#            Frequencies array for position and acceleration noises for each satellite
-#        ''' 
-#        
-#        Sp = Np*(1 + (2e-3/freqs)**4)
-#        Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
-#
-#        return Sp, Sa
-#
-#    def aet_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
-#
-#        '''
-#        Calculates A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
-#        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
-#
-#
-#        Parameters
-#        -----------
-#
-#        freqs   : float
-#            A numpy array of frequencies
-#
-#        Np (optional) : float
-#            Position noise value
-#        
-#        Na (optional) : float
-#            Acceleration noise level
-#    
-#
-#        Returns
-#        ---------
-#
-#        SAA, SEE, STT   :   float
-#            Frequencies arrays with the noise PSD for the A, E and T TDI channels
-#
-#
-#        '''
-#
-#        # Get Sp and Sa
-#        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
-#
-#
-#        ## Noise spectra of the TDI Channels
-#        SAA = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(np.cos(2*self.f0) + 2) \
-#            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4*np.cos(2*self.f0) + 2*np.cos(4*self.f0) + 6)
-#
-#
-#        SEE = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(2 + np.cos(2*self.f0)) \
-#            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4 + 4*np.cos(2*self.f0) +  4*(np.cos(2*self.f0))**2 )
-#
-#        STT = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(1 - np.cos(2*self.f0)) \
-#            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(2 - 4*np.cos(2*self.f0) + 2*(np.cos(2*self.f0))**2)
-#
-#
-#        return SAA, SEE, STT
-
-
