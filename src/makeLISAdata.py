@@ -385,33 +385,10 @@ class LISAdata(freqDomain):
 
         # define f0 = f/2f*
         f0 = freqs/(2*fstar)
-  
-        ### Profiling code ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-        doprofile = 0
-        self.f0 = f0
-
-        if doprofile:
-            import pstats, cProfile
-            import pyximport; pyximport.install()
-        
-        
-            cProfile.runctx("self.isgwb_mich_strain_response()", globals(), locals(), "Profile.prof")
-            cs = pstats.Stats("Profile.prof")
-            cs.strip_dirs().sort_stats("time").print_stats()
-        else:  
-            ## There are the responses for the three arms
-            import time; t0 = time.time()
-            self.isgwb_mich_strain_response()
-            print str(time.time() - t0  )+ " seconds"
-        
-        
-        exit()
-
-        ### Profiling code ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
         ## There are the responses for the three arms
-        #R1, R2, R3 = self.isgwb_mich_strain_response(f0)
+        R1, R2, R3 = self.isgwb_mich_strain_response(f0)
         
         H0 = 2.2*10**(-18) ## in SI units
 
