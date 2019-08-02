@@ -50,7 +50,7 @@ cdef double sqrt_gsl(double n):
 cdef complex cmp_exp_gsl(double x):
     return  gsl_sf_cos(x) + 1j*gsl_sf_sin(x)
 
-def isgwb_mich_strain_response(object self):
+def isgwb_mich_strain_response(object self, double[:] f0):
 
         '''
         Calculate the detector transfer function functions to an isotropic SGWB non-polarized using basic michelson
@@ -77,7 +77,6 @@ def isgwb_mich_strain_response(object self):
         '''
 
 
-        cdef double [:] f0 = self.f0
         cdef double pi_val = 3.141592653589793238462
         cdef double[:] ct = np.linspace(-1, 1, 150)
         cdef double[:] phi = np.linspace(0, 2*pi_val, 150, endpoint=False)
@@ -199,4 +198,4 @@ def isgwb_mich_strain_response(object self):
 
   
 
-        #return R1, R2, R3
+        return R1, R2, R3
