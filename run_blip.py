@@ -53,12 +53,11 @@ class LISA(LISAdata, Bayes):
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
-
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
 
             h1_gw, h2_gw, h3_gw, times = self.add_astro_signal()
-            
+
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
         self.timearray = times
@@ -106,13 +105,9 @@ class LISA(LISAdata, Bayes):
 #        self.tsegstart = tsegstart
 #        self.tsegmid = tsegmid
 
-        
-
-
     def which_noise_spectrum(self):
 
         ## Figure out which instrumental noise spectra to use
-
         if self.params['tdi_lev']=='aet':
             self.instr_noise_spectrum = self.aet_noise_spectrum 
             self.gen_noise_spectrum = self.gen_aet_noise
@@ -263,12 +258,12 @@ class LISA(LISAdata, Bayes):
 
         ## Plot data PSD with the expected level
         #plt.subplot(3, 1, 1)
-        plt.loglog(self.fdata, S1, label='required')
+        #plt.loglog(self.fdata, S1, label='required')
         plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.ylim(1e-42, 5e-37)
+        plt.ylim(1e-43, 5e-41)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
         '''

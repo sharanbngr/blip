@@ -6,6 +6,7 @@ from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 from scipy.signal.windows import nuttall
+from tools.sinc_dict import sinc_dict
 
 class LISAdata(freqDomain, movingfreqDomain):
 
@@ -385,7 +386,8 @@ class LISAdata(freqDomain, movingfreqDomain):
 
         # define f0 = f/2f*
         f0 = freqs/(2*fstar)
-  
+
+
         ## There are the responses for the three arms
         R1, R2, R3 = self.isgwb_mich_strain_response(f0)
 
@@ -455,7 +457,7 @@ class LISAdata(freqDomain, movingfreqDomain):
 
 
 
-        return hX, hY, hZ
+        return hX, hY, hZ, times
 
     def gen_aet_isgwb(self):
         
@@ -473,13 +475,13 @@ class LISAdata(freqDomain, movingfreqDomain):
             Time series isotropic stochastic noise for the three TDI channels
 
         '''
-        hX, hY, hZ = self.gen_xyz_isgwb()
+        hX, hY, hZ, times = self.gen_xyz_isgwb()
 
         hA = (1.0/3)*(2*hX - hY + hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
         hT = (1.0/3)*(hX + hY + hZ)
 
-        return hA, hE, hT
+        return hA, hE, hT, times
 
     def read_data(self):
         
