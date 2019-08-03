@@ -4,6 +4,10 @@ from scipy.special import lpmn
 import types
 from src.cython_func import cython_response
 
+## cython datagen stuff
+import types
+from src.cython_func import cython_response
+
 class freqDomain():
 
     '''
@@ -176,10 +180,6 @@ class freqDomain():
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
     
-    
-
-
-
 
     def isgwb_mich_response(self, f0):
 

@@ -1,13 +1,14 @@
 from __future__ import division
 import numpy as np
 import scipy.signal as sg
+from src.movingfreqDomain import movingfreqDomain
 from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 from scipy.signal.windows import nuttall
 from tools.sinc_dict import sinc_dict
 
-class LISAdata(freqDomain):
+class LISAdata(freqDomain, movingfreqDomain):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -379,7 +380,7 @@ class LISAdata(freqDomain):
 
         delf  = 1.0/dur
         freqs = np.arange(delf, 0.5*self.params['fs'], delf)
-    
+
         #Charactersitic frequency
         fstar = cspeed/(2*np.pi*self.armlength)
 
@@ -389,7 +390,7 @@ class LISAdata(freqDomain):
 
         ## There are the responses for the three arms
         R1, R2, R3 = self.isgwb_mich_strain_response(f0)
-        
+
         H0 = 2.2*10**(-18) ## in SI units
 
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
@@ -478,7 +479,7 @@ class LISAdata(freqDomain):
 
         hA = (1.0/3)*(2*hX - hY + hZ)
         hE = (1.0/np.sqrt(3.0))*(hZ - hY)
-        hT = (1.0/3)*(hX + hY + hz)
+        hT = (1.0/3)*(hX + hY + hZ)
 
         return hA, hE, hT, times
 
@@ -594,7 +595,7 @@ class LISAdata(freqDomain):
         # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(ii*Nperseg)
+            idxmin = int(0.5*ii*Nperseg)
             idxmax = idxmin + Nperseg
             idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:
