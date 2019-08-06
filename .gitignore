@@ -11,3 +11,5 @@ mldc_tdi_withnoise*
 SGWB_withnoise*
 noiseless_mldc*
 WSL*
+cython_response.c
+cython_response.html
