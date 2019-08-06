@@ -4,10 +4,6 @@ from scipy.special import lpmn
 import types
 from src.cython_func import cython_response
 
-## cython datagen stuff
-import types
-from src.cython_func import cython_response
-
 class freqDomain():
 
     '''
