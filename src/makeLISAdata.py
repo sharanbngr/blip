@@ -6,7 +6,6 @@ from src.freqDomain import freqDomain
 from scipy.interpolate import interp1d as intrp
 import os
 from scipy.signal.windows import nuttall
-from tools.sinc_dict import sinc_dict
 
 class LISAdata(freqDomain, movingfreqDomain):
 
