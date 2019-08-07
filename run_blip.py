@@ -53,6 +53,7 @@ class LISA(LISAdata, Bayes):
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
+        self.h1, self.h2, self.h3 = 0, 0, 0
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
 
@@ -288,7 +289,7 @@ class LISA(LISAdata, Bayes):
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
-        #import pdb; pdb.set_trace()
+        import pdb; pdb.set_trace()
         plt.close() 
         
 
