@@ -41,8 +41,8 @@ class Bayes():
         log_Np, log_Na = theta
 
         # Transform to actual priors
-        log_Np = 5*log_Np - 44
-        log_Na = 5*log_Na - 51
+        log_Np = -5*log_Np - 39
+        log_Na = -5*log_Na - 46
 
         return (log_Np, log_Na)
 
@@ -72,10 +72,10 @@ class Bayes():
         alpha, log_omega0, log_Np, log_Na = theta
 
         # Transform to actual priors
-        alpha       = 10*alpha-5
-        log_omega0   = 10*log_omega0 - 14
-        log_Np = 5*log_Np - 44
-        log_Na = 5*log_Na - 51
+        alpha       =  10*alpha-5
+        log_omega0  = -10*log_omega0 - 4
+        log_Np      = -5*log_Np - 39
+        log_Na      = -5*log_Na - 46
 
         return (alpha, log_omega0, log_Np, log_Na)
 
@@ -105,11 +105,11 @@ class Bayes():
 
         # The rest of the priors except for the last two are ln_omegas
         for ii in range(1, theta.size-2):
-            theta[ii] = 10*theta[ii] - 14
+            theta[ii] = -10*theta[ii] - 4
 
         # The last two are the priors on the position and acc noise terms. 
-        theta[-2] = 5*theta[-2] - 44
-        theta[-1] = 5*theta[-1] - 51
+        theta[-2] = -5*theta[-2] - 39
+        theta[-1] = -5*theta[-1] - 46
         
     
         return theta
@@ -365,7 +365,7 @@ class Bayes():
 
         # Transform to actual priors
         alpha       = 10*alpha-5
-        log_omega0   = 10*log_omega0 - 14
+        log_omega0  = -10*log_omega0 - 4
 
         return (alpha, log_omega0)
 
