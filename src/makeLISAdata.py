@@ -214,19 +214,14 @@ class LISAdata(freqDomain, movingfreqDomain):
         na32 = self.gaussianData(Sa, frange, self.params['fs'], 1.1*self.params['dur'])
  
         # time array and time shift array
-        tarr = np.linspace(0, 1.1*self.params['dur'] , num=np12.size, endpoint=False)
+        tarr =  np.arange(0, 1.1*self.params['dur'], 1.0/self.params['fs'])
+        tarr = tarr[0:np12.size]
         delt = tarr[2] - tarr[1]
 
         # We start with assuming a padding of 20 seconds on the beginning for the 
         # Michelson channels
         ## Using up ten seconds here. 
         ten_idx = int(self.params['fs']*10)
-
-        if 1.0/delt != self.params['fs']:
-            #import pdb; pdb.set_trace()
-            #raise ValueError('Time series generated not consistant with the sampling frequency')
-            self.params['fs'] = 1.0/delt
-
 
         # To implement TDI we need time shifts of multiples of L.
         tlag  = self.armlength/cspeed
@@ -391,45 +386,47 @@ class LISAdata(freqDomain, movingfreqDomain):
         # define f0 = f/2f*
         f0 = freqs/(2*fstar)
 
-        R1,R2,R3 = np.zeros((tmids.size, f0.size, 2), dtype='complex'),np.zeros((tmids.size, f0.size, 2), dtype='complex'), np.zeros((tmids.size, f0.size, 2), dtype='complex')
-
+        R1 = np.zeros((f0.size, 2), dtype='complex')
+        R3 = np.zeros((f0.size, 2), dtype='complex')
+        R2 = np.zeros((f0.size, 2), dtype='complex') 
 
         fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
 
 
         import time; t0 = time.time()
         ## There are the responses for the three arms
-        R1[:, fidx, :], R2[:, fidx, :], R3[:, fidx, :] = self.isgwb_mich_strain_response(f0[fidx], tmids)
+        R1, R2, R3 = self.isgwb_mich_strain_response(f0)
         print str(time.time() - t0) + " sec"
-        H0 = 2.2*10**(-18) ## in SI units
+                
+        #np.exp(2*np.pi*1j*freqs[:, None]*tmids[None, :])
 
+        H0 = 2.2*10**(-18) ## in SI units
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
-        norms = np.sqrt(Sgw*N/2)/2.0
-
-
-        htilda1 = norms*R1[:,:, 0] + norms*R1[:,:, 1]
-        htilda2 = norms*R2[:,:, 0] + norms*R2[:,:, 1]
-        htilda3 = norms*R3[:,:, 0] + norms*R3[:,:, 1]
-        
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2.0
 
         h1, h2, h3 = np.array([]), np.array([]), np.array([])
 
-        sin_Nmid, sin_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*(np.arange(0, Nmid) + Nmid)/N)
+        sin_Nmid, sin_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
 
-        for ii in range(htilda1.shape[0]):
-            
+        for ii in range(tmids.size):
+
+            dir_phases = np.random.standard_normal(size=R1.shape) + 1j*np.random.standard_normal(size=R1.shape)
+            htilda1 = (norms[:, None, None]*R1[:,:,:,0]*dir_phases[:,:,:,0] + norms[:, None, None]*R1[:,:,:,1]*dir_phases[:,:,:,1]).sum(axis=(1, 2))
+            htilda2 = (norms[:, None, None]*R2[:,:,:,0]*dir_phases[:,:,:,0] + norms[:, None, None]*R2[:,:,:,1]*dir_phases[:,:,:,1]).sum(axis=(1, 2))
+            htilda3 = (norms[:, None, None]*R3[:,:,:,0]*dir_phases[:,:,:,0] + norms[:, None, None]*R3[:,:,:,1]*dir_phases[:,:,:,1]).sum(axis=(1, 2))
+
             # Generate time series data for the channels
             if np.mod(N, 2) == 0:
-                htil1 =  np.concatenate((np.zeros(1), htilda1[ii, :], np.zeros(1), np.flipud(np.conjugate(htilda1[ii, :]))))
-                htil2 =  np.concatenate((np.zeros(1), htilda2[ii, :], np.zeros(1), np.flipud(np.conjugate(htilda2[ii, :]))))
-                htil3 =  np.concatenate((np.zeros(1), htilda3[ii, :], np.zeros(1), np.flipud(np.conjugate(htilda3[ii, :]))))
+                htil1 =  np.concatenate((np.zeros(1), htilda1, np.zeros(1), np.flipud(np.conjugate(htilda1))))
+                htil2 =  np.concatenate((np.zeros(1), htilda2, np.zeros(1), np.flipud(np.conjugate(htilda2))))
+                htil3 =  np.concatenate((np.zeros(1), htilda3, np.zeros(1), np.flipud(np.conjugate(htilda3))))
             else:
-                htil1 =  np.concatenate((np.zeros(1), htilda1[ii, :], np.conjugate(np.flipud(htilda1[ii, :]))))
-                htil2 =  np.concatenate((np.zeros(1), htilda2[ii, :], np.conjugate(np.flipud(htilda2[ii, :]))))
-                htil3 =  np.concatenate((np.zeros(1), htilda3[ii, :], np.conjugate(np.flipud(htilda3[ii, :]))))
+                htil1 =  np.concatenate((np.zeros(1), htilda1, np.conjugate(np.flipud(htilda1))))
+                htil2 =  np.concatenate((np.zeros(1), htilda2, np.conjugate(np.flipud(htilda2))))
+                htil3 =  np.concatenate((np.zeros(1), htilda3, np.conjugate(np.flipud(htilda3))))
 
             # Take inverse fft to get time series data
             ht1 = np.real(np.fft.ifft(htil1, N))
@@ -438,8 +435,16 @@ class LISAdata(freqDomain, movingfreqDomain):
 
             ht1[0:Nmid],ht2[0:Nmid],ht3[0:Nmid] = sin_Nmid*ht1[0:Nmid], sin_Nmid*ht2[0:Nmid], sin_Nmid*ht3[0:Nmid]
             ht1[Nmid:],ht2[Nmid:],ht3[Nmid:] =  ht1[Nmid:]*sin_N, ht2[Nmid:]*sin_N, ht3[Nmid:]*sin_N
-            h1, h2, h3 = np.append(h1, ht1 ), np.append(h2, ht2), np.append(h3, ht3 )
 
+            if h1.size>0:
+                h1[-Nmid:], h2[-Nmid:], h3[-Nmid:] = h1[-Nmid:] + ht1[0:Nmid], h2[-Nmid:] + ht2[0:Nmid], h3[-Nmid:] + ht3[0:Nmid] 
+
+
+            h1, h2, h3 = np.append(h1, ht1[Nmid:]), np.append(h2, ht2[Nmid:]), np.append(h3, ht1[Nmid:])
+
+
+
+        import pdb; pdb.set_trace()
 
         times = np.linspace(0, dur, int(self.params['fs']*dur), endpoint=False)
         return h1, h2, h3, times

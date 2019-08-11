@@ -210,8 +210,6 @@ class Bayes():
 
         Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
              np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
-
-        #Loglike = -np.sum( (np.abs(self.r1)**2)/SA_net +  np.log(2*np.pi*SA_net))
     
         return Loglike
 
