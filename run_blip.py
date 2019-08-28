@@ -61,8 +61,6 @@ class LISA(LISAdata, Bayes):
 
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
-
-        import pdb; pdb.set_trace()
         self.timearray = times
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] != 1.0/delt:
@@ -266,7 +264,7 @@ class LISA(LISAdata, Bayes):
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.ylim(1e-43, 5e-41)
+        #plt.ylim(1e-43, 5e-41)
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
         '''
@@ -418,6 +416,14 @@ def blip(paramsfile='params.ini'):
             npar = len(parameters)     
             engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
                      npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+        
+        elif params['modeltype'] == 'isgwb_only':
+            print "Doing an isgwb signal only analysis ..."
+            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            npar = len(parameters)     
+            engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.instr_prior,\
+                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+            
     
         else:
             raise ValueError('Unknown recovery model selected')
