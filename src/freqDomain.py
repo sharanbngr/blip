@@ -807,8 +807,8 @@ class freqDomain():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        tt = np.linspace(-1, 1, 100)
-        pp = np.linspace(0, 2*np.pi, 100, endpoint=False)
+        tt = np.linspace(-1, 1, 200)
+        pp = np.linspace(0, 2*np.pi, 200, endpoint=False)
 
         [ct, phi] = np.meshgrid(tt,pp)
         dct = ct[0, 1] - ct[0,0]
@@ -820,9 +820,12 @@ class freqDomain():
         wdir = vdir - udir
 
         # Initlize arrays for the detector reponse
-        R1 = np.zeros((f0.size, pp.size, tt.size,  2), dtype='complex')
-        R2 = np.zeros((f0.size, pp.size, tt.size, 2), dtype='complex')
-        R3 = np.zeros((f0.size, pp.size, tt.size, 2), dtype='complex')
+        R1 = np.zeros((f0.size, 2), dtype='complex')
+        R2 = np.zeros((f0.size, 2), dtype='complex')
+        R3 = np.zeros((f0.size, 2), dtype='complex')
+
+        rand_plus  = np.random.standard_normal(size=(pp.size, tt.size, f0.size)) + 1j*np.random.standard_normal(size=(pp.size, tt.size, f0.size))
+        rand_cross = np.random.standard_normal(size=(pp.size, tt.size, f0.size)) + 1j*np.random.standard_normal(size=(pp.size, tt.size, f0.size))
 
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -879,18 +882,13 @@ class freqDomain():
             Fcross2 = 0.5*(Fcross_w*gammaW_plus - Fcross_u*gammaU_minus)*np.exp(2j*f0[ii]*udir)
             Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(2j*f0[ii]*vdir)
 
-
-            #rand_plus = np.random.normal(size=Fplus1.shape) + 1j* np.random.normal(size=Fplus1.shape)
-            #rand_cross = np.random.normal(size=Fplus1.shape) + 1j* np.random.normal(size=Fplus1.shape)
-
             npix = Fplus1.size
- 
-            ## Detector response summed over polarization and integrated over sky direction
-            R1[ii, :, :, 0], R1[ii, :, :, 1] = np.sqrt(0.5/npix)*(Fplus1), np.sqrt(0.5/npix)*(Fcross1) 
-            R2[ii, :, :, 0], R2[ii, :, :, 1] = np.sqrt(0.5/npix)*(Fplus2), np.sqrt(0.5/npix)*(Fcross2) 
-            R3[ii, :, :, 0], R3[ii, :, :, 1] = np.sqrt(0.5/npix)*(Fplus3), np.sqrt(0.5/npix)*(Fcross3) 
 
-  
+            ## Detector response summed over polarization and integrated over sky direction
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:,:,ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:,:,ii]) 
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:,:,ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:,:,ii]) 
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:,:,ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:,:,ii]) 
+        
 
         return R1, R2, R3
 

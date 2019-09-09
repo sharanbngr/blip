@@ -398,26 +398,36 @@ class LISAdata(freqDomain, movingfreqDomain):
         R1, R2, R3 = self.isgwb_mich_strain_response(f0)
         print str(time.time() - t0) + " sec"
                 
-        #np.exp(2*np.pi*1j*freqs[:, None]*tmids[None, :])
-
         H0 = 2.2*10**(-18) ## in SI units
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
-        norms = np.sqrt(self.params['fs']*Sgw*N)/2.0
-
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2
+        norms[0] = 0
         h1, h2, h3 = np.array([]), np.array([]), np.array([])
 
-        sin_Nmid, sin_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
+        sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
+
+        counter = 0
 
         for ii in range(tmids.size):
+            ampls = np.random.rand(norms.size) + 1j*np.random.rand(norms.size) 
+            htilda1 = norms*(R1[:,0] + R1[:,1])*ampls
+            htilda2 = norms*(R2[:,0] + R2[:,1])*ampls
+            htilda3 = norms*(R3[:,0] + R3[:,1])*ampls
+            
 
-            dir_phases = np.random.standard_normal(size=R1.shape) + 1j*np.random.standard_normal(size=R1.shape)
-            htilda1 = (norms[:, None, None]*R1[:,:,:,0]*dir_phases[:,:,:,0] + norms[:, None, None]*R1[:,:,:,1]*dir_phases[:,:,:,1]).sum(axis=(1, 2))
-            htilda2 = (norms[:, None, None]*R2[:,:,:,0]*dir_phases[:,:,:,0] + norms[:, None, None]*R2[:,:,:,1]*dir_phases[:,:,:,1]).sum(axis=(1, 2))
-            htilda3 = (norms[:, None, None]*R3[:,:,:,0]*dir_phases[:,:,:,0] + norms[:, None, None]*R3[:,:,:,1]*dir_phases[:,:,:,1]).sum(axis=(1, 2))
-
+            if 0:
+                import matplotlib.pyplot as plt
+                R_1, R_2, R_3 = self.isgwb_mich_response(f0)  
+                plt.loglog(freqs[1:], (Sgw*R_1)[1:], label ='desired')
+                plt.loglog(freqs[1:], (2/(self.params['fs']*N))*np.abs(htilda1[1:])**2, label='made')
+                plt.legend()
+                plt.savefig('test.png', dpi=150)
+                import pdb; pdb.set_trace()
+                plt.close()
+            '''
             # Generate time series data for the channels
             if np.mod(N, 2) == 0:
                 htil1 =  np.concatenate((np.zeros(1), htilda1, np.zeros(1), np.flipud(np.conjugate(htilda1))))
@@ -427,27 +437,30 @@ class LISAdata(freqDomain, movingfreqDomain):
                 htil1 =  np.concatenate((np.zeros(1), htilda1, np.conjugate(np.flipud(htilda1))))
                 htil2 =  np.concatenate((np.zeros(1), htilda2, np.conjugate(np.flipud(htilda2))))
                 htil3 =  np.concatenate((np.zeros(1), htilda3, np.conjugate(np.flipud(htilda3))))
+            '''
 
             # Take inverse fft to get time series data
-            ht1 = np.real(np.fft.ifft(htil1, N))
-            ht2 = np.real(np.fft.ifft(htil2, N))
-            ht3 = np.real(np.fft.ifft(htil3, N))
+            ht1 = np.real(np.fft.irfft(htilda1, N))
+            ht2 = np.real(np.fft.irfft(htilda2, N))
+            ht3 = np.real(np.fft.irfft(htilda3, N))
 
-            ht1[0:Nmid],ht2[0:Nmid],ht3[0:Nmid] = sin_Nmid*ht1[0:Nmid], sin_Nmid*ht2[0:Nmid], sin_Nmid*ht3[0:Nmid]
-            ht1[Nmid:],ht2[Nmid:],ht3[Nmid:] =  ht1[Nmid:]*sin_N, ht2[Nmid:]*sin_N, ht3[Nmid:]*sin_N
+            if counter == 0:
+                counter = 1        
+                h1, h2, h3 = np.append(h1, ht1), np.append(h2, ht2), np.append(h3, ht1)
+            else:  
 
-            if h1.size>0:
-                h1[-Nmid:], h2[-Nmid:], h3[-Nmid:] = h1[-Nmid:] + ht1[0:Nmid], h2[-Nmid:] + ht2[0:Nmid], h3[-Nmid:] + ht3[0:Nmid] 
+                h1[-Nmid:] = h1[-Nmid:]*cos_N + ht1[0:Nmid]*sin_N
+                h2[-Nmid:] = h2[-Nmid:]*cos_N + ht2[0:Nmid]*sin_N
+                h3[-Nmid:] = h3[-Nmid:]*cos_N + ht3[0:Nmid]*sin_N
+             
+                h1, h2, h3 = np.append(h1, ht1[Nmid:]), np.append(h2, ht2[Nmid:]), np.append(h3, ht1[Nmid:])
 
 
-            h1, h2, h3 = np.append(h1, ht1[Nmid:]), np.append(h2, ht2[Nmid:]), np.append(h3, ht1[Nmid:])
-
-
-
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
 
         times = np.linspace(0, dur, int(self.params['fs']*dur), endpoint=False)
         return h1, h2, h3, times
+
 
     def gen_xyz_isgwb(self):    
         

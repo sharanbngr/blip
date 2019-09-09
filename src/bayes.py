@@ -208,7 +208,7 @@ class Bayes():
         SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
 
 
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net  + \
              np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
     
         return Loglike
@@ -267,7 +267,7 @@ class Bayes():
         SE_net = SE_net.T
         ST_net = ST_net.T
 
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
              np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
     
         return Loglike
@@ -404,13 +404,15 @@ class Bayes():
         ST = Sgw*self.R3
 
 
-      
+        
         SA = np.repeat(SA.reshape(SA.size, 1), self.r1.shape[1], axis=1)
         ST = np.repeat(ST.reshape(ST.size, 1), self.r2.shape[1], axis=1)
         SE = np.repeat(SE.reshape(SE.size, 1), self.r3.shape[1], axis=1)
 
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE + (np.abs(self.r3)**2)/ST + \
-             np.log(2*np.pi*SA) + np.log(2*np.pi*SE) + np.log(2*np.pi*ST)  )
+        #Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE + (np.abs(self.r3)**2)/ST + \
+        #     np.log(2*np.pi*SA) + np.log(2*np.pi*SE) + np.log(2*np.pi*ST)  )
 
-    
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE +  \
+              np.log(2*np.pi*SA) + np.log(2*np.pi*SE))
+
         return Loglike

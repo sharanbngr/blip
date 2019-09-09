@@ -53,12 +53,12 @@ class LISA(LISAdata, Bayes):
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
-        self.h1, self.h2, self.h3 = 0, 0, 0
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
 
             h1_gw, h2_gw, h3_gw, times = self.add_astro_signal()
 
+            h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
         self.timearray = times
@@ -125,11 +125,11 @@ class LISA(LISAdata, Bayes):
         ## Stationary LISA case:       
         if self.params['lisa_config'] == 'stationary':
             
-            if self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+            if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
                 self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+            elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
                 self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+            elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
                 self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)  
             elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
                 self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
@@ -181,7 +181,7 @@ class LISA(LISAdata, Bayes):
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.gen_xyz_isgwb
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.gen_mich_isgwb  
+            self.add_astro_signal = self.gen_mich_isgwb
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.gen_aet_asgwb
         else:       
@@ -289,7 +289,6 @@ class LISA(LISAdata, Bayes):
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
-        import pdb; pdb.set_trace()
         plt.close() 
         
 
@@ -384,6 +383,7 @@ def blip(paramsfile='params.ini'):
         randst = None
     
     if params['lisa_config']=='stationary':
+        
         if params['modeltype']=='isgwb':
             
             print "Doing an isotropic stochastic analysis..."
@@ -417,14 +417,13 @@ def blip(paramsfile='params.ini'):
             engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
                      npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
         
-        elif params['modeltype'] == 'isgwb_only':
+        elif params['modeltype'] =='isgwb_only':
             print "Doing an isgwb signal only analysis ..."
             parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
             npar = len(parameters)     
-            engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.instr_prior,\
+            engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,\
                      npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
             
-    
         else:
             raise ValueError('Unknown recovery model selected')
     
@@ -506,13 +505,13 @@ def blip(paramsfile='params.ini'):
         seedchar = ''
     logzname = '/logz'+seedchar+configchar+'.txt'
     logzerrname = '/logzerr'+seedchar+configchar+'.txt'
-    
+    import pdb; pdb.set_trace()
     # Save posteriors to file
     np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     np.savetxt(params['out_dir'] + logzname,logz)
     np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
-    plotmaker(params, parameters, npar)
+    plotmaker(lisa, params, parameters, npar)
     
 if __name__ == "__main__":
 
