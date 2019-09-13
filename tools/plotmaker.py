@@ -82,5 +82,4 @@ def plotmaker(lisa, params,parameters, npar):
     plt.legend()
     plt.savefig(params['out_dir'] + 'omega_plot.png', dpi=150)
     print "omega plots printed in " + params['out_dir'] + "omega_plot.png"
-    import pdb; pdb.set_trace()
 

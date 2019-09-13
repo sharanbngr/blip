@@ -37,6 +37,17 @@ class LISA(LISAdata, Bayes):
         ## Figure out which response function to use for recoveries
         self.which_response()
         
+        if self.params['lisa_config'] == 'stationary':
+
+            self.R1 = np.repeat(self.R1.reshape(self.R1.size, 1), self.tsegmid.size, axis=1)
+            self.R2 = np.repeat(self.R2.reshape(self.R2.size, 1), self.tsegmid.size, axis=1)
+            self.R3 = np.repeat(self.R3.reshape(self.R3.size, 1), self.tsegmid.size, axis=1)
+
+
+        elif self.params['lisa_config'] == 'orbiting':
+            self.R1, self.R2, self.R3 = self.R1.T, self.R2.T, self.R3.T
+
+
         if self.params['lisa_config']=='stationary':
             self.diag_spectra()
 
@@ -245,7 +256,7 @@ class LISA(LISAdata, Bayes):
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
         
             ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw*self.R1, Sgw*self.R2, Sgw*self.R3 
+            S1_gw, S2_gw, S3_gw = Sgw*self.R1[:, 0], Sgw*self.R2[:, 0], Sgw*self.R3[:, 0] 
 
             ## The total noise spectra is the sum of the instrumental + astrophysical 
             S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
@@ -381,89 +392,51 @@ def blip(paramsfile='params.ini'):
         randst = setrs(seed)
     else:
         randst = None
-    
-    if params['lisa_config']=='stationary':
+   
         
-        if params['modeltype']=='isgwb':
+    if params['modeltype']=='isgwb':
             
-            print "Doing an isotropic stochastic analysis..."
-            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-            npar = len(parameters)     
-            engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+        print "Doing an isotropic stochastic analysis..."
+        parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+        npar = len(parameters)     
+        engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
-        elif params['modeltype']=='sph_sgwb':
-    
-            print "Doing a spherical harmonic stochastic analysis ..."
-            parameters = []
-    
-            parameters.append(r'$\alpha$')
-    
-            for ii in range(params['lmax'] + 1):
-                omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
-                parameters.append(omega_params)
-            
-            parameters.append( r'$\log_{10} (Np)$')
-            parameters.append( r'$\log_{10} (Na)$')
-    
-            npar = len(parameters)
-            engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-    
-        elif params['modeltype']=='noise_only':
-            print "Doing an instrumental noise only analysis ..."
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-            npar = len(parameters)     
-            engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-        
-        elif params['modeltype'] =='isgwb_only':
-            print "Doing an isgwb signal only analysis ..."
-            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-            npar = len(parameters)     
-            engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-            
-        else:
-            raise ValueError('Unknown recovery model selected')
-    
-    if params['lisa_config']=='orbiting':
-        if params['modeltype']=='isgwb':
-            
-            print "Doing an isotropic stochastic analysis..."
-            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-            npar = len(parameters)     
-            engine = NestedSampler(lisa.orbiting_isgwb_log_likelihood, lisa.isgwb_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-    
-        elif params['modeltype']=='sph_sgwb':
-    
-            print "Doing a spherical harmonic stochastic analysis ..."
-            parameters = []
-    
-            parameters.append(r'$\alpha$')
-    
-            for ii in range(params['lmax'] + 1):
-                omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
-                parameters.append(omega_params)
-            
-            parameters.append( r'$\log_{10} (Np)$')
-            parameters.append( r'$\log_{10} (Na)$')
-    
-            npar = len(parameters)
-            engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-    
-        elif params['modeltype']=='noise_only':
-            print "Doing an instrumental noise only analysis ..."
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-            npar = len(parameters)     
-            engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
-                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-    
-        else:
-            raise ValueError('Unknown recovery model selected')
+    elif params['modeltype']=='sph_sgwb':
 
+        print "Doing a spherical harmonic stochastic analysis ..."
+        parameters = []
+    
+        parameters.append(r'$\alpha$')
+
+        for ii in range(params['lmax'] + 1):
+            omega_params = r'$\log_{10} (\Omega_' + str(ii) + ')$'
+            parameters.append(omega_params)
+            
+        parameters.append( r'$\log_{10} (Np)$')
+        parameters.append( r'$\log_{10} (Na)$')
+    
+        npar = len(parameters)
+        engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+    
+    elif params['modeltype']=='noise_only':
+        print "Doing an instrumental noise only analysis ..."
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+        npar = len(parameters)     
+        engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+        
+    elif params['modeltype'] =='isgwb_only':
+        print "Doing an isgwb signal only analysis ..."
+        parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+        npar = len(parameters)     
+        engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+            
+    else:
+        raise ValueError('Unknown recovery model selected')
+    
     print "npar = " + str(npar)
     
     
@@ -505,7 +478,7 @@ def blip(paramsfile='params.ini'):
         seedchar = ''
     logzname = '/logz'+seedchar+configchar+'.txt'
     logzerrname = '/logzerr'+seedchar+configchar+'.txt'
-    import pdb; pdb.set_trace()
+
     # Save posteriors to file
     np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     np.savetxt(params['out_dir'] + logzname,logz)
