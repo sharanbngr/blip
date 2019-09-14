@@ -3,7 +3,7 @@ import numpy as np
 from scipy.special import lpmn
 import types
 from src.cython_func import cython_response
-
+import healpy as hp
 
 
 class freqDomain():
@@ -807,16 +807,26 @@ class freqDomain():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        tt = np.linspace(-1, 1, 200)
-        pp = np.linspace(0, 2*np.pi, 200, endpoint=False)
+        # Define nside and npix for the healpix array
+        nside = 10
 
-        [ct, phi] = np.meshgrid(tt,pp)
-        dct = ct[0, 1] - ct[0,0]
-        dphi = phi[1,0] - phi[0,0]
+        npix = hp.nside2npix(nside)
 
-        ## udir is just u.r, where r is the directional vector
-        udir = np.sqrt(1-ct**2) * np.sin(phi + np.pi/6)
-        vdir = np.sqrt(1-ct**2) * np.sin(phi - np.pi/6)
+        # Array of pixel indices
+        pix_idx  = np.arange(npix)
+
+        #Angular coordinates of pixel indcides 
+        theta, phi = hp.pix2ang(nside, pix_idx)
+
+        # Take cosine. 
+        ctheta = np.cos(theta)
+
+        # Area of each pixel in sq.radians
+        dOmega = hp.pixelfunc.nside2pixarea(nside)
+
+        ## Create directional vectors
+        udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
+        vdir = np.sqrt(1-ctheta**2) * np.sin(phi - np.pi/6)
         wdir = vdir - udir
 
         # Initlize arrays for the detector reponse
@@ -824,8 +834,9 @@ class freqDomain():
         R2 = np.zeros((f0.size, 2), dtype='complex')
         R3 = np.zeros((f0.size, 2), dtype='complex')
 
-        rand_plus  = np.random.standard_normal(size=(pp.size, tt.size, f0.size)) + 1j*np.random.standard_normal(size=(pp.size, tt.size, f0.size))
-        rand_cross = np.random.standard_normal(size=(pp.size, tt.size, f0.size)) + 1j*np.random.standard_normal(size=(pp.size, tt.size, f0.size))
+        # Assign random complex amplitudes for each pixel
+        rand_plus  = np.random.standard_normal(size=(npix, f0.size)) + 1j*np.random.standard_normal(size=(npix, f0.size))
+        rand_cross = np.random.standard_normal(size=(npix, f0.size)) + 1j*np.random.standard_normal(size=(npix, f0.size))
 
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -855,20 +866,20 @@ class freqDomain():
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
 
-            Fplus_u   = (1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 - \
-                             np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2)  + \
-                                 0.5*((np.cos(phi))**2 - ct**2))
+            Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
+                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
+                                 0.5*((np.cos(phi))**2 - ctheta**2))
         
-            Fplus_v   = (1/4*(1-ct**2) + 1/2*(ct**2)*(np.cos(phi))**2 + \
-                             np.sqrt(3/16)*np.sin(2*phi)*(1+ct**2) + \
-                                 0.5*((np.cos(phi))**2 - ct**2))
+            Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
+                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
+                                 0.5*((np.cos(phi))**2 - ctheta**2))
 
-            Fplus_w   = (1 - (1+ct**2)*(np.cos(phi))**2)
+            Fplus_w   = (1 - (1+ctheta**2)*(np.cos(phi))**2)
 
             ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-            Fcross_u  = - ct * (np.sin(2*phi + np.pi/3))
-            Fcross_v  = - ct * (np.sin(2*phi - np.pi/3))
-            Fcross_w   = ct*np.sin(2*phi)
+            Fcross_u  = - ctheta * (np.sin(2*phi + np.pi/3))
+            Fcross_v  = - ctheta * (np.sin(2*phi - np.pi/3))
+            Fcross_w   = ctheta*np.sin(2*phi)
 
 
             ## Michelson antenna patterns
@@ -885,15 +896,10 @@ class freqDomain():
             npix = Fplus1.size
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:,:,ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:,:,ii]) 
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:,:,ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:,:,ii]) 
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:,:,ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:,:,ii]) 
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:, ii]) 
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:, ii]) 
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:, ii]) 
         
 
         return R1, R2, R3
 
-
-
-
-## Attach cythonized methods to the class
-#freqDomain.isgwb_mich_strain_response = types.MethodType(cython_response.isgwb_mich_strain_response, None, freqDomain )
