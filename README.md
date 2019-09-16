@@ -24,6 +24,10 @@ numpy, scipy are needed for running this. Matplotlib and corner are required for
 
 `pip install numpy scipy matplotlib corner`
 
+We also need the healpy, the skymap package
+
+pip install healpy
+
 The sampler [dynesty](https://dynesty.readthedocs.io/en/latest/) is used for nested sampling. We get both the posteriors and bayesian evidence from it. The latter is the detection statistic. Install dynesty by doing
 
 `pip install dynesty`

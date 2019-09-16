@@ -183,7 +183,7 @@ class Bayes():
         Np, Na =  10**(log_Np), 10**(log_Na)
 
         # Modelled Noise PSD
-        SAA, SEE, STT = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
@@ -194,85 +194,21 @@ class Bayes():
 
         # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
         # detector response tensor.
-        SA_gw = Sgw*self.R1
-        SE_gw = Sgw*self.R2
-        ST_gw = Sgw*self.R3
+        S1_gw = Sgw[:, None]*self.R1
+        S2_gw = Sgw[:, None]*self.R2
+        S3_gw = Sgw[:, None]*self.R3
 
+       
         ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is true for an equal arm stationary lisa. 
-        
-        SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
-      
-        SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
-        ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
-        SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
+        ## This is strictly true for an equal arm stationary lisa. 
+        S1_net, S2_net, S3_net = S1[:, None] + S1_gw, S2[:, None] +  S2_gw, S3[:,None] + S3_gw
 
-
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
-             np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
-
-        #Loglike = -np.sum( (np.abs(self.r1)**2)/SA_net +  np.log(2*np.pi*SA_net))
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
+             np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net) )
     
         return Loglike
 
-    def orbiting_isgwb_log_likelihood(self, theta):
 
-        '''
-        Calculate likelihood for an isotropic stochastic background analysis.
-        
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. 
-
-        Returns
-        ---------
-
-        Loglike   :   float
-            The log-likelihood value at the sampled point in the parameter space
-        '''
-
-
-        # unpack priors
-        alpha, log_omega0, log_Np, log_Na  = theta
-
-        Np, Na =  10**(log_Np), 10**(log_Na)
-
-        # Modelled Noise PSD
-        SAA, SEE, STT = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
-
-        ## Signal PSD
-        H0 = 2.2*10**(-18)
-        Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
-
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
-
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor.
-        SA_gw = Sgw*self.R1
-        SE_gw = Sgw*self.R2
-        ST_gw = Sgw*self.R3
-
-        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is true for an equal arm stationary lisa. 
-        
-        SA_net, SE_net, ST_net = SAA + SA_gw, SEE +  SE_gw, STT + ST_gw
-      
-#        SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
-#        ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
-#        SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
-        
-        SA_net = SA_net.T
-        SE_net = SE_net.T
-        ST_net = ST_net.T
-
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net + \
-             np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
-    
-        return Loglike
 
     def sph_log_likelihood(self, theta):
 
@@ -406,13 +342,15 @@ class Bayes():
         ST = Sgw*self.R3
 
 
-      
+        
         SA = np.repeat(SA.reshape(SA.size, 1), self.r1.shape[1], axis=1)
         ST = np.repeat(ST.reshape(ST.size, 1), self.r2.shape[1], axis=1)
         SE = np.repeat(SE.reshape(SE.size, 1), self.r3.shape[1], axis=1)
 
-        Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE + (np.abs(self.r3)**2)/ST + \
-             np.log(2*np.pi*SA) + np.log(2*np.pi*SE) + np.log(2*np.pi*ST)  )
+        #Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE + (np.abs(self.r3)**2)/ST + \
+        #     np.log(2*np.pi*SA) + np.log(2*np.pi*SE) + np.log(2*np.pi*ST)  )
 
-    
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE +  \
+              np.log(2*np.pi*SA) + np.log(2*np.pi*SE))
+
         return Loglike
