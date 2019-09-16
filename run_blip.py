@@ -67,7 +67,7 @@ class LISA(LISAdata, Bayes):
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
             
-            h1_gw, h2_gw, h3_gw, times = self.add_astro_signal()
+            h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
 
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
@@ -188,20 +188,17 @@ class LISA(LISAdata, Bayes):
     
         ## Figure out which antenna patterns to use
         if self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.gen_aet_isgwb
+            self.add_astro_signal = self.isgwb_aet_strain_response
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.gen_xyz_isgwb
+            self.add_astro_signal = self.isgwb_xyz_strain_response
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.gen_mich_isgwb
+            self.add_astro_signal = self.isgwb_mich_strain_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.gen_aet_asgwb
         else:       
            raise ValueError('Unknown recovery model selected')
 
-    def which_astro_gen_function(self):
 
-        ## Figure out what data generation methods to use.
-        return 0
 
     def diag_spectra(self):
 

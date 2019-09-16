@@ -344,25 +344,23 @@ class LISAdata(freqDomain, movingfreqDomain):
 
         return tarr, h1_noi, h2_noi, h3_noi
 
-    def gen_mich_isgwb(self, fs=0.25, dur=1e5):
+    def add_sgwb_data(self, fs=0.25, dur=1e5):
         
         '''
-        Generate time isotropic SGWB mock LISA data. The output are time domain data in Michelson
-        channels at the three vertices oft the constellation. 
+        Wrapper function for generating stochastic data. The output are time domain data 
+        in whatever TDI levels are chosen,  at the three vertices oft the constellation. 
 
         Returns
         ---------
     
         h1_gw, h2_gw, h3_gw : float
-            Time series isotropic stochastic noise for the three Michelson noise
+            Time series stochastic data
 
         '''
 
         # --------------------- Generate Fake Data + Noise -----------------------------
         print("Simulating isgwb data for analysis ...")
 
-        ## If we have a smaller fs than 4 samples a second, we will use 4 Hz as the sampling freq
-        ## If the sampling frequency is too low, that doesn't play well with the time-shifts
 
 
         dur  = 1.1*self.params['dur']
@@ -388,8 +386,6 @@ class LISAdata(freqDomain, movingfreqDomain):
 
 
         fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
-
-        
                 
         H0 = 2.2*10**(-18) ## in SI units
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
@@ -404,7 +400,7 @@ class LISAdata(freqDomain, movingfreqDomain):
 
         for ii in range(tmids.size):
 
-            R1, R2, R3 = self.isgwb_mich_strain_response(f0)
+            R1, R2, R3 = self.add_astro_signal(f0)
 
             htilda1 = norms*(R1[:,0] + R1[:,1])
             htilda2 = norms*(R2[:,0] + R2[:,1])
@@ -431,157 +427,7 @@ class LISAdata(freqDomain, movingfreqDomain):
         return h1, h2, h3, times
 
 
-    def gen_xyz_isgwb(self):    
-        
-        '''
-        Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson 
-        channels are manipulated to generate the X, Y and. We implement TDI as described in
 
-        http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
-
-
-        Returns
-        ---------
-    
-        h1_gw, h2_gw, h3_gw : float
-            Time series isotropic stochastic noise for the three TDI channels
-
-        '''
-
-
-        dur  = 1.1*self.params['dur']
-        seglen =  self.params['seglen']
-
-        # speed of light
-        cspeed = 3e8 #m/s
-
-        delf  = 1.0/seglen
-        N, Nmid = int(self.params['fs']*seglen), int(0.5*self.params['fs']*seglen)
-
-        tmids = np.arange(0.5*seglen, dur, 0.5*seglen )
-
-        ## Get freqs
-        freqs = np.fft.rfftfreq(int(seglen*self.params['fs']), 1.0/self.params['fs'] )
-        
-        freqs[0] = 1e-15
-        #Charactersitic frequency
-        fstar = cspeed/(2*np.pi*self.armlength)
-
-        # define f0 = f/2f*
-        f0 = freqs/(2*fstar)
-
-
-        fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
-
-        
-                
-        H0 = 2.2*10**(-18) ## in SI units
-        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
-
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
-        norms = np.sqrt(self.params['fs']*Sgw*N)/2
-        norms[0] = 0
-        h1, h2, h3 = np.array([]), np.array([]), np.array([])
-
-        sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
-
-        for ii in range(tmids.size):
-
-            R1, R2, R3 = self.isgwb_xyz_strain_response(f0)
-
-            htilda1 = norms*(R1[:,0] + R1[:,1])
-            htilda2 = norms*(R2[:,0] + R2[:,1])
-            htilda3 = norms*(R3[:,0] + R3[:,1])
-        
-
-            # Take inverse fft to get time series data
-            ht1 = np.real(np.fft.irfft(htilda1, N))
-            ht2 = np.real(np.fft.irfft(htilda2, N))
-            ht3 = np.real(np.fft.irfft(htilda3, N))
-
-     
-            h1, h2, h3 = np.append(h1, ht1), np.append(h2, ht2), np.append(h3, ht1)
-
-
-        times = self.params['fs']*np.arange(0, h1.size)
-
-        return h1, h2, h3, times
-
-    def gen_aet_isgwb(self):
-        
-        '''
-        Generate time isotropic SGWB mock LISA data. The output are time domain TDI data. Michelson 
-        channels are manipulated to generate the A, E and T channels. We implement TDI as described in
-
-        http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
-
-
-        Returns
-        ---------
-    
-        h1_gw, h2_gw, h3_gw : float
-            Time series isotropic stochastic noise for the three TDI channels
-
-        '''
-        dur  = 1.1*self.params['dur']
-        seglen =  self.params['seglen']
-
-        # speed of light
-        cspeed = 3e8 #m/s
-
-        delf  = 1.0/seglen
-        N, Nmid = int(self.params['fs']*seglen), int(0.5*self.params['fs']*seglen)
-
-        tmids = np.arange(0.5*seglen, dur, 0.5*seglen )
-
-        ## Get freqs
-        freqs = np.fft.rfftfreq(int(seglen*self.params['fs']), 1.0/self.params['fs'] )
-        
-        freqs[0] = 1e-15
-        #Charactersitic frequency
-        fstar = cspeed/(2*np.pi*self.armlength)
-
-        # define f0 = f/2f*
-        f0 = freqs/(2*fstar)
-
-
-        fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
-
-        
-                
-        H0 = 2.2*10**(-18) ## in SI units
-        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
-
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
-        norms = np.sqrt(self.params['fs']*Sgw*N)/2
-        norms[0] = 0
-        h1, h2, h3 = np.array([]), np.array([]), np.array([])
-
-        sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
-
-        for ii in range(tmids.size):
-
-            R1, R2, R3 = self.isgwb_aet_strain_response(f0)
-
-            htilda1 = norms*(R1[:,0] + R1[:,1])
-            htilda2 = norms*(R2[:,0] + R2[:,1])
-            htilda3 = norms*(R3[:,0] + R3[:,1])
-        
-
-            # Take inverse fft to get time series data
-            ht1 = np.real(np.fft.irfft(htilda1, N))
-            ht2 = np.real(np.fft.irfft(htilda2, N))
-            ht3 = np.real(np.fft.irfft(htilda3, N))
-
-     
-            h1, h2, h3 = np.append(h1, ht1), np.append(h2, ht2), np.append(h3, ht1)
-
-
-        times = self.params['fs']*np.arange(0, h1.size)
-
-        return h1, h2, h3, times
 
     def read_data(self):
         
