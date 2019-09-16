@@ -183,7 +183,7 @@ class Bayes():
         Np, Na =  10**(log_Np), 10**(log_Na)
 
         # Modelled Noise PSD
-        SAA, SEE, STT = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
@@ -194,17 +194,17 @@ class Bayes():
 
         # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
         # detector response tensor.
-        SA_gw = Sgw[:, None]*self.R1
-        SE_gw = Sgw[:, None]*self.R2
-        ST_gw = Sgw[:, None]*self.R3
+        S1_gw = Sgw[:, None]*self.R1
+        S2_gw = Sgw[:, None]*self.R2
+        S3_gw = Sgw[:, None]*self.R3
 
        
         ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
         ## This is strictly true for an equal arm stationary lisa. 
-        SA_net, SE_net, ST_net = SAA[:, None] + SA_gw, SEE[:, None] +  SE_gw, STT[:,None] + ST_gw
+        S1_net, S2_net, S3_net = S1[:, None] + S1_gw, S2[:, None] +  S2_gw, S3[:,None] + S3_gw
 
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA_net + (np.abs(self.r2)**2)/SE_net  + \
-             np.log(2*np.pi*SA_net) + np.log(2*np.pi*SE_net) )
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
+             np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net) )
     
         return Loglike
 

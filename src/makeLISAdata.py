@@ -386,17 +386,10 @@ class LISAdata(freqDomain, movingfreqDomain):
         # define f0 = f/2f*
         f0 = freqs/(2*fstar)
 
-        R1 = np.zeros((f0.size, 2), dtype='complex')
-        R3 = np.zeros((f0.size, 2), dtype='complex')
-        R2 = np.zeros((f0.size, 2), dtype='complex') 
 
         fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
 
-
-        import time; t0 = time.time()
-        ## There are the responses for the three arms
-        R1, R2, R3 = self.isgwb_mich_strain_response(f0)
-        print str(time.time() - t0) + " sec"
+        
                 
         H0 = 2.2*10**(-18) ## in SI units
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
@@ -409,43 +402,21 @@ class LISAdata(freqDomain, movingfreqDomain):
 
         sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
 
-        counter = 0
-
         for ii in range(tmids.size):
-            ampls = np.random.rand(norms.size) + 1j*np.random.rand(norms.size) 
-            htilda1 = norms*(R1[:,0] + R1[:,1])*ampls
-            htilda2 = norms*(R2[:,0] + R2[:,1])*ampls
-            htilda3 = norms*(R3[:,0] + R3[:,1])*ampls
-            
 
-            if 0:
-                import matplotlib.pyplot as plt
-                R_1, R_2, R_3 = self.isgwb_mich_response(f0)  
-                plt.loglog(freqs[1:], (Sgw*R_1)[1:], label ='desired')
-                plt.loglog(freqs[1:], (2/(self.params['fs']*N))*np.abs(htilda1[1:])**2, label='made')
-                plt.legend()
-                plt.savefig('test.png', dpi=150)
-                import pdb; pdb.set_trace()
-                plt.close()
-            '''
-            # Generate time series data for the channels
-            if np.mod(N, 2) == 0:
-                htil1 =  np.concatenate((np.zeros(1), htilda1, np.zeros(1), np.flipud(np.conjugate(htilda1))))
-                htil2 =  np.concatenate((np.zeros(1), htilda2, np.zeros(1), np.flipud(np.conjugate(htilda2))))
-                htil3 =  np.concatenate((np.zeros(1), htilda3, np.zeros(1), np.flipud(np.conjugate(htilda3))))
-            else:
-                htil1 =  np.concatenate((np.zeros(1), htilda1, np.conjugate(np.flipud(htilda1))))
-                htil2 =  np.concatenate((np.zeros(1), htilda2, np.conjugate(np.flipud(htilda2))))
-                htil3 =  np.concatenate((np.zeros(1), htilda3, np.conjugate(np.flipud(htilda3))))
-            '''
+            R1, R2, R3 = self.isgwb_mich_strain_response(f0)
+
+            htilda1 = norms*(R1[:,0] + R1[:,1])
+            htilda2 = norms*(R2[:,0] + R2[:,1])
+            htilda3 = norms*(R3[:,0] + R3[:,1])
+        
 
             # Take inverse fft to get time series data
             ht1 = np.real(np.fft.irfft(htilda1, N))
             ht2 = np.real(np.fft.irfft(htilda2, N))
             ht3 = np.real(np.fft.irfft(htilda3, N))
 
-            if counter == 0:
-                counter = 1        
+            if ii == 0:      
                 h1, h2, h3 = np.append(h1, ht1), np.append(h2, ht2), np.append(h3, ht1)
             else:  
 
@@ -455,10 +426,8 @@ class LISAdata(freqDomain, movingfreqDomain):
              
                 h1, h2, h3 = np.append(h1, ht1[Nmid:]), np.append(h2, ht2[Nmid:]), np.append(h3, ht1[Nmid:])
 
+        times = self.params['fs']*np.arange(0, h1.size)
 
-        #import pdb; pdb.set_trace()
-
-        times = np.linspace(0, dur, int(self.params['fs']*dur), endpoint=False)
         return h1, h2, h3, times
 
 
@@ -480,25 +449,64 @@ class LISAdata(freqDomain, movingfreqDomain):
         '''
 
 
-        h1, h2, h3, times = self.gen_mich_isgwb()
+        dur  = 1.1*self.params['dur']
+        seglen =  self.params['seglen']
 
-        fs_eff = 1.0/(times[1] - times[0])
+        # speed of light
+        cspeed = 3e8 #m/s
 
-        # Introduce time series
-        tshift = 2*self.armlength/3.0e8
-        tshift_idx = int(round(tshift*fs_eff))
+        delf  = 1.0/seglen
+        N, Nmid = int(self.params['fs']*seglen), int(0.5*self.params['fs']*seglen)
 
-        hX = h1[tshift_idx:] - h1[0:-tshift_idx]
-        hY = h2[tshift_idx:] - h2[0:-tshift_idx]
-        hZ = h3[tshift_idx:] - h3[0:-tshift_idx]
+        tmids = np.arange(0.5*seglen, dur, 0.5*seglen )
 
-        ## Cut to require size
-        N = int(fs_eff*(self.params['dur'] + 10))
-        hX, hY, hZ = hX[0:N], hZ[0:N], hY[0:N]
+        ## Get freqs
+        freqs = np.fft.rfftfreq(int(seglen*self.params['fs']), 1.0/self.params['fs'] )
+        
+        freqs[0] = 1e-15
+        #Charactersitic frequency
+        fstar = cspeed/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = freqs/(2*fstar)
 
 
+        fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
 
-        return hX, hY, hZ, times
+        
+                
+        H0 = 2.2*10**(-18) ## in SI units
+        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2
+        norms[0] = 0
+        h1, h2, h3 = np.array([]), np.array([]), np.array([])
+
+        sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
+
+        for ii in range(tmids.size):
+
+            R1, R2, R3 = self.isgwb_xyz_strain_response(f0)
+
+            htilda1 = norms*(R1[:,0] + R1[:,1])
+            htilda2 = norms*(R2[:,0] + R2[:,1])
+            htilda3 = norms*(R3[:,0] + R3[:,1])
+        
+
+            # Take inverse fft to get time series data
+            ht1 = np.real(np.fft.irfft(htilda1, N))
+            ht2 = np.real(np.fft.irfft(htilda2, N))
+            ht3 = np.real(np.fft.irfft(htilda3, N))
+
+     
+            h1, h2, h3 = np.append(h1, ht1), np.append(h2, ht2), np.append(h3, ht1)
+
+
+        times = self.params['fs']*np.arange(0, h1.size)
+
+        return h1, h2, h3, times
 
     def gen_aet_isgwb(self):
         
@@ -516,13 +524,64 @@ class LISAdata(freqDomain, movingfreqDomain):
             Time series isotropic stochastic noise for the three TDI channels
 
         '''
-        hX, hY, hZ, times = self.gen_xyz_isgwb()
+        dur  = 1.1*self.params['dur']
+        seglen =  self.params['seglen']
 
-        hA = (1.0/3)*(2*hX - hY + hZ)
-        hE = (1.0/np.sqrt(3.0))*(hZ - hY)
-        hT = (1.0/3)*(hX + hY + hZ)
+        # speed of light
+        cspeed = 3e8 #m/s
 
-        return hA, hE, hT, times
+        delf  = 1.0/seglen
+        N, Nmid = int(self.params['fs']*seglen), int(0.5*self.params['fs']*seglen)
+
+        tmids = np.arange(0.5*seglen, dur, 0.5*seglen )
+
+        ## Get freqs
+        freqs = np.fft.rfftfreq(int(seglen*self.params['fs']), 1.0/self.params['fs'] )
+        
+        freqs[0] = 1e-15
+        #Charactersitic frequency
+        fstar = cspeed/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = freqs/(2*fstar)
+
+
+        fidx = np.logical_and(freqs >= self.params['fmin'], freqs <= self.params['fmax'])
+
+        
+                
+        H0 = 2.2*10**(-18) ## in SI units
+        Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2
+        norms[0] = 0
+        h1, h2, h3 = np.array([]), np.array([]), np.array([])
+
+        sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
+
+        for ii in range(tmids.size):
+
+            R1, R2, R3 = self.isgwb_aet_strain_response(f0)
+
+            htilda1 = norms*(R1[:,0] + R1[:,1])
+            htilda2 = norms*(R2[:,0] + R2[:,1])
+            htilda3 = norms*(R3[:,0] + R3[:,1])
+        
+
+            # Take inverse fft to get time series data
+            ht1 = np.real(np.fft.irfft(htilda1, N))
+            ht2 = np.real(np.fft.irfft(htilda2, N))
+            ht3 = np.real(np.fft.irfft(htilda3, N))
+
+     
+            h1, h2, h3 = np.append(h1, ht1), np.append(h2, ht2), np.append(h3, ht1)
+
+
+        times = self.params['fs']*np.arange(0, h1.size)
+
+        return h1, h2, h3, times
 
     def read_data(self):
         
@@ -627,7 +686,6 @@ class LISAdata(freqDomain, movingfreqDomain):
 
 
         zpad = np.zeros(Nperseg)
-        # No overlapping segments
 
         ## Initiate time segment arrays
         tsegstart = np.zeros(nsegs)

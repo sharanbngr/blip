@@ -60,13 +60,13 @@ class LISA(LISAdata, Bayes):
         ## Generate TDI noise
         times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
         delt = times[1] - times[0]
-        
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
+        
         ## Generate TDI isotropic signal
         if self.inj['doInj']:
-
+            
             h1_gw, h2_gw, h3_gw, times = self.add_astro_signal()
 
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
@@ -198,7 +198,10 @@ class LISA(LISAdata, Bayes):
         else:       
            raise ValueError('Unknown recovery model selected')
 
+    def which_astro_gen_function(self):
 
+        ## Figure out what data generation methods to use.
+        return 0
 
     def diag_spectra(self):
 
@@ -242,7 +245,7 @@ class LISA(LISAdata, Bayes):
         ## start a plot instance. 
         #plt.subplot(3, 1, 1)
 
-        if self.params['modeltype'] != 'noise_only':
+        if self.inj['doInj'] or 1:
             ## SGWB signal levels of the mldc data
             Omega0, alpha = 10**truevals[1], truevals[0]
 
@@ -260,48 +263,25 @@ class LISA(LISAdata, Bayes):
 
             ## The total noise spectra is the sum of the instrumental + astrophysical 
             S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
-
+            
             plt.loglog(self.fdata, S1_gw, label='gw required')
-            #plt.subplot(3, 1, 2)
-            #plt.loglog(self.fdata, S2_gw, label='gw required')
-            #plt.subplot(3, 1, 3)
-            #plt.loglog(self.fdata, S3_gw, label='gw required')
-       
 
-        ## Plot data PSD with the expected level
-        #plt.subplot(3, 1, 1)
-        #plt.loglog(self.fdata, S1, label='required')
+
+        plt.loglog(self.fdata, S1, label='required')
         plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        #plt.ylim(1e-43, 5e-41)
+        plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
       
-        '''
-        plt.subplot(3, 1, 2)
-        plt.loglog(self.fdata, S2, label='required')
-        plt.loglog(psdfreqs, data_PSD2,label='PSD of the data series', alpha=0.6)
-        plt.xlabel('f in Hz')
-        plt.ylabel('Power Spectrum ')
-        plt.legend()
-        plt.ylim(3e-42, 1e-37)
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-      
-        plt.subplot(3, 1, 3)
-        plt.loglog(self.fdata, S3, label='required')
-        plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
-        plt.xlabel('f in Hz')
-        plt.ylabel('Power Spectrum ')
-        plt.legend()
-        plt.ylim(3e-42, 1e-37)
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-        '''
 
-        plt.savefig(self.params['out_dir'] + '/diag_psd.pdf', dpi=200)
-        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.pdf')
+
+
+        plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close() 
-        
+        import pdb; pdb.set_trace()
 
 
 def blip(paramsfile='params.ini'):
