@@ -2,12 +2,12 @@ from __future__ import division
 import numpy as np
 import scipy.signal as sg
 from src.movingfreqDomain import movingfreqDomain
-from src.freqDomain import freqDomain
+from src.instrNoise import instrNoise
+from src.geometry import geometry
 from scipy.interpolate import interp1d as intrp
 import os
-from scipy.signal.windows import nuttall
 
-class LISAdata(freqDomain, movingfreqDomain):
+class LISAdata(geometry, movingfreqDomain, instrNoise):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -527,7 +527,6 @@ class LISAdata(freqDomain, movingfreqDomain):
         
         # Hann Window
         hwin = np.hanning(Nperseg)
-        #hwin = nuttall(Nperseg)
         win_fact = np.mean(hwin**2)
 
 
