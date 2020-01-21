@@ -67,7 +67,7 @@ class Bayes():
     
         '''
 
-
+    
         # Unpack: Theta is defined in the unit cube
         alpha, log_omega0, log_Np, log_Na = theta
 
@@ -76,7 +76,7 @@ class Bayes():
         log_omega0  = -10*log_omega0 - 4
         log_Np      = -5*log_Np - 39
         log_Na      = -5*log_Na - 46
-
+        self.theta_prior = (alpha, log_omega0, log_Np, log_Na)
         return (alpha, log_omega0, log_Np, log_Na)
 
 
@@ -175,7 +175,6 @@ class Bayes():
         Loglike   :   float
             The log-likelihood value at the sampled point in the parameter space
         '''
-
 
         # unpack priors
         alpha, log_omega0, log_Np, log_Na  = theta
@@ -326,7 +325,7 @@ class Bayes():
 
 
         # unpack priors
-        alpha, log_omega0  = theta 
+        alpha, log_omega0 = theta 
 
         ## Signal PSD
         H0 = 2.2*10**(-18)

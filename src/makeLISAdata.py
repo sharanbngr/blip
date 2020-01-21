@@ -187,7 +187,7 @@ class LISAdata(geometry, movingfreqDomain, instrNoise):
         '''
 
         # --------------------- Generate Fake Noise -----------------------------
-        print("Simulating michelson data ...")
+        print("Simulating instrumental noise ...")
 
        # speed of light
         cspeed = 3e8 #m/s
@@ -359,7 +359,7 @@ class LISAdata(geometry, movingfreqDomain, instrNoise):
         '''
 
         # --------------------- Generate Fake Data + Noise -----------------------------
-        print("Simulating isgwb data for analysis ...")
+        print(" Adding sgwb signal ...")
 
 
 
@@ -397,7 +397,7 @@ class LISAdata(geometry, movingfreqDomain, instrNoise):
         h1, h2, h3 = np.array([]), np.array([]), np.array([])
 
         sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
-
+        
         for ii in range(tmids.size):
 
             R1, R2, R3 = self.add_astro_signal(f0)
