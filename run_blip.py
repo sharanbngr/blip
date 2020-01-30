@@ -278,7 +278,6 @@ class LISA(LISAdata, Bayes):
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close() 
-        import pdb; pdb.set_trace()
 
 
 def blip(paramsfile='params.ini'):

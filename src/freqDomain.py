@@ -5,10 +5,6 @@ import types
 from src.cython_func import cython_response
 import healpy as hp
 
-<<<<<<< HEAD
-=======
-
->>>>>>> sb_wb
 class freqDomain():
 
     '''

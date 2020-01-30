@@ -203,9 +203,12 @@ class Bayes():
         ## This is strictly true for an equal arm stationary lisa. 
         S1_net, S2_net, S3_net = S1[:, None] + S1_gw, S2[:, None] +  S2_gw, S3[:,None] + S3_gw
 
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
-             np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net) )
+        #Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
+        #     np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net) )
     
+        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + \
+                     np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) )
+
         return Loglike
 
 
