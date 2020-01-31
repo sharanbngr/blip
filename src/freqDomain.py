@@ -1,13 +1,12 @@
 import numpy as np
 from scipy.special import lpmn
 import types
-from src.cython_func import cython_response
 import healpy as hp
 
 class freqDomain():
 
     '''
-    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
+    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.
     '''
 
     def __init__():
@@ -15,10 +14,10 @@ class freqDomain():
 
 
     def doppler_response(self, f0, theta, phi):
-        
+
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the doppler channel of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -27,8 +26,8 @@ class freqDomain():
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-    
+            Sky position values.
+
 
         Returns
         ---------
@@ -39,7 +38,7 @@ class freqDomain():
 
 
         ct = np.cos(theta)
-        
+
         ## udir is just u.r, where r is the directional vector
         udir = np.sqrt(1-ct**2) * np.sin(phi + np.pi/6)
 
@@ -66,11 +65,11 @@ class freqDomain():
         return Rplus, Rcross
 
 
-    def michelson_response(self, f0, theta, phi): 
+    def michelson_response(self, f0, theta, phi):
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the three Michelson channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -79,8 +78,8 @@ class freqDomain():
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-    
+            Sky position values.
+
 
         Returns
         ---------
@@ -136,13 +135,13 @@ class freqDomain():
 
         return R1plus, R1cross, R2plus, R2cross, R3plus, R3cross
 
-    def aet_response(self, f0, theta, phi): 
+    def aet_response(self, f0, theta, phi):
 
 
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -151,8 +150,8 @@ class freqDomain():
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-    
+            Sky position values.
+
 
         Returns
         ---------
@@ -163,7 +162,7 @@ class freqDomain():
 
 
         R1plus, R1cross, R2plus, R2cross, R3plus, R3cross  = self.michelson_response(f0, theta, phi)
-        
+
 
         ## Calculate antenna patterns for the A, E and T channels
         RAplus = (2/3)*np.sin(2*f0)*(2*R1plus - R2plus - R3plus)
@@ -175,7 +174,7 @@ class freqDomain():
         RTcross = (1/3)*np.sin(2*f0)*(R1cross + R3cross + R2cross)
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
-    
+
 
     def isgwb_mich_response(self, f0):
 
@@ -185,7 +184,7 @@ class freqDomain():
         over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -193,7 +192,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -210,10 +209,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -241,8 +240,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -252,7 +251,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -260,7 +259,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -303,7 +302,7 @@ class freqDomain():
         over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -311,7 +310,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -328,10 +327,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -360,8 +359,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -371,7 +370,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -379,7 +378,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
@@ -423,12 +422,12 @@ class freqDomain():
     def isgwb_aet_response(self, f0):
 
         '''
-        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. 
+        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels.
         Note that since this is the response to an isotropic background, the response function is integrated over sky direction
         and averaged over polarozation. The angular integral is a linear and rectangular in the cos(theta) and phi space.  Note
         that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -436,7 +435,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -445,7 +444,7 @@ class freqDomain():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        
+
         # Define nside and npix for the healpix array
         nside = 20
 
@@ -454,10 +453,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -486,8 +485,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -497,7 +496,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -505,7 +504,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
@@ -562,10 +561,10 @@ class freqDomain():
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using A, E and T TDI channels,
         and using a spherical harmonic decomposition. Note that the response function is integrated over sky direction
         with the appropriate legandre polynomial, and averaged over polarozation. Finally note that the spherical harmonic
-        coeffcients correspond to strain sky distribution, while the legandre polynomials describe the power sky. The 
+        coeffcients correspond to strain sky distribution, while the legandre polynomials describe the power sky. The
         angular integral is a linear and rectangular in the cos(theta) and phi space.  Note that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -573,17 +572,17 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
 
         R1, R2 and R3   :   float
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
-            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient. 
+            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        
+
         tt = np.arange(-1, 1, 0.02)
         pp = np.arange(0, 2*np.pi, np.pi/100)
 
@@ -607,9 +606,9 @@ class freqDomain():
 
         ## Get associated legandre polynomials.
         for ii in range(tt.size):
-            plms[ii, :, :], _ = lpmn(self.params['lmax'], self.params['lmax'], tt[ii]) 
+            plms[ii, :, :], _ = lpmn(self.params['lmax'], self.params['lmax'], tt[ii])
 
-        ## It is the squares of the polynomials which are relevent. 
+        ## It is the squares of the polynomials which are relevent.
         plms = plms**2
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -664,13 +663,13 @@ class freqDomain():
 
             ## Detector response for the TDI Channels, summed over polarization
             ## and integrated over sky direction
-            
+
             R1[ii, :] = dct*dphi/(4*np.pi)*np.sum(np.tensordot((np.absolute(FAplus))**2 + \
                     (np.absolute(FAcross))**2, plms, axes=1), axis=(0, 1))
             R2[ii, :] = dct*dphi/(4*np.pi)*np.sum(np.tensordot((np.absolute(FEplus))**2 + \
                     (np.absolute(FEcross))**2, plms, axes=1), axis=(0, 1))
             R3[ii, :] = dct*dphi/(4*np.pi)*np.sum(np.tensordot((np.absolute(FTplus))**2 + \
-                    (np.absolute(FTcross))**2, plms, axes=1), axis=(0,1))   
+                    (np.absolute(FTcross))**2, plms, axes=1), axis=(0,1))
 
 
 
@@ -692,18 +691,18 @@ class freqDomain():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
 
         Sp, Sa   :   float
             Frequencies array for position and acceleration noises for each satellite
-        ''' 
-        
+        '''
+
         Sp = Np*(1 + (2e-3/freqs)**4)
         Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
 
@@ -724,10 +723,10 @@ class freqDomain():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
@@ -772,10 +771,10 @@ class freqDomain():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
@@ -789,7 +788,7 @@ class freqDomain():
         SM1, SM2, SM3 = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        SX = 4*SM1* np.sin(2*f0)**2 
+        SX = 4*SM1* np.sin(2*f0)**2
 
 
         return SX, SX, SX
@@ -799,7 +798,7 @@ class freqDomain():
         '''
         Calculates michelson channel noise spectra for a stationary lisa. Following the defintions in
         Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308. We assume that
-        there is no phase noise. 
+        there is no phase noise.
 
 
         Parameters
@@ -810,10 +809,10 @@ class freqDomain():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
@@ -823,14 +822,14 @@ class freqDomain():
 
 
         '''
- 
+
         # Get Sp and Sa
         Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
 
-     
+
         ## Noise spectra of the X, Y and Z channels
         SX = 4.0 * (2.0 * (1.0 + (np.cos(2*f0))**2) * Sa + Sp)
-        
+
 
         return SX, SX, SX
 
@@ -845,7 +844,7 @@ class freqDomain():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-        
+
 
         Parameters
         -----------
@@ -853,7 +852,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -869,10 +868,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -904,8 +903,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -915,7 +914,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -923,7 +922,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -949,10 +948,10 @@ class freqDomain():
 
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:, ii]) 
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:, ii]) 
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:, ii]) 
-        
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:, ii])
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:, ii])
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:, ii])
+
 
         return R1, R2, R3
 
@@ -966,7 +965,7 @@ class freqDomain():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-        
+
 
         Parameters
         -----------
@@ -974,7 +973,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -990,10 +989,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -1025,8 +1024,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -1036,7 +1035,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -1044,7 +1043,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -1078,10 +1077,10 @@ class freqDomain():
             FZcross = 2*np.sin(2*f0[ii])*Fcross3
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FXplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FXcross*rand_cross[:, ii]) 
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FYplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FYcross*rand_cross[:, ii]) 
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FZplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FZcross*rand_cross[:, ii]) 
-        
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FXplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FXcross*rand_cross[:, ii])
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FYplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FYcross*rand_cross[:, ii])
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FZplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FZcross*rand_cross[:, ii])
+
 
         return R1, R2, R3
 
@@ -1096,7 +1095,7 @@ class freqDomain():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-        
+
 
         Parameters
         -----------
@@ -1104,7 +1103,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -1120,10 +1119,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -1155,8 +1154,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -1166,7 +1165,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -1174,7 +1173,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -1217,10 +1216,10 @@ class freqDomain():
             FTcross = (1/3)*(FXcross + FYcross + FZcross)
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FAplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FAcross*rand_cross[:, ii]) 
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FEplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FEcross*rand_cross[:, ii]) 
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FTplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FTcross*rand_cross[:, ii]) 
-        
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FAplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FAcross*rand_cross[:, ii])
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FEplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FEcross*rand_cross[:, ii])
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FTplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FTcross*rand_cross[:, ii])
+
 
         return R1, R2, R3
 

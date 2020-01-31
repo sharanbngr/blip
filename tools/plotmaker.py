@@ -15,7 +15,7 @@ def plotmaker(lisa, params,parameters, npar):
     -----------
 
     params : dictionary
-        Dictionary of config params 
+        Dictionary of config params
 
     parameters: string
         Array or list of strings with names of the parameters
@@ -25,13 +25,13 @@ def plotmaker(lisa, params,parameters, npar):
     '''
 
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
-   
-   
+
+
     if len(params['truevals']) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
         truevals = params['truevals']
     else:
-        knowTrue = 0 
+        knowTrue = 0
 
 
     plotrange = [0.999]*npar
@@ -67,10 +67,8 @@ def plotmaker(lisa, params,parameters, npar):
     rec_omega  = 10**(rec_vals[1]) * (lisa.fdata/lisa.params['fref'])**rec_vals[0]
     true_omega = 10**(truevals[1]) * (lisa.fdata/lisa.params['fref'])**truevals[0]
 
-    
-    
     for ii in range(post[:, 0].size):
-        
+
         aa = np.random.rand()
         if aa > 0.9:
             pt_omega  = 10**(post[ii, 1]) * (lisa.fdata/lisa.params['fref'])**post[ii, 0]

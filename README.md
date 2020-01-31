@@ -30,7 +30,11 @@ For Windows, source it by
 
 `pip install dynesty`
 
-6) You can change the parameters and the signal model in params.ini
+6) Some functionality also needs cython
+
+`pip install cython`
+
+7) You can change the parameters and the signal model in params.ini
 
 To run do `python run_blip.py params.ini`
 
