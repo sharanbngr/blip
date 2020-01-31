@@ -1,41 +1,40 @@
 #  BLIP: Bayesian LISA Pipeline
 
-More documentation at https://sharanbngr.github.io/blip/
 
 
-A bayesian pipeline for detecting stochastic backgrounds with LISA. BLIP stands for Bayesian LIsa Pipeline. This is a fully pythonic pipeline.
+This is a bayesian pipeline for detecting stochastic backgrounds with LISA. BLIP stands for Bayesian LIsa Pipeline fully written in python
 
-For now we have only the isotropic background. It is easiest to run this in a virtual environment. 
-Make a new virtualenv lisawork by doing
 
-`virtualenv lisawork`
+1) It is easier to maintain and run python code in virtual environments. Make a new virtualenv by doing
 
-Source it by
+`python3 -m venv lisaenv`
 
-`source lisawork/bin/activate`
+2) Source it on linux or Mac by doing
+
+`source lisaenv/bin/activate`
 
 For Windows, source it by 
 
-`activate`
+`activate`  while in `\lisawork\Scripts`
 
-while in `\lisawork\Scripts`
 
-numpy, scipy are needed for running this. Matplotlib and corner are required for plotting. Install them all by doing
+3) We need numpy, scipy for running this and matplotlib and corner are required for plotting. Install them all by doing
 
 `pip install numpy scipy matplotlib corner`
 
-We also need the healpy, the skymap package
+4) We also need the healpy, the skymap package
 
-pip install healpy
+`pip install healpy`
 
-The sampler [dynesty](https://dynesty.readthedocs.io/en/latest/) is used for nested sampling. We get both the posteriors and bayesian evidence from it. The latter is the detection statistic. Install dynesty by doing
+5) The sampler [dynesty](https://dynesty.readthedocs.io/en/latest/) is used for nested sampling. We get both the posteriors and bayesian evidence from it. The latter is the detection statistic. Install dynesty by doing
 
 `pip install dynesty`
 
-You can change the parameters and the signal model in params.ini
+6) You can change the parameters and the signal model in params.ini
 
 To run do `python run_blip.py params.ini`
 
 Posterior plots are automatically made in the output directory specified in params.ini
 
-**Note**: Currently the code is setup to run with python 2.7 and might not work with python 3
+**Note**: The code is setup to work with python 3 and might not work with python2
+More documentation at https://sharanbngr.github.io/blip/
