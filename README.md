@@ -40,5 +40,10 @@ To run do `python run_blip.py params.ini`
 
 Posterior plots are automatically made in the output directory specified in params.ini
 
+
+8) If you want to generate local documentation pages you also need sphinx
+
+`pip install sphinx`
+
 **Note**: The code is setup to work with python 3 and might not work with python2
 More documentation at https://sharanbngr.github.io/blip/
