@@ -1,4 +1,3 @@
-from __future__ import division
 import json, pdb
 import numpy as np
 from dynesty import NestedSampler
@@ -372,7 +371,7 @@ def blip(paramsfile='params.ini'):
         
     if params['modeltype']=='isgwb':
             
-        print "Doing an isotropic stochastic analysis..."
+        print("Doing an isotropic stochastic analysis...")
         parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
         npar = len(parameters)     
         engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
@@ -380,7 +379,7 @@ def blip(paramsfile='params.ini'):
     
     elif params['modeltype']=='sph_sgwb':
 
-        print "Doing a spherical harmonic stochastic analysis ..."
+        print("Doing a spherical harmonic stochastic analysis ...")
         parameters = []
     
         parameters.append(r'$\alpha$')
@@ -397,14 +396,14 @@ def blip(paramsfile='params.ini'):
                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
     
     elif params['modeltype']=='noise_only':
-        print "Doing an instrumental noise only analysis ..."
+        print("Doing an instrumental noise only analysis ...")
         parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
         npar = len(parameters)     
         engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
         
     elif params['modeltype'] =='isgwb_only':
-        print "Doing an isgwb signal only analysis ..."
+        print("Doing an isgwb signal only analysis ...")
         parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
         npar = len(parameters)     
         engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,\
@@ -413,7 +412,7 @@ def blip(paramsfile='params.ini'):
     else:
         raise ValueError('Unknown recovery model selected')
     
-    print "npar = " + str(npar)
+    print("npar = " + str(npar))
     
     
     # Check to see if we have appropriate number of truevals

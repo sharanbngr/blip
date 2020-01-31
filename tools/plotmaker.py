@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
@@ -59,7 +58,7 @@ def plotmaker(lisa, params,parameters, npar):
 
     ## Save posterior
     plt.savefig(params['out_dir'] + 'corners.png', dpi=150)
-    print "Posteriors plots printed in " + params['out_dir'] + "corners.png"
+    print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
 
 
@@ -81,5 +80,5 @@ def plotmaker(lisa, params,parameters, npar):
     plt.loglog(lisa.fdata, true_omega, label='true_omega')
     plt.legend()
     plt.savefig(params['out_dir'] + 'omega_plot.png', dpi=150)
-    print "omega plots printed in " + params['out_dir'] + "omega_plot.png"
+    print("omega plots printed in " + params['out_dir'] + "omega_plot.png")
 
