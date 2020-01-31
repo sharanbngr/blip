@@ -2,7 +2,7 @@ import json, pdb
 import numpy as np
 from dynesty import NestedSampler
 from dynesty.utils import resample_equal
-import sys, ConfigParser, subprocess
+import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
 from src.bayes import Bayes
 from tools.plotmaker import plotmaker
@@ -295,7 +295,7 @@ def blip(paramsfile='params.ini'):
     params = {}
     inj = {}
 
-    config = ConfigParser.ConfigParser()
+    config = configparser.ConfigParser()
     config.read(paramsfile)
 
     # Params Dict
