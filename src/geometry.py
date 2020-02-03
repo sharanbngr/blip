@@ -1,12 +1,13 @@
 import numpy as np
-from scipy.special import lpmn
+from scipy.special import lpmn, sph_harm
 import types
 import healpy as hp
 
-class freqDomain():
+
+class geometry():
 
     '''
-    Module containing methods which do various types of frequency domain calcualtions. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.
+    Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
     '''
 
     def __init__():
@@ -676,163 +677,9 @@ class freqDomain():
         return R1, R2, R3
 
 
-    def fundamental_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
 
-        '''
-        Creates a frequency array of fundamentla noise estimates for lisa. Currently we consisder only contain only
-        position and acceleration noise sources. The default values are specifications pulled from 2017 Lisa proposal
-        noise estimations.
-
-        Parameters
-        -----------
-
-        freqs   : float
-            A numpy array of frequencies
-
-        Np (optional) : float
-            Position noise value
-
-        Na (optional) : float
-            Acceleration noise level
-
-
-        Returns
-        ---------
-
-        Sp, Sa   :   float
-            Frequencies array for position and acceleration noises for each satellite
-        '''
-
-        Sp = Np*(1 + (2e-3/freqs)**4)
-        Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
-
-        return Sp, Sa
-
-    def aet_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
-
-        '''
-        Calculates A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
-        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
-
-
-        Parameters
-        -----------
-
-        freqs   : float
-            A numpy array of frequencies
-
-        Np (optional) : float
-            Position noise value
-
-        Na (optional) : float
-            Acceleration noise level
-
-
-        Returns
-        ---------
-
-        SAA, SEE, STT   :   float
-            Frequencies arrays with the noise PSD for the A, E and T TDI channels
-
-
-        '''
-
-        # Get Sp and Sa
-        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
-
-
-        ## Noise spectra of the TDI Channels
-        SAA = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(np.cos(2*self.f0) + 2) \
-            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4*np.cos(2*self.f0) + 2*np.cos(4*self.f0) + 6)
-
-
-        SEE = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(2 + np.cos(2*self.f0)) \
-            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4 + 4*np.cos(2*self.f0) +  4*(np.cos(2*self.f0))**2 )
-
-        STT = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(1 - np.cos(2*self.f0)) \
-            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(2 - 4*np.cos(2*self.f0) + 2*(np.cos(2*self.f0))**2)
-
-
-        return SAA, SEE, STT
-
-
-    def xyz_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
-
-        '''
-        Calculates X,Y,Z channel noise spectra for a stationary lisa. Following the defintions in
-        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308
-
-
-        Parameters
-        -----------
-
-        freqs   : float
-            A numpy array of frequencies
-
-        Np (optional) : float
-            Position noise value
-
-        Na (optional) : float
-            Acceleration noise level
-
-
-        Returns
-        ---------
-
-        SAA, SEE, STT   :   float
-            Frequencies arrays with the noise PSD for the A, E and T TDI channels
-
-
-        '''
-
-        SM1, SM2, SM3 = self.mich_noise_spectrum(freqs, f0, Np, Na)
-
-        ## Noise spectra of the X, Y and Z channels
-        SX = 4*SM1* np.sin(2*f0)**2
-
-
-        return SX, SX, SX
-
-    def mich_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
-
-        '''
-        Calculates michelson channel noise spectra for a stationary lisa. Following the defintions in
-        Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308. We assume that
-        there is no phase noise.
-
-
-        Parameters
-        -----------
-
-        freqs   : float
-            A numpy array of frequencies
-
-        Np (optional) : float
-            Position noise value
-
-        Na (optional) : float
-            Acceleration noise level
-
-
-        Returns
-        ---------
-
-        SAA, SEE, STT   :   float
-            Frequencies arrays with the noise PSD for the A, E and T TDI channels
-
-
-        '''
-
-        # Get Sp and Sa
-        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
-
-
-        ## Noise spectra of the X, Y and Z channels
-        SX = 4.0 * (2.0 * (1.0 + (np.cos(2*f0))**2) * Sa + Sp)
-
-
-        return SX, SX, SX
-
+    ## ------------------------ The methods above help calculate pattern functions useful for recovery --------------------------------
+    ## ---------------------------------- The methods below help in making simualted data ---------------------------------------------
 
 
     def isgwb_mich_strain_response(self, f0):
@@ -844,7 +691,7 @@ class freqDomain():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-
+        
 
         Parameters
         -----------
@@ -852,7 +699,7 @@ class freqDomain():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-
+    
 
         Returns
         ---------
@@ -868,10 +715,10 @@ class freqDomain():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides
+        #Angular coordinates of pixel indcides 
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine.
+        # Take cosine. 
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -903,8 +750,8 @@ class freqDomain():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-
-
+            
+            
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -914,7 +761,7 @@ class freqDomain():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-
+            
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -922,7 +769,7 @@ class freqDomain():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-
+        
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -948,10 +795,10 @@ class freqDomain():
 
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:, ii])
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:, ii])
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:, ii])
-
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:, ii]) 
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus2*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross2*rand_cross[:, ii]) 
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus3*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross3*rand_cross[:, ii]) 
+        
 
         return R1, R2, R3
 
@@ -1077,10 +924,10 @@ class freqDomain():
             FZcross = 2*np.sin(2*f0[ii])*Fcross3
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FXplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FXcross*rand_cross[:, ii])
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FYplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FYcross*rand_cross[:, ii])
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FZplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FZcross*rand_cross[:, ii])
-
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FXplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FXcross*rand_cross[:, ii]) 
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FYplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FYcross*rand_cross[:, ii]) 
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FZplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FZcross*rand_cross[:, ii]) 
+        
 
         return R1, R2, R3
 
@@ -1216,11 +1063,143 @@ class freqDomain():
             FTcross = (1/3)*(FXcross + FYcross + FZcross)
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FAplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FAcross*rand_cross[:, ii])
-            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FEplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FEcross*rand_cross[:, ii])
-            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FTplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FTcross*rand_cross[:, ii])
-
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FAplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FAcross*rand_cross[:, ii]) 
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FEplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FEcross*rand_cross[:, ii]) 
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FTplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FTcross*rand_cross[:, ii]) 
+        
 
         return R1, R2, R3
 
+
+    ## ------------------------------------------- Anisotropic injection methods from below ----------------------------------------------------
+
+    def asgwb_xyz_strain_response(self, f0):
+
+        '''
+        Calculate the detector transfer function functions to an anisotropic SGWB non-polarized xyz tdi
+        channels. Note that since this is the response to an isotropic background, the response function is integrated
+        over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
+        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
+        for the strain of the signal rather than the power
+
+
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+
+
+
+        Returns
+        ---------
+
+        R1, R2 and R3   :   float
+            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
+        '''
+        import pdb; pdb.set_trace()
+
+
+        # Define nside and npix for the healpix array
+        nside = 10
+        npix = hp.nside2npix(nside)
+
+        # Array of pixel indices
+        pix_idx  = np.arange(npix)
+
+        #Angular coordinates of pixel indcides
+        theta, phi = hp.pix2ang(nside, pix_idx)
+
+        # Take cosine.
+        ctheta = np.cos(theta)
+
+        # Area of each pixel in sq.radians
+        dOmega = hp.pixelfunc.nside2pixarea(nside)
+
+        ## Create directional vectors
+        udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
+        vdir = np.sqrt(1-ctheta**2) * np.sin(phi - np.pi/6)
+        wdir = vdir - udir
+
+        # Initlize arrays for the detector reponse
+        R1 = np.zeros((f0.size, 2), dtype='complex')
+        R2 = np.zeros((f0.size, 2), dtype='complex')
+        R3 = np.zeros((f0.size, 2), dtype='complex')
+
+        # Assign random complex amplitudes for each pixel
+        rand_plus  = np.random.standard_normal(size=(npix, f0.size)) + 1j*np.random.standard_normal(size=(npix, f0.size))
+        rand_cross = np.random.standard_normal(size=(npix, f0.size)) + 1j*np.random.standard_normal(size=(npix, f0.size))
+
+        # Calculate the detector response for each frequency
+        for ii in range(0, f0.size):
+
+            # Calculate GW transfer function for the michelson channels
+            gammaU_plus    =    1/2 * (np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(3+udir)) + \
+                             np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(1+udir)))
+
+            gammaV_plus    =    1/2 * (np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(3+vdir)) + \
+                             np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(1+vdir)))
+
+            gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
+                             np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
+
+
+            # Calculate GW transfer function for the michelson channels
+            gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
+                             np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
+
+            gammaV_minus    =    1/2 * (np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - vdir)) + \
+                             np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - vdir)))
+
+            gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
+                             np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
+
+
+            ## response function u x u : eplus
+            ##  Fplus_u = (u x u):eplus
+
+            Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
+                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
+                                 0.5*((np.cos(phi))**2 - ctheta**2))
+
+            Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
+                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
+                                 0.5*((np.cos(phi))**2 - ctheta**2))
+
+            Fplus_w   = (1 - (1+ctheta**2)*(np.cos(phi))**2)
+
+            ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
+            Fcross_u  = - ctheta * (np.sin(2*phi + np.pi/3))
+            Fcross_v  = - ctheta * (np.sin(2*phi - np.pi/3))
+            Fcross_w   = ctheta*np.sin(2*phi)
+
+
+            ## Michelson antenna patterns
+            ## Calculate Fplus
+            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
+
+            ## Calculate Fcross
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
+
+            ## Calculate antenna patterns for the X, Y, Z channels.
+            FXplus = 2*np.sin(2*f0[ii])*Fplus1
+            FYplus = 2*np.sin(2*f0[ii])*Fplus2
+            FZplus = 2*np.sin(2*f0[ii])*Fplus3
+
+            FXcross = 2*np.sin(2*f0[ii])*Fcross1
+            FYcross = 2*np.sin(2*f0[ii])*Fcross2
+            FZcross = 2*np.sin(2*f0[ii])*Fcross3
+
+            ## Detector response summed over polarization and integrated over sky direction
+            R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(FXplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FXcross*rand_cross[:, ii]) 
+            R2[ii,0], R2[ii, 1] = np.sqrt(0.5/npix)*np.sum(FYplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FYcross*rand_cross[:, ii]) 
+            R3[ii,0], R3[ii, 1] = np.sqrt(0.5/npix)*np.sum(FZplus*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(FZcross*rand_cross[:, ii]) 
+        
+
+        return R1, R2, R3
 

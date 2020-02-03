@@ -194,7 +194,9 @@ class LISA(LISAdata, Bayes):
             self.add_astro_signal = self.isgwb_mich_strain_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.gen_aet_asgwb
-        else:
+        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.asgwb_xyz_strain_response
+        else:       
            raise ValueError('Unknown recovery model selected')
 
 
@@ -306,7 +308,6 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
-    #params['readData'] = int(config.get("params", "readData"))
     params['loadResponse'] = int(config.get("params", "loadResponse"))
     params['loadCustom'] = int(config.get("params", "loadCustom"))
     params['responsefile1']  = str(config.get("params", "responsefile1"))
