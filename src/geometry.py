@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 from scipy.special import lpmn, sph_harm
 import types
@@ -16,10 +15,10 @@ class geometry():
 
 
     def doppler_response(self, f0, theta, phi):
-        
+
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the doppler channel of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -28,8 +27,8 @@ class geometry():
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-    
+            Sky position values.
+
 
         Returns
         ---------
@@ -40,7 +39,7 @@ class geometry():
 
 
         ct = np.cos(theta)
-        
+
         ## udir is just u.r, where r is the directional vector
         udir = np.sqrt(1-ct**2) * np.sin(phi + np.pi/6)
 
@@ -67,11 +66,11 @@ class geometry():
         return Rplus, Rcross
 
 
-    def michelson_response(self, f0, theta, phi): 
+    def michelson_response(self, f0, theta, phi):
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the three Michelson channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -80,8 +79,8 @@ class geometry():
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-    
+            Sky position values.
+
 
         Returns
         ---------
@@ -137,13 +136,13 @@ class geometry():
 
         return R1plus, R1cross, R2plus, R2cross, R3plus, R3cross
 
-    def aet_response(self, f0, theta, phi): 
+    def aet_response(self, f0, theta, phi):
 
 
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of a stationary LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -152,8 +151,8 @@ class geometry():
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-    
+            Sky position values.
+
 
         Returns
         ---------
@@ -164,7 +163,7 @@ class geometry():
 
 
         R1plus, R1cross, R2plus, R2cross, R3plus, R3cross  = self.michelson_response(f0, theta, phi)
-        
+
 
         ## Calculate antenna patterns for the A, E and T channels
         RAplus = (2/3)*np.sin(2*f0)*(2*R1plus - R2plus - R3plus)
@@ -176,7 +175,7 @@ class geometry():
         RTcross = (1/3)*np.sin(2*f0)*(R1cross + R3cross + R2cross)
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
-    
+
 
     def isgwb_mich_response(self, f0):
 
@@ -186,7 +185,7 @@ class geometry():
         over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -194,7 +193,7 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -211,10 +210,10 @@ class geometry():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -242,8 +241,8 @@ class geometry():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -253,7 +252,7 @@ class geometry():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -261,7 +260,7 @@ class geometry():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -304,7 +303,7 @@ class geometry():
         over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -312,7 +311,7 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -329,10 +328,10 @@ class geometry():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -361,8 +360,8 @@ class geometry():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -372,7 +371,7 @@ class geometry():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -380,7 +379,7 @@ class geometry():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
@@ -424,12 +423,12 @@ class geometry():
     def isgwb_aet_response(self, f0):
 
         '''
-        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels. 
+        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels.
         Note that since this is the response to an isotropic background, the response function is integrated over sky direction
         and averaged over polarozation. The angular integral is a linear and rectangular in the cos(theta) and phi space.  Note
         that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -437,7 +436,7 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -446,7 +445,7 @@ class geometry():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        
+
         # Define nside and npix for the healpix array
         nside = 20
 
@@ -455,10 +454,10 @@ class geometry():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -487,8 +486,8 @@ class geometry():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -498,7 +497,7 @@ class geometry():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -506,7 +505,7 @@ class geometry():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                             np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                             0.5*((np.cos(phi))**2 - ctheta**2))
@@ -563,10 +562,10 @@ class geometry():
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using A, E and T TDI channels,
         and using a spherical harmonic decomposition. Note that the response function is integrated over sky direction
         with the appropriate legandre polynomial, and averaged over polarozation. Finally note that the spherical harmonic
-        coeffcients correspond to strain sky distribution, while the legandre polynomials describe the power sky. The 
+        coeffcients correspond to strain sky distribution, while the legandre polynomials describe the power sky. The
         angular integral is a linear and rectangular in the cos(theta) and phi space.  Note that f0 is (pi*L*f)/c and is input as an array
 
-        
+
 
         Parameters
         -----------
@@ -574,17 +573,17 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
 
         R1, R2 and R3   :   float
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
-            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient. 
+            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        
+
         tt = np.arange(-1, 1, 0.02)
         pp = np.arange(0, 2*np.pi, np.pi/100)
 
@@ -608,9 +607,9 @@ class geometry():
 
         ## Get associated legandre polynomials.
         for ii in range(tt.size):
-            plms[ii, :, :], _ = lpmn(self.params['lmax'], self.params['lmax'], tt[ii]) 
+            plms[ii, :, :], _ = lpmn(self.params['lmax'], self.params['lmax'], tt[ii])
 
-        ## It is the squares of the polynomials which are relevent. 
+        ## It is the squares of the polynomials which are relevent.
         plms = plms**2
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -665,13 +664,13 @@ class geometry():
 
             ## Detector response for the TDI Channels, summed over polarization
             ## and integrated over sky direction
-            
+
             R1[ii, :] = dct*dphi/(4*np.pi)*np.sum(np.tensordot((np.absolute(FAplus))**2 + \
                     (np.absolute(FAcross))**2, plms, axes=1), axis=(0, 1))
             R2[ii, :] = dct*dphi/(4*np.pi)*np.sum(np.tensordot((np.absolute(FEplus))**2 + \
                     (np.absolute(FEcross))**2, plms, axes=1), axis=(0, 1))
             R3[ii, :] = dct*dphi/(4*np.pi)*np.sum(np.tensordot((np.absolute(FTplus))**2 + \
-                    (np.absolute(FTcross))**2, plms, axes=1), axis=(0,1))   
+                    (np.absolute(FTcross))**2, plms, axes=1), axis=(0,1))
 
 
 
@@ -813,7 +812,7 @@ class geometry():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-        
+
 
         Parameters
         -----------
@@ -821,7 +820,7 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -837,10 +836,10 @@ class geometry():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -872,8 +871,8 @@ class geometry():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -883,7 +882,7 @@ class geometry():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -891,7 +890,7 @@ class geometry():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -943,7 +942,7 @@ class geometry():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-        
+
 
         Parameters
         -----------
@@ -951,7 +950,7 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -967,10 +966,10 @@ class geometry():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -1002,8 +1001,8 @@ class geometry():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -1013,7 +1012,7 @@ class geometry():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -1021,7 +1020,7 @@ class geometry():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
@@ -1083,7 +1082,7 @@ class geometry():
         cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. The response function is given
         for the strain of the signal rather than the power
 
-        
+
 
         Parameters
         -----------
@@ -1091,7 +1090,7 @@ class geometry():
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-    
+
 
         Returns
         ---------
@@ -1109,10 +1108,10 @@ class geometry():
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
-        #Angular coordinates of pixel indcides 
+        #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
-        # Take cosine. 
+        # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
@@ -1144,8 +1143,8 @@ class geometry():
 
             gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
                              np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
-            
-            
+
+
             # Calculate GW transfer function for the michelson channels
             gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                              np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
@@ -1155,7 +1154,7 @@ class geometry():
 
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-            
+
 
             ## response function u x u : eplus
             ##  Fplus_u = (u x u):eplus
@@ -1163,7 +1162,7 @@ class geometry():
             Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2)  + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))
-        
+
             Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
                              np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
                                  0.5*((np.cos(phi))**2 - ctheta**2))

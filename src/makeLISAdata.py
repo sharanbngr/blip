@@ -1,4 +1,3 @@
-from __future__ import division
 import numpy as np
 import scipy.signal as sg
 from src.movingfreqDomain import movingfreqDomain

@@ -1,11 +1,9 @@
-from __future__ import division
 import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from chainconsumer import ChainConsumer
 import corner
-
-
 
 def plotmaker(lisa, params,parameters, npar):
 
@@ -16,7 +14,7 @@ def plotmaker(lisa, params,parameters, npar):
     -----------
 
     params : dictionary
-        Dictionary of config params 
+        Dictionary of config params
 
     parameters: string
         Array or list of strings with names of the parameters
@@ -26,13 +24,13 @@ def plotmaker(lisa, params,parameters, npar):
     '''
 
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
-   
-   
+
+
     if len(params['truevals']) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
         truevals = params['truevals']
     else:
-        knowTrue = 0 
+        knowTrue = 0
 
 
     plotrange = [0.999]*npar
@@ -40,46 +38,78 @@ def plotmaker(lisa, params,parameters, npar):
     if params['out_dir'][-1] != '/':
         params['out_dir'] = params['out_dir'] + '/'
 
-    ## Make corner plots
-    fig = corner.corner(post, range=plotrange, labels=parameters, quantiles=(0.16, 0.84),
-                        smooth=None, smooth1d=None, show_titles=True,
-                        title_kwargs={"fontsize": 12},label_kwargs={"fontsize": 14},
-                        fill_contours=True, use_math_text=True, )
+   ## Make chainconsumer corner plots
+    cc = ChainConsumer()
+    cc.add_chain(post, parameters=parameters)
+    cc.configure(smooth=False, kde=False, max_ticks=3, sigmas=np.array([1, 2]), label_font_size=30, tick_font_size=20, \
+            summary=False, statistics="max", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
+    cc.configure_truth(color='g', ls='--', alpha=0.7)
 
+    if knowTrue:
+        fig = cc.plotter.plot(figsize=(16, 16), truth=truevals)
+    else:
+        fig = cc.plotter.plot(figsize=(16, 16))
 
-    # Put correct values
-    # Extract the axes
+    ## make axis labels to be parameter summaries
+    sum_data = cc.analysis.get_summary()
     axes = np.array(fig.axes).reshape((npar, npar))
+
+
+
+    # Adjust axis labels
     for ii in range(npar):
         ax = axes[ii, ii]
 
-        ## Draw truevals if they exist
-        if knowTrue:
-            ax.axvline(truevals[ii], color="g", label='true value')
+        # get the right summary for the parameter ii
+        sum_ax = sum_data[parameters[ii]]
+        err =  [sum_ax[2] - sum_ax[1], sum_ax[1]- sum_ax[0]]
+
+        if np.abs(sum_ax[1]) <= 1e-3:
+            mean_def = '{0:.3e}'.format(sum_ax[1])
+            eidx = mean_def.find('e')
+            base = float(mean_def[0:eidx])
+            exponent = int(mean_def[eidx+1:])
+            mean_form = str(base) + ' \\times ' + '10^{' + str(exponent) + '} '
+        else:
+            mean_form = '{0:.3f}'.format(sum_ax[1])
+
+        if np.abs(err[0]) <= 1e-2:
+            err[0] = '{0:.4f}'.format(err[0])
+        else:
+            err[0] = '{0:.2f}'.format(err[0])
+
+        if np.abs(err[1]) <= 1e-2:
+            err[1] = '{0:.4f}'.format(err[1])
+        else:
+            err[1] = '{0:.2f}'.format(err[1])
+
+        label =  parameters[ii][:-1] + ' = ' + mean_form + '^{+' + err[0] + '}_{-' + err[1] + '}$'
+
+        ax.set_title(label, {'fontsize':23}, loc='left')
+
 
     ## Save posterior
     plt.savefig(params['out_dir'] + 'corners.png', dpi=150)
-    print "Posteriors plots printed in " + params['out_dir'] + "corners.png"
+    print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
 
 
     ### Making spectral plots of the MAP values
-    rec_vals   = np.median(post, axis=0)
-    rec_omega  = 10**(rec_vals[1]) * (lisa.fdata/lisa.params['fref'])**rec_vals[0]
-    true_omega = 10**(truevals[1]) * (lisa.fdata/lisa.params['fref'])**truevals[0]
+    if 0:
+        rec_vals   = np.median(post, axis=0)
+        rec_omega  = 10**(rec_vals[1]) * (lisa.fdata/lisa.params['fref'])**rec_vals[0]
+        true_omega = 10**(truevals[1]) * (lisa.fdata/lisa.params['fref'])**truevals[0]
 
-    
-    
-    for ii in range(post[:, 0].size):
-        
-        aa = np.random.rand()
-        if aa > 0.9:
-            pt_omega  = 10**(post[ii, 1]) * (lisa.fdata/lisa.params['fref'])**post[ii, 0]
-            plt.loglog(lisa.fdata, pt_omega, alpha=0.1, color='c')
+        for ii in range(post[:, 0].size):
 
-    plt.loglog(lisa.fdata, rec_omega, label='median omega recovered')
-    plt.loglog(lisa.fdata, true_omega, label='true_omega')
-    plt.legend()
-    plt.savefig(params['out_dir'] + 'omega_plot.png', dpi=150)
-    print "omega plots printed in " + params['out_dir'] + "omega_plot.png"
+            aa = np.random.rand()
+            if aa > 0.9:
+                pt_omega  = 10**(post[ii, 1]) * (lisa.fdata/lisa.params['fref'])**post[ii, 0]
+                plt.loglog(lisa.fdata, pt_omega, alpha=0.1, color='c')
+
+        plt.loglog(lisa.fdata, rec_omega, label='median omega recovered')
+        plt.loglog(lisa.fdata, true_omega, label='true_omega')
+        plt.legend()
+        plt.savefig(params['out_dir'] + 'omega_plot.png', dpi=150)
+        print("omega plots printed in " + params['out_dir'] + "omega_plot.png")
 
