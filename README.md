@@ -18,9 +18,9 @@ For Windows, source it by
 `activate`  while in `\lisawork\Scripts`
 
 
-3) We need numpy, scipy for running this and matplotlib and corner are required for plotting. Install them all by doing
+3) We need numpy, scipy for running this and matplotlib and chainconsumer are required for plotting. Install them all by doing
 
-`pip install numpy scipy matplotlib corner`
+`pip install numpy scipy matplotlib chainconsumer`
 
 4) We also need the healpy, the skymap package
 
