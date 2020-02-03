@@ -422,7 +422,6 @@ def blip(paramsfile='params.ini'):
 
     # -------------------- Extract and Plot posteriors ---------------------------
 
-
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 
