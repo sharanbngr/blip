@@ -202,22 +202,21 @@ class geometry():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        # Define nside and npix for the healpix array
-        nside = 20
 
-        npix = hp.nside2npix(nside)
+
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
@@ -320,22 +319,21 @@ class geometry():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        # Define nside and npix for the healpix array
-        nside = 20
 
-        npix = hp.nside2npix(nside)
+
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
@@ -446,22 +444,21 @@ class geometry():
         '''
 
 
-        # Define nside and npix for the healpix array
-        nside = 20
 
-        npix = hp.nside2npix(nside)
+
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
@@ -708,21 +705,19 @@ class geometry():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        # Define nside and npix for the healpix array
-        nside = 10
-        npix = hp.nside2npix(nside)
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides 
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine. 
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
@@ -793,6 +788,7 @@ class geometry():
             Fcross2 = 0.5*(Fcross_w*gammaW_plus - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
             Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
+            import pdb; pdb.set_trace()
 
             ## Detector response summed over polarization and integrated over sky direction
             R1[ii,0], R1[ii, 1] = np.sqrt(0.5/npix)*np.sum(Fplus1*rand_plus[:, ii]), np.sqrt(0.5/npix)*np.sum(Fcross1*rand_cross[:, ii]) 
@@ -829,21 +825,20 @@ class geometry():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        # Define nside and npix for the healpix array
-        nside = 10
-        npix = hp.nside2npix(nside)
+
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
@@ -959,21 +954,20 @@ class geometry():
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        # Define nside and npix for the healpix array
-        nside = 10
-        npix = hp.nside2npix(nside)
+
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
@@ -1101,21 +1095,20 @@ class geometry():
         import pdb; pdb.set_trace()
 
 
-        # Define nside and npix for the healpix array
-        nside = 10
-        npix = hp.nside2npix(nside)
+
+        npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)
 
         #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         ## Create directional vectors
         udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
