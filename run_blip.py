@@ -274,8 +274,6 @@ class LISA(LISAdata, Bayes):
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
 
-
-
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
@@ -319,7 +317,7 @@ def blip(paramsfile='params.ini'):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
-
+    params['nside'] = int(config.get("params", "nside"))
 
     ## Extract truevals if any
     tlist = config.get('params', 'truevals')
@@ -415,14 +413,13 @@ def blip(paramsfile='params.ini'):
 
     print("npar = " + str(npar))
 
-
     # Check to see if we have appropriate number of truevals
     if (len(params['truevals']) != npar) and (len(params['truevals']) != 0):
         raise ValueError('The length of the truevals given does not match \
                 the number of parameters for the model' )
 
     # -------------------- Extract and Plot posteriors ---------------------------
-
+    return
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 
