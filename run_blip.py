@@ -1,4 +1,4 @@
-import json, pdb
+import json
 import numpy as np
 from dynesty import NestedSampler
 from dynesty.utils import resample_equal
@@ -196,7 +196,7 @@ class LISA(LISAdata, Bayes):
             self.add_astro_signal = self.gen_aet_asgwb
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_strain_response
-        else:       
+        else:
            raise ValueError('Unknown recovery model selected')
 
 
@@ -452,12 +452,21 @@ def blip(paramsfile='params.ini'):
     logzname = '/logz'+seedchar+configchar+'.txt'
     logzerrname = '/logzerr'+seedchar+configchar+'.txt'
 
+    ## Save parameters as a json
+    with open(params['out_dir'] + '/configs.json', 'w') as outfile:
+
+        config_json = {}
+        config_json['params'] = params
+        config_json['inj'] = inj
+        config_json['parameters'] = parameters
+        json.dump(config_json, outfile)
+
     # Save posteriors to file
     np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     np.savetxt(params['out_dir'] + logzname,logz)
     np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
-    plotmaker(lisa, params, parameters, npar)
+    plotmaker(params, parameters, npar)
 
 if __name__ == "__main__":
 

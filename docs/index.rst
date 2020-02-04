@@ -10,7 +10,10 @@ Welcome to BLIP's documentation!
    :maxdepth: 2
    :caption: Contents:
     
-    modules
+   tools
+   modules
+   src
+
 
 .. include:: ../README.md
 
