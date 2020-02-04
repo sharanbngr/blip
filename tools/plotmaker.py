@@ -3,7 +3,6 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
-import corner
 
 def plotmaker(lisa, params,parameters, npar):
 

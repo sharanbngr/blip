@@ -78,9 +78,9 @@ class LISAdata(geometry, movingfreqDomain, instrNoise):
 
         # prepare for FFT
         if  np.mod(N,2)== 0 :
-            numFreqs = N/2 - 1;
+            numFreqs = int(N/2 - 1)
         else:
-            numFreqs = (N-1)/2;
+            numFreqs = int((N-1)/2)
 
         # We will make an array of the desired frequencies
         delF = 1/dur
