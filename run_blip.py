@@ -419,7 +419,6 @@ def blip(paramsfile='params.ini'):
                 the number of parameters for the model' )
 
     # -------------------- Extract and Plot posteriors ---------------------------
-    return
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 
