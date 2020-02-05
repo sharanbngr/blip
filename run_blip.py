@@ -36,14 +36,13 @@ class LISA(LISAdata, Bayes):
         ## Figure out which response function to use for recoveries
         self.which_response()
 
-        if self.params['lisa_config'] == 'stationary':
+        if self.params['lisa_config'] == 'stationary' and self.params['modeltype'] != 'noise_only':
 
             self.R1 = np.repeat(self.R1.reshape(self.R1.size, 1), self.tsegmid.size, axis=1)
             self.R2 = np.repeat(self.R2.reshape(self.R2.size, 1), self.tsegmid.size, axis=1)
             self.R3 = np.repeat(self.R3.reshape(self.R3.size, 1), self.tsegmid.size, axis=1)
 
-
-        elif self.params['lisa_config'] == 'orbiting':
+        elif self.params['lisa_config'] == 'orbiting' and self.params['modeltype'] != 'noise_only':
             self.R1, self.R2, self.R3 = self.R1.T, self.R2.T, self.R3.T
 
 
@@ -256,13 +255,14 @@ class LISA(LISAdata, Bayes):
             ## Power spectra of the SGWB
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
 
-            ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw*self.R1[:, 0], Sgw*self.R2[:, 0], Sgw*self.R3[:, 0]
+            if self.params['modeltype'] != 'noise_only':
+                ## Spectrum of the SGWB signal convoluted with the detector response tensor.
+                S1_gw, S2_gw, S3_gw = Sgw*self.R1[:, 0], Sgw*self.R2[:, 0], Sgw*self.R3[:, 0]
 
-            ## The total noise spectra is the sum of the instrumental + astrophysical
-            S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
+                ## The total noise spectra is the sum of the instrumental + astrophysical
+                S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
 
-            plt.loglog(self.fdata, S1_gw, label='gw required')
+                plt.loglog(self.fdata, S1_gw, label='gw required')
 
 
         plt.loglog(self.fdata, S1, label='required')
@@ -272,8 +272,6 @@ class LISA(LISAdata, Bayes):
         plt.legend()
         plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-
-
 
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
@@ -319,7 +317,7 @@ def blip(paramsfile='params.ini'):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
-
+    params['nside'] = int(config.get("params", "nside"))
 
     ## Extract truevals if any
     tlist = config.get('params', 'truevals')
@@ -415,14 +413,12 @@ def blip(paramsfile='params.ini'):
 
     print("npar = " + str(npar))
 
-
     # Check to see if we have appropriate number of truevals
     if (len(params['truevals']) != npar) and (len(params['truevals']) != 0):
         raise ValueError('The length of the truevals given does not match \
                 the number of parameters for the model' )
 
     # -------------------- Extract and Plot posteriors ---------------------------
-
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 
