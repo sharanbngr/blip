@@ -1,12 +1,11 @@
 import numpy as np
 import scipy.signal as sg
-from src.movingfreqDomain import movingfreqDomain
 from src.instrNoise import instrNoise
 from src.geometry import geometry
 from scipy.interpolate import interp1d as intrp
 import os
 
-class LISAdata(geometry, movingfreqDomain, instrNoise):
+class LISAdata(geometry, instrNoise):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -570,7 +569,6 @@ class LISAdata(geometry, movingfreqDomain, instrNoise):
         
 
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
-
 
         return r1, r2, r3, fdata, tsegstart, tsegmid
 

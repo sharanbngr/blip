@@ -2,9 +2,10 @@ import numpy as np
 from scipy.special import lpmn, sph_harm
 import types
 import healpy as hp
+from src.orbitinglisa import orbitinglisa
 
 
-class geometry():
+class geometry(orbitinglisa):
 
     '''
     Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
