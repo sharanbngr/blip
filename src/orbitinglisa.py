@@ -409,11 +409,11 @@ class orbitinglisa():
         udir = np.tensordot((x2-x1)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y2-y1)/Lu, np.cos(phi)*stheta, axes=0) + \
                             np.tensordot((z2-z1)/Lu, ctheta, axes = 0)
 
-        vdir = np.tensordot((x3-x1)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y1)/Lu, np.cos(phi)*stheta, axes=0) + \
-                            np.tensordot((z3-z1)/Lu, ctheta, axes = 0)
+        vdir = np.tensordot((x3-x1)/Lv, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y1)/Lv, np.cos(phi)*stheta, axes=0) + \
+                            np.tensordot((z3-z1)/Lv, ctheta, axes = 0)
 
-        wdir = np.tensordot((x3-x2)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y2)/Lu, np.cos(phi)*stheta, axes=0) + \
-                            np.tensordot((z3-z2)/Lu, ctheta, axes = 0)
+        wdir = np.tensordot((x3-x2)/Lw, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y2)/Lw, np.cos(phi)*stheta, axes=0) + \
+                            np.tensordot((z3-z2)/Lw, ctheta, axes = 0)
 
 
         ## Calculate 1/2(u x u):eplus
@@ -573,11 +573,11 @@ class orbitinglisa():
         udir = np.tensordot((x2-x1)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y2-y1)/Lu, np.cos(phi)*stheta, axes=0) + \
                             np.tensordot((z2-z1)/Lu, ctheta, axes = 0)
 
-        vdir = np.tensordot((x3-x1)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y1)/Lu, np.cos(phi)*stheta, axes=0) + \
-                            np.tensordot((z3-z1)/Lu, ctheta, axes = 0)
+        vdir = np.tensordot((x3-x1)/Lv, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y1)/Lv, np.cos(phi)*stheta, axes=0) + \
+                            np.tensordot((z3-z1)/Lv, ctheta, axes = 0)
 
-        wdir = np.tensordot((x3-x2)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y2)/Lu, np.cos(phi)*stheta, axes=0) + \
-                            np.tensordot((z3-z2)/Lu, ctheta, axes = 0)
+        wdir = np.tensordot((x3-x2)/Lw, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y2)/Lw, np.cos(phi)*stheta, axes=0) + \
+                            np.tensordot((z3-z2)/Lw, ctheta, axes = 0)
 
 
         ## Calculate 1/2(u x u):eplus
@@ -748,11 +748,11 @@ class orbitinglisa():
         udir = np.tensordot((x2-x1)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y2-y1)/Lu, np.cos(phi)*stheta, axes=0) + \
                             np.tensordot((z2-z1)/Lu, ctheta, axes = 0)
 
-        vdir = np.tensordot((x3-x1)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y1)/Lu, np.cos(phi)*stheta, axes=0) + \
-                            np.tensordot((z3-z1)/Lu, ctheta, axes = 0)
+        vdir = np.tensordot((x3-x1)/Lv, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y1)/Lv, np.cos(phi)*stheta, axes=0) + \
+                            np.tensordot((z3-z1)/Lv, ctheta, axes = 0)
 
-        wdir = np.tensordot((x3-x2)/Lu, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y2)/Lu, np.cos(phi)*stheta, axes=0) + \
-                            np.tensordot((z3-z2)/Lu, ctheta, axes = 0)
+        wdir = np.tensordot((x3-x2)/Lw, np.cos(phi)*stheta, axes=0) + np.tensordot((y3-y2)/Lw, np.cos(phi)*stheta, axes=0) + \
+                            np.tensordot((z3-z2)/Lw, ctheta, axes = 0)
 
 
         ## Calculate 1/2(u x u):eplus
