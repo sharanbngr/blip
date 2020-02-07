@@ -1,13 +1,6 @@
 src package
 ===========
 
-Subpackages
------------
-
-.. toctree::
-
-   src.cython_func
-
 Submodules
 ----------
 
@@ -19,10 +12,18 @@ src.bayes module
    :undoc-members:
    :show-inheritance:
 
-src.freqDomain module
+src.geometry module
+-------------------
+
+.. automodule:: src.geometry
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+src.instrNoise module
 ---------------------
 
-.. automodule:: src.freqDomain
+.. automodule:: src.instrNoise
    :members:
    :undoc-members:
    :show-inheritance:

@@ -44,14 +44,6 @@ tools.printmap module
    :undoc-members:
    :show-inheritance:
 
-tools.setup module
-------------------
-
-.. automodule:: tools.setup
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
 tools.stochasticSensitivity module
 ----------------------------------
 

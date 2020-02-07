@@ -9,10 +9,13 @@ Welcome to BLIP's documentation!
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
-
-   run_blip
+    
    tools
+   modules
    src
+
+
+.. include:: ../README.md
 
 Indices and tables
 ==================

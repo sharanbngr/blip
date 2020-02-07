@@ -1,12 +1,11 @@
 import numpy as np
 import scipy.signal as sg
-from src.movingfreqDomain import movingfreqDomain
-from src.freqDomain import freqDomain
+from src.instrNoise import instrNoise
+from src.geometry import geometry
 from scipy.interpolate import interp1d as intrp
 import os
-from scipy.signal.windows import nuttall
 
-class LISAdata(freqDomain, movingfreqDomain):
+class LISAdata(geometry, instrNoise):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation 
@@ -78,9 +77,9 @@ class LISAdata(freqDomain, movingfreqDomain):
 
         # prepare for FFT
         if  np.mod(N,2)== 0 :
-            numFreqs = N/2 - 1;
+            numFreqs = int(N/2 - 1)
         else:
-            numFreqs = (N-1)/2;
+            numFreqs = int((N-1)/2)
 
         # We will make an array of the desired frequencies
         delF = 1/dur
@@ -186,7 +185,7 @@ class LISAdata(freqDomain, movingfreqDomain):
         '''
 
         # --------------------- Generate Fake Noise -----------------------------
-        print("Simulating michelson data ...")
+        print("Simulating instrumental noise ...")
 
        # speed of light
         cspeed = 3e8 #m/s
@@ -358,7 +357,7 @@ class LISAdata(freqDomain, movingfreqDomain):
         '''
 
         # --------------------- Generate Fake Data + Noise -----------------------------
-        print("Simulating isgwb data for analysis ...")
+        print(" Adding sgwb signal ...")
 
 
 
@@ -396,7 +395,7 @@ class LISAdata(freqDomain, movingfreqDomain):
         h1, h2, h3 = np.array([]), np.array([]), np.array([])
 
         sin_N, cos_N = np.sin(np.pi*np.arange(0, Nmid)/N), np.sin(np.pi*np.arange(Nmid, N)/N)
-
+        
         for ii in range(tmids.size):
 
             R1, R2, R3 = self.add_astro_signal(f0)
@@ -526,7 +525,6 @@ class LISAdata(freqDomain, movingfreqDomain):
         
         # Hann Window
         hwin = np.hanning(Nperseg)
-        #hwin = nuttall(Nperseg)
         win_fact = np.mean(hwin**2)
 
 
@@ -571,7 +569,6 @@ class LISAdata(freqDomain, movingfreqDomain):
         
 
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
-
 
         return r1, r2, r3, fdata, tsegstart, tsegmid
 
