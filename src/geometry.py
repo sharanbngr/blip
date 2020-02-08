@@ -2,9 +2,10 @@ import numpy as np
 from scipy.special import lpmn, sph_harm
 import types
 import healpy as hp
+from src.orbitinglisa import orbitinglisa
 
 
-class geometry():
+class geometry(orbitinglisa):
 
     '''
     Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
@@ -932,13 +933,13 @@ class geometry():
         R2 = np.zeros((f0.size, 2), dtype='complex')
         R3 = np.zeros((f0.size, 2), dtype='complex')
 
-        RA_plus =  2*np.sin(2*f0)*(1/3)*(2*self.R1_plus - self.R2_plus - self.R3_plus)
-        RE_plus =  2*np.sin(2*f0)*(1/np.sqrt(3))*(self.R3_plus - self.R2_plus)
-        RZ_plus =  2*np.sin(2*f0)*(1/3)*(self.R1_plus + self.R2_plus + self.R3_plus)
+        RA_plus =  (1/3)*(2*self.R1_plus - self.R2_plus - self.R3_plus)
+        RE_plus =  (1/np.sqrt(3))*(self.R3_plus - self.R2_plus)
+        RZ_plus =  (1/3)*(self.R1_plus + self.R2_plus + self.R3_plus)
 
-        RA_cross =  2*np.sin(2*f0)*(1/3)*(2*self.R1_cross - self.R2_cross - self.R3_cross)
-        RE_cross =  2*np.sin(2*f0)*(1/np.sqrt(3))*(self.R3_cross - self.R2_cross)
-        RZ_cross =  2*np.sin(2*f0)*(1/3)*(self.R1_cross + self.R2_cross + self.R3_cross)
+        RA_cross =  (1/3)*(2*self.R1_cross - self.R2_cross - self.R3_cross)
+        RE_cross =  (1/np.sqrt(3))*(self.R3_cross - self.R2_cross)
+        RZ_cross =  (1/3)*(self.R1_cross + self.R2_cross + self.R3_cross)
 
 
         ## dot with the phases and calculate the pattern functions

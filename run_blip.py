@@ -166,14 +166,11 @@ class LISA(LISAdata, Bayes):
                 else:
                     raise ValueError('Unknown recovery model selected')
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-                self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
-                self.R1, self.R2, self.R3 = self.orbiting_isgwb_aet_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                self.R1, self.R2, self.R3 = self.isgwb_oaet_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-                self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
-                self.R1, self.R2, self.R3 = self.orbiting_isgwb_xyz_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                self.R1, self.R2, self.R3 = self.isgwb_oxyz_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-                self.rs1, self.rs2, self.rs3 = self.lisa_orbits(self.tsegmid)
-                self.R1, self.R2, self.R3 = self.orbiting_isgwb_mich_response(self.f0, self.tsegmid, self.rs1, self.rs2, self.rs3)
+                self.R1, self.R2, self.R3 = self.isgwb_omich_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'noise_only':
                 print('Noise only model chosen ...')
             else:
