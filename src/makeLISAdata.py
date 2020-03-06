@@ -440,7 +440,6 @@ class LISAdata(geometry, instrNoise):
         '''
         
         hoft = np.loadtxt(self.params['datafile'])
-        import pdb; pdb.set_trace()
 
         fs_default = 1.0/(hoft[1, 0] - hoft[0, 0])
 
