@@ -58,6 +58,7 @@ class LISA(LISAdata, Bayes):
         ## Generate TDI noise
         times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
         delt = times[1] - times[0]
+        
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
@@ -70,7 +71,10 @@ class LISA(LISAdata, Bayes):
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
-        self.timearray = times
+        self.timearray = times[0:N]
+        if delt != (times[1] - times[0]):
+            raise ValueError('The noise and signal arrays are at different sampling frequencies!')
+
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt

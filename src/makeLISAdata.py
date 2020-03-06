@@ -420,11 +420,9 @@ class LISAdata(geometry, instrNoise):
              
                 h1, h2, h3 = np.append(h1, ht1[Nmid:]), np.append(h2, ht2[Nmid:]), np.append(h3, ht1[Nmid:])
 
-        times = self.params['fs']*np.arange(0, h1.size)
+        times = (1.0/self.params['fs'])*np.arange(0, h1.size)
 
         return h1, h2, h3, times
-
-
 
 
     def read_data(self):
@@ -442,7 +440,7 @@ class LISAdata(geometry, instrNoise):
         '''
         
         hoft = np.loadtxt(self.params['datafile'])
-        
+        import pdb; pdb.set_trace()
 
         fs_default = 1.0/(hoft[1, 0] - hoft[0, 0])
 
@@ -497,6 +495,8 @@ class LISAdata(geometry, instrNoise):
         '''
 
         print ("Calculating fourier spectra... ")
+        #data = np.concatenate((timearray[:, None], h1[:, None], h2[:, None], h3[:, None]),axis=1 )
+
 
         # Number of segmants
         nsegs = int(np.floor(self.params['dur']/self.params['seglen'])) -1
