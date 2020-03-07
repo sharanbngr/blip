@@ -495,7 +495,7 @@ class LISAdata(geometry, instrNoise):
 
         print ("Calculating fourier spectra... ")
         #data = np.concatenate((timearray[:, None], h1[:, None], h2[:, None], h3[:, None]),axis=1 )
-
+        #np.savetxt('owndata_2e7_xyz.txt', data)
 
         # Number of segmants
         nsegs = int(np.floor(self.params['dur']/self.params['seglen'])) -1

@@ -102,22 +102,18 @@ class LISA(LISAdata, Bayes):
             h2 = (1.0/np.sqrt(3.0))*(h3 - h2)
             h3 = (1.0/3.0)*(h1 + h2 + h3)
 
-
-
         ## Generate lisa freq domain data from time domain data
-        r1, r2, r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
-        self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
+        ## This is needed to convert from doppler data to strain data. 
+        self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
 
-          #Pull time segments
-#        self.timearray = timearray
-#        self.tsegstart = tsegstart
-#        self.tsegmid = tsegmid
+
 
     def which_noise_spectrum(self):
 
