@@ -8,6 +8,8 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
+import matplotlib as mpl
+mpl.rcParams.update(mpl.rcParamsDefault)
 
 class LISA(LISAdata, Bayes):
 
@@ -70,7 +72,7 @@ class LISA(LISAdata, Bayes):
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
-        self.timearray = times
+        self.timearray = times[0:N] # modified to create our own data
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
@@ -328,6 +330,7 @@ def blip(paramsfile='params.ini'):
     inj['doInj']       = int(config.get("inj", "doInj"))
     inj['injtype']     = str(config.get("inj", "injtype"))
     inj['ln_omega0']   = np.log10(float(config.get("inj", "omega0")))
+    # inj['ln_omega0']   = float(config.get("inj", "omega0")) ## ignore thjis
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
@@ -459,6 +462,7 @@ def blip(paramsfile='params.ini'):
     np.savetxt(params['out_dir'] + logzname,logz)
     np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
+    # print(parameters)
     plotmaker(params, parameters, npar)
 
 if __name__ == "__main__":

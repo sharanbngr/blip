@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib as mpl
+import matplotlib
 #mpl.rcParams['figure.figsize'] = (14,10)
-
+matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 def lisaPSD(L=2.5e9, channel='TDI', fmin=5e-6, fmax=1e0, delf=1e-6, doPlot=False):
     '''

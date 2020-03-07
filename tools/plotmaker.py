@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 import json, sys
+matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 def plotmaker(params,parameters, npar):
 
@@ -24,8 +25,17 @@ def plotmaker(params,parameters, npar):
     '''
 
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
-
-
+    # import pdb; pdb.set_trace()
+    
+    ### Change Omega0 from "log10 Omega" back to normal
+    # 1)
+    #  for x in range(len(post)):
+    #     post[x][1] = np.power(10,post[x][1])
+    #
+    # 2)
+    # post[:,1] = 10**(post[:,1])
+        
+    
     if len(params['truevals']) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
         truevals = params['truevals']
