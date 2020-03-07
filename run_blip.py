@@ -60,6 +60,7 @@ class LISA(LISAdata, Bayes):
         ## Generate TDI noise
         times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
         delt = times[1] - times[0]
+        
         ##Cut to required size
         N = int((self.params['dur'] + 10)/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
@@ -72,7 +73,14 @@ class LISA(LISAdata, Bayes):
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
+<<<<<<< HEAD
         self.timearray = times[0:N] # modified to create our own data
+=======
+        self.timearray = times[0:N]
+        if delt != (times[1] - times[0]):
+            raise ValueError('The noise and signal arrays are at different sampling frequencies!')
+
+>>>>>>> 32a678e1647a469061ca4f52d1b2c8e7cda03d57
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
@@ -100,22 +108,18 @@ class LISA(LISAdata, Bayes):
             h2 = (1.0/np.sqrt(3.0))*(h3 - h2)
             h3 = (1.0/3.0)*(h1 + h2 + h3)
 
-
-
         ## Generate lisa freq domain data from time domain data
-        r1, r2, r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
-        self.r1, self.r2, self.r3 = r1/(4*self.f0.reshape(self.f0.size, 1)), r2/(4*self.f0.reshape(self.f0.size, 1)), r3/(4*self.f0.reshape(self.f0.size, 1))
+        ## This is needed to convert from doppler data to strain data. 
+        self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
 
-          #Pull time segments
-#        self.timearray = timearray
-#        self.tsegstart = tsegstart
-#        self.tsegmid = tsegmid
+
 
     def which_noise_spectrum(self):
 
