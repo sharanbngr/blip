@@ -8,8 +8,7 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
-import matplotlib as mpl
-mpl.rcParams.update(mpl.rcParamsDefault)
+from eogtest import open_img
 
 class LISA(LISAdata, Bayes):
 
@@ -73,14 +72,10 @@ class LISA(LISAdata, Bayes):
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
             self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
 
-<<<<<<< HEAD
-        self.timearray = times[0:N] # modified to create our own data
-=======
         self.timearray = times[0:N]
         if delt != (times[1] - times[0]):
             raise ValueError('The noise and signal arrays are at different sampling frequencies!')
 
->>>>>>> 32a678e1647a469061ca4f52d1b2c8e7cda03d57
         ## If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
@@ -116,9 +111,13 @@ class LISA(LISAdata, Bayes):
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
+        # Convert doppler data to strain data if the datatype of readfile is doppler. 
+        if self.params['datatype'] == 'doppler':
         ## This is needed to convert from doppler data to strain data. 
-        self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
+            self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
 
+        elif self.params['datatype'] == 'strain':
+            pass
 
 
     def which_noise_spectrum(self):
@@ -309,6 +308,7 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
+    params['datatype'] = str(config.get("params", "datatype"))
     params['loadResponse'] = int(config.get("params", "loadResponse"))
     params['loadCustom'] = int(config.get("params", "loadCustom"))
     params['responsefile1']  = str(config.get("params", "responsefile1"))
@@ -334,7 +334,6 @@ def blip(paramsfile='params.ini'):
     inj['doInj']       = int(config.get("inj", "doInj"))
     inj['injtype']     = str(config.get("inj", "injtype"))
     inj['ln_omega0']   = np.log10(float(config.get("inj", "omega0")))
-    # inj['ln_omega0']   = float(config.get("inj", "omega0")) ## ignore thjis
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
@@ -348,7 +347,6 @@ def blip(paramsfile='params.ini'):
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
-
 
     # --------------------------- NESTED SAMPLER --------------------------------
 
@@ -466,8 +464,8 @@ def blip(paramsfile='params.ini'):
     np.savetxt(params['out_dir'] + logzname,logz)
     np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
-    # print(parameters)
     plotmaker(params, parameters, npar)
+    open_img(params['out_dir'])
 
 if __name__ == "__main__":
 
