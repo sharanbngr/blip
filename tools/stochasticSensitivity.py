@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import pdb
 import sys
+mpl.rcParams.update(mpl.rcParamsDefault)
 mpl.rcParams['figure.figsize'] = (12,6)
 mpl.rcParams.update({'font.size': 18})
 

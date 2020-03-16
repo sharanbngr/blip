@@ -459,6 +459,7 @@ class LISAdata(geometry, instrNoise):
         return h1, h2, h3, times
 
 
+
     def tser2fser(self, h1, h2, h3, timearray):
         
         '''
@@ -494,9 +495,16 @@ class LISAdata(geometry, instrNoise):
         '''
 
         print ("Calculating fourier spectra... ")
+<<<<<<< HEAD
+        # data = np.concatenate((timearray[:, None], h1[:, None], h2[:, None], h3[:, None]), axis=1)
+        # np.savetxt('ownData2.txt', data) ## new stuff
+        
+        # import pdb; pdb.set_trace()
+=======
         #data = np.concatenate((timearray[:, None], h1[:, None], h2[:, None], h3[:, None]),axis=1 )
         #np.savetxt('owndata_2e7_xyz.txt', data)
 
+>>>>>>> 32a678e1647a469061ca4f52d1b2c8e7cda03d57
         # Number of segmants
         nsegs = int(np.floor(self.params['dur']/self.params['seglen'])) -1
 
@@ -541,7 +549,6 @@ class LISAdata(geometry, instrNoise):
             idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:
                 import pdb; pdb.set_trace()
-
             
             r1[:, ii] =   np.fft.rfft(hwin*h1[idxmin:idxmax], axis=0)
             r2[:, ii] =   np.fft.rfft(hwin*h2[idxmin:idxmax], axis=0)

@@ -3,7 +3,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib import ticker
-
+matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 def printmap(map, xvals, yvals, xlab, ylab, clabel, crange, saveas):
     

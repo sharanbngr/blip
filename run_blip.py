@@ -8,6 +8,7 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
+# from eogtest import open_img
 
 class LISA(LISAdata, Bayes):
 
@@ -110,9 +111,13 @@ class LISA(LISAdata, Bayes):
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
+        # Convert doppler data to strain data if the datatype of readfile is doppler. 
+        if self.params['datatype'] == 'doppler':
         ## This is needed to convert from doppler data to strain data. 
-        self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
+            self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
 
+        elif self.params['datatype'] == 'strain':
+            pass
 
 
     def which_noise_spectrum(self):
@@ -303,6 +308,7 @@ def blip(paramsfile='params.ini'):
     params['fs']       = float(config.get("params", "fs"))
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
+    params['datatype'] = str(config.get("params", "datatype"))
     params['loadResponse'] = int(config.get("params", "loadResponse"))
     params['loadCustom'] = int(config.get("params", "loadCustom"))
     params['responsefile1']  = str(config.get("params", "responsefile1"))
@@ -341,7 +347,6 @@ def blip(paramsfile='params.ini'):
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
-
 
     # --------------------------- NESTED SAMPLER --------------------------------
 
@@ -460,6 +465,7 @@ def blip(paramsfile='params.ini'):
     np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, npar)
+    # open_img(params['out_dir'])
 
 if __name__ == "__main__":
 
