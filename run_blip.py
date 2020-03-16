@@ -8,7 +8,7 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
-# from eogtest import open_img
+from eogtest import open_img
 
 class LISA(LISAdata, Bayes):
 
@@ -465,7 +465,7 @@ def blip(paramsfile='params.ini'):
     np.savetxt(params['out_dir'] + logzerrname,logzerr)
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, npar)
-    # open_img(params['out_dir'])
+    open_img(params['out_dir'])
 
 if __name__ == "__main__":
 
