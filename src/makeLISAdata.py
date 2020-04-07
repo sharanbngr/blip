@@ -495,16 +495,10 @@ class LISAdata(geometry, instrNoise):
         '''
 
         print ("Calculating fourier spectra... ")
-<<<<<<< HEAD
-        # data = np.concatenate((timearray[:, None], h1[:, None], h2[:, None], h3[:, None]), axis=1)
-        # np.savetxt('ownData2.txt', data) ## new stuff
         
-        # import pdb; pdb.set_trace()
-=======
         #data = np.concatenate((timearray[:, None], h1[:, None], h2[:, None], h3[:, None]),axis=1 )
         #np.savetxt('owndata_2e7_xyz.txt', data)
 
->>>>>>> 32a678e1647a469061ca4f52d1b2c8e7cda03d57
         # Number of segmants
         nsegs = int(np.floor(self.params['dur']/self.params['seglen'])) -1
 
@@ -512,7 +506,7 @@ class LISAdata(geometry, instrNoise):
 
         # Apply band pass filter
         '''
-        order = 8
+        order = 16
         zz, pp, kk = sg.butter(order, [0.5*self.params['fmin']/(self.params['fs']/2), 0.4*self.params['fs']/(self.params['fs']/2)], btype='bandpass', output='zpk')
         sos = sg.zpk2sos(zz, pp, kk)
 
@@ -544,7 +538,7 @@ class LISAdata(geometry, instrNoise):
         # We will use 50% overlapping segments
         for ii in range(0, nsegs):
 
-            idxmin = int(0.5*ii*Nperseg)
+            idxmin = int(ii*Nperseg)
             idxmax = idxmin + Nperseg
             idxmid = idxmin + int(Nperseg/2)
             if hwin.size != h1[idxmin:idxmax].size:

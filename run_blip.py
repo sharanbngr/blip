@@ -267,8 +267,8 @@ class LISA(LISAdata, Bayes):
                 plt.loglog(self.fdata, S1_gw, label='gw required')
 
 
-        plt.loglog(self.fdata, S1, label='required')
-        plt.loglog(psdfreqs, data_PSD1,label='PSD of the data series', alpha=0.6)
+        plt.loglog(self.fdata, S2, label='required')
+        plt.loglog(psdfreqs, data_PSD2,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()

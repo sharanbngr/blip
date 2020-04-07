@@ -781,8 +781,8 @@ class geometry(orbitinglisa):
             Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Calculate Fcross
-            Fcross1 = 0.5*(Fcross_u*gammaU_plus - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
-            Fcross2 = 0.5*(Fcross_w*gammaW_plus - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
             Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Detector response summed over polarization and integrated over sky direction
@@ -838,8 +838,11 @@ class geometry(orbitinglisa):
 
         ## dot with the phases and calculate the pattern functions
         R1[:, 0], R1[:, 1] = np.sum(self.R1_plus*rand_plus, axis=1), np.sum(self.R1_cross*rand_cross, axis=1)
-        R2[:, 0], R3[:, 1] = np.sum(self.R2_plus*rand_plus, axis=1), np.sum(self.R2_cross*rand_cross, axis=1)
+        R2[:, 0], R2[:, 1] = np.sum(self.R2_plus*rand_plus, axis=1), np.sum(self.R2_cross*rand_cross, axis=1)
         R3[:, 0], R3[:, 1] = np.sum(self.R3_plus*rand_plus, axis=1), np.sum(self.R3_cross*rand_cross, axis=1)
+
+
+
 
         return R1, R2, R3
 
@@ -888,7 +891,7 @@ class geometry(orbitinglisa):
         ## The factor of sin(2*f0) comes because there are XYZ channels
         ## rather than being michelson channels
         R1[:, 0], R1[:, 1] = 2*np.sin(2*f0)*np.sum(self.R1_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(self.R1_cross*rand_cross, axis=1)
-        R2[:, 0], R3[:, 1] = 2*np.sin(2*f0)*np.sum(self.R2_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(self.R2_cross*rand_cross, axis=1)
+        R2[:, 0], R2[:, 1] = 2*np.sin(2*f0)*np.sum(self.R2_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(self.R2_cross*rand_cross, axis=1)
         R3[:, 0], R3[:, 1] = 2*np.sin(2*f0)*np.sum(self.R3_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(self.R3_cross*rand_cross, axis=1)
 
         return R1, R2, R3
@@ -946,7 +949,7 @@ class geometry(orbitinglisa):
         ## The factor of sin(2*f0) comes because there are XYZ channels
         ## rather than being michelson channels
         R1[:, 0], R1[:, 1] = 2*np.sin(2*f0)*np.sum(RA_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(RA_cross*rand_cross, axis=1)
-        R2[:, 0], R3[:, 1] = 2*np.sin(2*f0)*np.sum(RE_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(RE_cross*rand_cross, axis=1)
+        R2[:, 0], R2[:, 1] = 2*np.sin(2*f0)*np.sum(RE_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(RE_cross*rand_cross, axis=1)
         R3[:, 0], R3[:, 1] = 2*np.sin(2*f0)*np.sum(RZ_plus*rand_plus, axis=1), 2*np.sin(2*f0)*np.sum(RZ_cross*rand_cross, axis=1)
 
         return R1, R2, R3
