@@ -117,13 +117,14 @@ class instrNoise():
 
         '''
 
-        SM1, SM2, SM3 = self.mich_noise_spectrum(freqs, f0, Np, Na)
+        C_mich = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        SX = 4*SM1* np.sin(2*f0)**2 
+        #SX = 4*SM1* np.sin(2*f0)**2 
 
+        C_xyz =  4 * np.sin(2*f0)**2 * C_mich 
 
-        return SX, SX, SX
+        return C_xyz
 
     def mich_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
 
@@ -159,8 +160,10 @@ class instrNoise():
         Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
 
      
-        ## Noise spectra of the X, Y and Z channels
-        SX = 4.0 * (2.0 * (1.0 + (np.cos(2*f0))**2) * Sa + Sp)
-        
+        ## Noise spectra of the michelson channels
+        S_auto  = 4.0 * (2.0 * Sa * (1.0 + (np.cos(2*f0))**2)  + Sp)
+        S_cross =  (-2 * Sp - 8 * Sa) * np.cos(2*f0)
 
-        return SX, SX, SX
+        C_mich = np.array([[S_auto, S_cross, S_cross], [S_cross, S_auto, S_cross], [S_cross, S_cross, S_auto]])
+
+        return C_mich

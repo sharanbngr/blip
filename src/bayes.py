@@ -12,7 +12,12 @@ class Bayes():
         '''
         Init for intializing 
         '''
-        aa = 1
+        self.r12 = np.conj(self.r1)*self.r2
+        self.r13 = np.conj(self.r1)*self.r3
+        self.r21 = np.conj(self.r2)*self.r1
+        self.r23 = np.conj(self.r2)*self.r3
+        self.r31 = np.conj(self.r3)*self.r1
+        self.r32 = np.conj(self.r3)*self.r2
 
     def instr_prior(self, theta):
 
@@ -138,20 +143,60 @@ class Bayes():
         Np, Na =  10**(log_Np), 10**(log_Na)
         
         # Modelled Noise PSD
-        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+        #S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
     
-        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is true for an equal arm stationary lisa. 
+        C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na) 
+        
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(C_noise, -1, 0)
 
-        S1 = np.repeat(S1.reshape(S1.size, 1), self.r1.shape[1], axis=1)
-        S2 = np.repeat(S2.reshape(S2.size, 1), self.r2.shape[1], axis=1)
-        S3 = np.repeat(S3.reshape(S3.size, 1), self.r3.shape[1], axis=1)
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_mat)
+        det_cov =  np.repeat(np.linalg.det(cov_mat).reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+
+        '''
+        import time;
+        t0 = time.time()
+        ## vector of matrixes
+        rbar = np.moveaxis(np.stack((self.r1, self.r2, self.r3), axis=2), 1, -1)
+
+        loglike0 = 0
+
+        ## loop over frequencies
+        for ii in range(self.fdata.size):
+
+            ## In the einstein summation j is an index over time while 
+            ## m and n are indices over the elements of the covariance matrix. 
+
+            loglike0 = loglike0 - np.real(np.einsum('mj,mn,nj', np.conj(rbar[ii, :, :]), inv_cov[ii, :, :], rbar[ii, :, :])) - \
+                        rbar.shape[-1] * np.sum(np.log(det_cov[ii]))
+
+        t1 = time.time()
+
+        print('method 1 takes ' + str(t1-t0))
+
+        t2 = time.time()
+        '''
+
+        inv11 = np.repeat(inv_cov[:, 0, 0].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv12 = np.repeat(inv_cov[:, 0, 1].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv13 = np.repeat(inv_cov[:, 0, 2].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv21 = np.repeat(inv_cov[:, 1, 0].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv22 = np.repeat(inv_cov[:, 1, 1].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv23 = np.repeat(inv_cov[:, 1, 2].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv31 = np.repeat(inv_cov[:, 2, 0].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv32 = np.repeat(inv_cov[:, 2, 1].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
+        inv33 = np.repeat(inv_cov[:, 2, 2].reshape(self.fdata.size, 1), self.r1.shape[1], axis=1)
 
 
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1 + (np.abs(self.r2)**2)/S2 + (np.abs(self.r3)**2)/S3 + \
-             np.log(2*np.pi*S1) + np.log(2*np.pi*S2) + np.log(2*np.pi*S3) )
-    
-        return Loglike
+        logL = -np.sum( (np.abs(self.r1)**2)*inv11 +  (np.abs(self.r2)**2)*inv22  + (np.abs(self.r3)**2)*inv33 \
+                    + self.r12*inv12 + self.r13*inv13 + self.r21*inv21 + self.r23*inv23 + self.r31*inv31 \
+                    + self.r32*inv32 + np.log(det_cov) )
+
+        loglike = np.real(logL)
+
+        return loglike
+
 
 
 

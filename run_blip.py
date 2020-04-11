@@ -21,8 +21,6 @@ class LISA(LISAdata, Bayes):
 
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
-        # Set up the Bayes class
-        Bayes.__init__(self)
 
         ## Make noise spectra
         self.which_noise_spectrum()
@@ -33,6 +31,9 @@ class LISA(LISAdata, Bayes):
             self.read_mldc_data()
         else:
             self.makedata()
+
+        # Set up the Bayes class
+        Bayes.__init__(self)
 
         ## Figure out which response function to use for recoveries
         self.which_response()
@@ -239,10 +240,11 @@ class LISA(LISAdata, Bayes):
         Np, Na = 10**truevals[-2], 10**truevals[-1]
 
         # Modelled Noise PSD
-        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+        C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
-        ## start a plot instance.
-        #plt.subplot(3, 1, 1)
+        ## Autopower
+        S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
+        
 
         if self.inj['doInj'] or 1:
             ## SGWB signal levels of the mldc data
@@ -262,7 +264,7 @@ class LISA(LISAdata, Bayes):
                 S1_gw, S2_gw, S3_gw = Sgw*self.R1[:, 0], Sgw*self.R2[:, 0], Sgw*self.R3[:, 0]
 
                 ## The total noise spectra is the sum of the instrumental + astrophysical
-                S1, S2, S3 = S1+ S1_gw, S2+ S2_gw, S3+ S3_gw
+                S1, S2, S3 = S1 + S1_gw, S2 + S2_gw, S3 + S3_gw
 
                 plt.loglog(self.fdata, S1_gw, label='gw required')
 
@@ -273,12 +275,36 @@ class LISA(LISAdata, Bayes):
         plt.ylabel('Power Spectrum ')
         plt.legend()
         plt.ylim([1e-44, 5e-40])
+        plt.grid()
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
+
+
+        ## cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
+        ## this will be S_AE
+
+        S12 = C_noise[0, 1, :]
+        CSD_12 = np.real(np.mean(np.conj(self.r1) * self.r2, axis=1))
+
+        plt.loglog(self.fdata, np.abs(S12), label='|required S12|')
+        plt.loglog(psdfreqs, np.abs(CSD_12) ,label='|real part of CSD 12|', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel('S12 cross power spectrum ')
+        plt.legend()
+        #plt.ylim([1e-44, 5e-40])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.grid()
+
+        plt.savefig(self.params['out_dir'] + '/diag_csd_12.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_12.png')
+        plt.close()
+
+
+
 
 
 def blip(paramsfile='params.ini'):
