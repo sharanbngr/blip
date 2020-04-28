@@ -225,9 +225,12 @@ class geometry(orbitinglisa):
         wdir = vdir - udir
 
         # Initlize arrays for the detector reponse
-        R1 = np.zeros(f0.size)
-        R2 = np.zeros(f0.size)
-        R3 = np.zeros(f0.size)
+        R1 = np.zeros(f0.size, dtype='complex')
+        R2 = np.zeros(f0.size, dtype='complex')
+        R3 = np.zeros(f0.size, dtype='complex')
+        R12 = np.zeros(f0.size, dtype='complex')
+        R13 = np.zeros(f0.size, dtype='complex')
+        R23 = np.zeros(f0.size, dtype='complex')
 
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -272,25 +275,31 @@ class geometry(orbitinglisa):
             Fcross_v  = - ctheta * (np.sin(2*phi - np.pi/3))
             Fcross_w   = ctheta*np.sin(2*phi)
 
-
             ## Michelson antenna patterns
             ## Calculate Fplus
-            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)
-            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)
-            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)
+            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Calculate Fcross
-            Fcross1 = 0.5*(Fcross_u*gammaU_plus - Fcross_v*gammaV_plus)
-            Fcross2 = 0.5*(Fcross_w*gammaW_plus - Fcross_u*gammaU_minus)
-            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)
-
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Detector response summed over polarization and integrated over sky direction
-            R1[ii] = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2 )
-            R2[ii] = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2 )
-            R3[ii] = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2 )
+            ## The travel time phases for the which are relevent for the cross-channel are 
+            ## accounted for in the Fplus and Fcross expressions above.  
+             
+            R1[ii]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2 )
+            R2[ii]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2 )
+            R3[ii]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2 )
+            R12[ii] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2)
+            R13[ii] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3)
+            R23[ii] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3)
 
-        return R1, R2, R3
+        response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
+
+        return response_mat
 
 
 
@@ -341,11 +350,13 @@ class geometry(orbitinglisa):
         vdir = np.sqrt(1-ctheta**2) * np.sin(phi - np.pi/6)
         wdir = vdir - udir
 
-
         # Initlize arrays for the detector reponse
-        R1 = np.zeros(f0.size)
-        R2 = np.zeros(f0.size)
-        R3 = np.zeros(f0.size)
+        R1 = np.zeros(f0.size, dtype='complex')
+        R2 = np.zeros(f0.size, dtype='complex')
+        R3 = np.zeros(f0.size, dtype='complex')
+        R12 = np.zeros(f0.size, dtype='complex')
+        R13 = np.zeros(f0.size, dtype='complex')
+        R23 = np.zeros(f0.size, dtype='complex')
 
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -391,14 +402,14 @@ class geometry(orbitinglisa):
             Fcross_w   = ctheta*np.sin(2*phi)
 
             ## Calculate Fplus
-            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)
-            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)
-            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)
+            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Calculate Fcross
-            Fcross1 = 0.5*(Fcross_u*gammaU_plus - Fcross_v*gammaV_plus)
-            Fcross2 = 0.5*(Fcross_w*gammaW_plus - Fcross_u*gammaU_minus)
-            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Calculate antenna patterns for the X, Y, Z channels.
             FXplus = 2*np.sin(2*f0[ii])*Fplus1
@@ -414,8 +425,13 @@ class geometry(orbitinglisa):
             R1[ii] = dOmega/(8*np.pi)*np.sum( (np.absolute(FXplus))**2 + (np.absolute(FXcross))**2 )
             R2[ii] = dOmega/(8*np.pi)*np.sum( (np.absolute(FYplus))**2 + (np.absolute(FYcross))**2 )
             R3[ii] = dOmega/(8*np.pi)*np.sum( (np.absolute(FZplus))**2 + (np.absolute(FZcross))**2 )
+            R12[ii] = dOmega/(8*np.pi)*np.sum( np.conj(FXplus)*FYplus + np.conj(FXcross)*FYcross)
+            R13[ii] = dOmega/(8*np.pi)*np.sum( np.conj(FXplus)*FZplus + np.conj(FXcross)*FZcross)
+            R23[ii] = dOmega/(8*np.pi)*np.sum( np.conj(FYplus)*FZplus + np.conj(FYcross)*FZcross)
 
-        return R1, R2, R3
+        response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
+
+        return response_mat
 
 
 

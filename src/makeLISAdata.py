@@ -295,6 +295,10 @@ class LISAdata(geometry, instrNoise):
             Time series data for the three TDI channels
 
         '''
+
+        '''
+        
+        '''
         cspeed = 3e8 #m/s
 
         # michelson channels
@@ -316,7 +320,7 @@ class LISAdata(geometry, instrNoise):
         hZ = hm3[ten_idx:] - f3(tarr[ten_idx:] - tshift)
 
         return tarr[ten_idx:], hX, hY, hZ
-
+        
 
 
     def gen_aet_noise(self):
@@ -342,7 +346,120 @@ class LISAdata(geometry, instrNoise):
 
         return tarr, h1_noi, h2_noi, h3_noi
 
+
+    def gen_noise_cov_mat(self):
+
+        '''
+        Generate interferometric (time-domain) noise, using a frequency domain covariance
+        spectrum matrix rather than time delays in time domain. 
+        ---------
+    
+        h1_noi, h2_noi, h3_noi : float
+            Time series data for the three TDI channels
+        '''
+
+        cspeed = 3e8 #m/s
+        delf  = 1.0/self.params['dur']
+        frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        fstar = 3e8/(2*np.pi*self.armlength)
+        f0 = frange/(2*fstar)
+
+        N = int(self.params['fs']*self.params['dur'])
+
+        #Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
+
+        C_xyz = self.xyz_noise_spectrum(frange, f0, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
+
+        ## Cholesky decomposition to get the "sigma" matrix
+        L_cholesky = np.sqrt(self.params['fs'] * N/4.0) *  np.linalg.cholesky(np.moveaxis(C_xyz, -1, 0))
+
+        ## generate standard normal complex data frist
+        z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+
+        ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
+        z_scale = np.zeros(z_norm.shape, dtype='complex')
+
+        for ii in range(frange.size):
+            z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
+
+  
+
+        if np.mod(N, 2) == 0:
+            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.zeros(1), np.flipud(np.conjugate(z_scale[0, :]))))
+            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.zeros(1), np.flipud(np.conjugate(z_scale[1, :]))))
+            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.zeros(1), np.flipud(np.conjugate(z_scale[2, :]))))
+        else:
+            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.flipud(np.conjugate(z_scale[0, :]))))
+            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
+            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
+            
+
+        # Take inverse fft to get time series data
+        hX = np.real(np.fft.ifft(htilda_X, N))
+        hY = np.real(np.fft.ifft(htilda_Y, N))
+        hZ = np.real(np.fft.ifft(htilda_Z, N))
+
+        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
+     
+
+        return tarr, hX, hY, hZ
+
     def add_sgwb_data(self, fs=0.25, dur=1e5):
+
+        cspeed = 3e8 #m/s
+        delf  = 1.0/self.params['dur']
+        frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        fstar = 3e8/(2*np.pi*self.armlength)
+        f0 = frange/(2*fstar)
+
+        N = int(self.params['fs']*self.params['dur'])
+
+        response_mat = self.isgwb_xyz_response(f0)
+
+        ## Cholesky decomposition to get the "sigma" matrix
+        H0 = 2.2*10**(-18) ## in SI units
+        Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
+        norms = np.sqrt(self.params['fs']*Sgw*N)
+
+        L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
+
+        ## generate standard normal complex data frist
+        z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+
+        ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
+        z_scale = np.zeros(z_norm.shape, dtype='complex')
+
+        for ii in range(frange.size):
+            z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
+
+
+        if np.mod(N, 2) == 0:
+            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.zeros(1), np.flipud(np.conjugate(z_scale[0, :]))))
+            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.zeros(1), np.flipud(np.conjugate(z_scale[1, :]))))
+            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.zeros(1), np.flipud(np.conjugate(z_scale[2, :]))))
+        else:
+            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.flipud(np.conjugate(z_scale[0, :]))))
+            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
+            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
+            
+
+        # Take inverse fft to get time series data
+        hX = np.real(np.fft.ifft(htilda_X, N))
+        hY = np.real(np.fft.ifft(htilda_Y, N))
+        hZ = np.real(np.fft.ifft(htilda_Z, N))
+
+        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
+     
+
+        return hX, hY, hZ, tarr
+
+
+
+
+    def add_sgwb_data_tshift(self, fs=0.25, dur=1e5):
         
         '''
         Wrapper function for generating stochastic data. The output are time domain data 
@@ -387,6 +504,7 @@ class LISAdata(geometry, instrNoise):
                 
         H0 = 2.2*10**(-18) ## in SI units
         Omegaf = (10**self.inj['ln_omega0'])*(freqs/(self.params['fref']))**self.inj['alpha']
+
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*freqs**3))*(H0/np.pi)**2

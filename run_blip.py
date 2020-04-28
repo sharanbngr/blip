@@ -40,9 +40,7 @@ class LISA(LISAdata, Bayes):
 
         if self.params['lisa_config'] == 'stationary' and self.params['modeltype'] != 'noise_only':
 
-            self.R1 = np.repeat(self.R1.reshape(self.R1.size, 1), self.tsegmid.size, axis=1)
-            self.R2 = np.repeat(self.R2.reshape(self.R2.size, 1), self.tsegmid.size, axis=1)
-            self.R3 = np.repeat(self.R3.reshape(self.R3.size, 1), self.tsegmid.size, axis=1)
+            self.response_mat = np.repeat(self.response_mat[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
 
         elif self.params['lisa_config'] == 'orbiting' and self.params['modeltype'] != 'noise_only':
             self.R1, self.R2, self.R3 = self.R1.T, self.R2.T, self.R3.T
@@ -62,7 +60,7 @@ class LISA(LISAdata, Bayes):
         delt = times[1] - times[0]
         
         ##Cut to required size
-        N = int((self.params['dur'] + 10)/delt)
+        N = int((self.params['dur'])/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
 
         ## Generate TDI isotropic signal
@@ -143,9 +141,9 @@ class LISA(LISAdata, Bayes):
             if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
                 self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
-                self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0)
+                self.response_mat = self.isgwb_xyz_response(self.f0)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
-                self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0)
+                self.response_mat = self.isgwb_mich_response(self.f0)
             elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
                 self.R1, self.R2, self.R3 = self.asgwb_aet_response(self.f0)
             elif self.params['modeltype'] == 'noise_only':
@@ -242,11 +240,16 @@ class LISA(LISAdata, Bayes):
         # Modelled Noise PSD
         C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
-        ## Autopower
+        ## Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
         
-
-        if self.inj['doInj'] or 1:
+        if self.params['modeltype'] != 'noise_only':
+            
+            ## extra auto-power GW responses
+            R1 = np.real(self.response_mat[0, 0, :, 0])
+            R2 = np.real(self.response_mat[1, 1, :, 0])
+            R3 = np.real(self.response_mat[2, 2, :, 0])
+            
             ## SGWB signal levels of the mldc data
             Omega0, alpha = 10**truevals[1], truevals[0]
 
@@ -259,18 +262,17 @@ class LISA(LISAdata, Bayes):
             ## Power spectra of the SGWB
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
 
-            if self.params['modeltype'] != 'noise_only':
-                ## Spectrum of the SGWB signal convoluted with the detector response tensor.
-                S1_gw, S2_gw, S3_gw = Sgw*self.R1[:, 0], Sgw*self.R2[:, 0], Sgw*self.R3[:, 0]
+            ## Spectrum of the SGWB signal convoluted with the detector response tensor.
+            S1_gw, S2_gw, S3_gw = Sgw*R1, Sgw*R2, Sgw*R3
 
-                ## The total noise spectra is the sum of the instrumental + astrophysical
-                S1, S2, S3 = S1 + S1_gw, S2 + S2_gw, S3 + S3_gw
+            ## The total noise spectra is the sum of the instrumental + astrophysical
+            S1, S2, S3 = S1 + S1_gw, S2 + S2_gw, S3 + S3_gw
 
-                plt.loglog(self.fdata, S1_gw, label='gw required')
+            plt.loglog(self.fdata, S1_gw, label='gw required')
 
 
-        plt.loglog(self.fdata, S2, label='required')
-        plt.loglog(psdfreqs, data_PSD2,label='PSD of the data series', alpha=0.6)
+        plt.loglog(self.fdata, S3, label='required')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
@@ -287,24 +289,38 @@ class LISA(LISAdata, Bayes):
         ## cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         ## this will be S_AE
 
-        S12 = C_noise[0, 1, :]
-        CSD_12 = np.real(np.mean(np.conj(self.r1) * self.r2, axis=1))
+        ii, jj = 2, 0
 
-        plt.loglog(self.fdata, np.abs(S12), label='|required S12|')
-        plt.loglog(psdfreqs, np.abs(CSD_12) ,label='|real part of CSD 12|', alpha=0.6)
+        if self.params['modeltype'] == 'noise_only':
+            Sx = C_noise[ii, jj, :]
+        else:    
+            Sx = C_noise[ii, jj, :] + Sgw*self.response_mat[ii, jj, :, 0]
+
+        CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
+        
+        plt.subplot(2, 1, 1)
+        plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
-        plt.ylabel('S12 cross power spectrum ')
+        plt.ylabel('Power in 1/Hz')
         plt.legend()
-        #plt.ylim([1e-44, 5e-40])
+        plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.grid()
 
-        plt.savefig(self.params['out_dir'] + '/diag_csd_12.png', dpi=200)
-        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_12.png')
+        plt.subplot(2, 1, 2)
+        plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel(' Power in 1/Hz')
+        plt.legend()
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.ylim([1e-44, 5e-40])
+        plt.grid()
+
+        plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
-
-
-
 
 
 def blip(paramsfile='params.ini'):
@@ -443,6 +459,7 @@ def blip(paramsfile='params.ini'):
 
     # Check to see if we have appropriate number of truevals
     if (len(params['truevals']) != npar) and (len(params['truevals']) != 0):
+        import pdb; pdb.set_trace()
         raise ValueError('The length of the truevals given does not match \
                 the number of parameters for the model' )
 

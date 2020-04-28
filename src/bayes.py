@@ -18,6 +18,16 @@ class Bayes():
         self.r23 = np.conj(self.r2)*self.r3
         self.r31 = np.conj(self.r3)*self.r1
         self.r32 = np.conj(self.r3)*self.r2
+        self.rbar = np.stack((self.r1, self.r2, self.r3), axis=2)
+
+        ## create a data correlation matrix
+        self.rmat = np.zeros((self.rbar.shape[0], self.rbar.shape[1], self.rbar.shape[2], self.rbar.shape[2]), dtype='complex')        
+        
+        for ii in range(self.rbar.shape[0]):
+            for jj in range(self.rbar.shape[1]):
+                self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
+
+
 
     def instr_prior(self, theta):
 
@@ -225,7 +235,10 @@ class Bayes():
         Np, Na =  10**(log_Np), 10**(log_Na)
 
         # Modelled Noise PSD
-        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
+
+        ## repeat C_Noise to have the same time-dimension as everything else
+        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
@@ -234,26 +247,24 @@ class Bayes():
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor.
-        S1_gw = Sgw[:, None]*self.R1
-        S2_gw = Sgw[:, None]*self.R2
-        S3_gw = Sgw[:, None]*self.R3
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels. 
+        cov_sgwb = Sgw[None, None, :, None]*self.response_mat
 
+        cov_mat = cov_sgwb + cov_noise
+
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_mat)
+        det_cov = np.linalg.det(cov_mat)
        
-        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is strictly true for an equal arm stationary lisa. 
-        S1_net, S2_net, S3_net = S1[:, None] + S1_gw, S2[:, None] +  S2_gw, S3[:,None] + S3_gw
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
-        #Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
-        #     np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net) )
-    
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + \
-                     np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) )
+        loglike = np.real(logL)
 
-
-
-        return Loglike
+        return loglike
 
 
 
@@ -371,9 +382,8 @@ class Bayes():
             The log-likelihood value at the sampled point in the parameter space
         '''
 
-
         # unpack priors
-        alpha, log_omega0 = theta 
+        alpha, log_omega0  = theta
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
@@ -382,22 +392,18 @@ class Bayes():
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor.
-        SA = Sgw[:, None]*self.R1
-        SE = Sgw[:, None]*self.R2
-        ST = Sgw[:, None]*self.R3
-
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels. 
+        ## change axis order to make taking an inverse easier
+        cov_sgwb = Sgw[:, None, None, None]*np.moveaxis(self.response_mat, [-2, -1, -3], [0, 1, 2])
 
         
-        #SA = np.repeat(SA.reshape(SA.size, 1), self.r1.shape[1], axis=1)
-        #ST = np.repeat(ST.reshape(ST.size, 1), self.r2.shape[1], axis=1)
-        #SE = np.repeat(SE.reshape(SE.size, 1), self.r3.shape[1], axis=1)
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_sgwb)
+        det_cov = np.linalg.det(cov_sgwb)
+       
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
-        #Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE + (np.abs(self.r3)**2)/ST + \
-        #     np.log(2*np.pi*SA) + np.log(2*np.pi*SE) + np.log(2*np.pi*ST)  )
+        loglike = np.real(logL)
 
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE +  \
-              np.log(2*np.pi*SA) + np.log(2*np.pi*SE))
-
-        return Loglike
+        return loglike
