@@ -2,9 +2,9 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from chainconsumer import ChainConsumer
-import json, sys
-matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+import corner
+
+
 
 def plotmaker(params,parameters, npar):
 
@@ -25,17 +25,8 @@ def plotmaker(params,parameters, npar):
     '''
 
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
-    # import pdb; pdb.set_trace()
-    
-    ### Change Omega0 from "log10 Omega" back to normal
-    # 1)
-    #  for x in range(len(post)):
-    #     post[x][1] = np.power(10,post[x][1])
-    #
-    # 2)
-    # post[:,1] = 10**(post[:,1])
-        
-    
+
+
     if len(params['truevals']) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
         truevals = params['truevals']
@@ -48,73 +39,26 @@ def plotmaker(params,parameters, npar):
     if params['out_dir'][-1] != '/':
         params['out_dir'] = params['out_dir'] + '/'
 
-   ## Make chainconsumer corner plots
-    cc = ChainConsumer()
-    cc.add_chain(post, parameters=parameters)
-    cc.configure(smooth=False, kde=False, max_ticks=3, sigmas=np.array([1, 2]), label_font_size=30, tick_font_size=20, \
-            summary=False, statistics="max_central", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
-    cc.configure_truth(color='g', ls='--', alpha=0.7)
+    ## Make corner plots
+    fig = corner.corner(post, range=plotrange, labels=parameters, quantiles=(0.16, 0.84),
+                        smooth=None, smooth1d=None, show_titles=True,
+                        title_kwargs={"fontsize": 12},label_kwargs={"fontsize": 14},
+                        fill_contours=True, use_math_text=True, )
 
-    if knowTrue:
-        fig = cc.plotter.plot(figsize=(16, 16), truth=truevals)
-    else:
-        fig = cc.plotter.plot(figsize=(16, 16))
 
-    ## make axis labels to be parameter summaries
-    sum_data = cc.analysis.get_summary()
+    # Put correct values
+    # Extract the axes
     axes = np.array(fig.axes).reshape((npar, npar))
-
-    # Adjust axis labels
     for ii in range(npar):
         ax = axes[ii, ii]
 
-        # get the right summary for the parameter ii
-        sum_ax = sum_data[parameters[ii]]
-        err =  [sum_ax[2] - sum_ax[1], sum_ax[1]- sum_ax[0]]
-
-        if np.abs(sum_ax[1]) <= 1e-3:
-            mean_def = '{0:.3e}'.format(sum_ax[1])
-            eidx = mean_def.find('e')
-            base = float(mean_def[0:eidx])
-            exponent = int(mean_def[eidx+1:])
-            mean_form = str(base) + ' \\times ' + '10^{' + str(exponent) + '} '
-        else:
-            mean_form = '{0:.3f}'.format(sum_ax[1])
-
-        if np.abs(err[0]) <= 1e-2:
-            err[0] = '{0:.4f}'.format(err[0])
-        else:
-            err[0] = '{0:.2f}'.format(err[0])
-
-        if np.abs(err[1]) <= 1e-2:
-            err[1] = '{0:.4f}'.format(err[1])
-        else:
-            err[1] = '{0:.2f}'.format(err[1])
-
-        label =  parameters[ii][:-1] + ' = ' + mean_form + '^{+' + err[0] + '}_{-' + err[1] + '}$'
-
-        ax.set_title(label, {'fontsize':23}, loc='left')
-
+        ## Draw truevals if they exist
+        if knowTrue:
+            ax.axvline(truevals[ii], color="g", label='true value')
 
     ## Save posterior
     plt.savefig(params['out_dir'] + 'corners.png', dpi=150)
     print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
-
-
-if __name__ == "__main__":
-
-    ## if plotmaker is being run directly from the command line
-    ## read in the params file and get the necessary arguemnts.
-
-    if len(sys.argv) != 2:
-        raise ValueError('Provide the outdir path as an argument')
-    else:
-
-        ## load the json file
-        with open(sys.argv[1] + '/configs.json') as infile:
-            config_file = json.load(infile)
-
-        plotmaker(config_file['params'],config_file['parameters'], len(config_file['parameters']))
 
 

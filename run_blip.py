@@ -58,7 +58,7 @@ class LISA(LISAdata, Bayes):
         ## Generate TDI noise
         times, self.h1, self.h2, self.h3 = self.gen_noise_spectrum()
         delt = times[1] - times[0]
-        
+
         ##Cut to required size
         N = int((self.params['dur'])/delt)
         self.h1, self.h2, self.h3 = self.h1[0:N], self.h2[0:N], self.h3[0:N]
@@ -110,9 +110,9 @@ class LISA(LISAdata, Bayes):
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
-        # Convert doppler data to strain data if the datatype of readfile is doppler. 
+        # Convert doppler data to strain data if the datatype of readfile is doppler.
         if self.params['datatype'] == 'doppler':
-        ## This is needed to convert from doppler data to strain data. 
+        ## This is needed to convert from doppler data to strain data.
             self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
 
         elif self.params['datatype'] == 'strain':
@@ -242,14 +242,14 @@ class LISA(LISAdata, Bayes):
 
         ## Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
-        
+
         if self.params['modeltype'] != 'noise_only':
-            
+
             ## extra auto-power GW responses
             R1 = np.real(self.response_mat[0, 0, :, 0])
             R2 = np.real(self.response_mat[1, 1, :, 0])
             R3 = np.real(self.response_mat[2, 2, :, 0])
-            
+
             ## SGWB signal levels of the mldc data
             Omega0, alpha = 10**truevals[1], truevals[0]
 
@@ -293,11 +293,11 @@ class LISA(LISAdata, Bayes):
 
         if self.params['modeltype'] == 'noise_only':
             Sx = C_noise[ii, jj, :]
-        else:    
+        else:
             Sx = C_noise[ii, jj, :] + Sgw*self.response_mat[ii, jj, :, 0]
 
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
-        
+
         plt.subplot(2, 1, 1)
         plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
@@ -399,6 +399,8 @@ def blip(paramsfile='params.ini'):
     subprocess.call(["cp", paramsfile, params['out_dir']])
 
 
+    parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+    npar = len(parameters)
     # ------------------------------ Run Nestle ----------------------------------
 
     # Initialize lisa class
