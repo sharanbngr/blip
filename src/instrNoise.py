@@ -23,18 +23,18 @@ class instrNoise():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
 
         Sp, Sa   :   float
             Frequencies array for position and acceleration noises for each satellite
-        ''' 
-        
+        '''
+
         Sp = Np*(1 + (2e-3/freqs)**4)
         Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
 
@@ -55,10 +55,10 @@ class instrNoise():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
@@ -70,23 +70,33 @@ class instrNoise():
         '''
 
         # Get Sp and Sa
-        Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
+        C_xyz = self.xyz_noise_spectrum(freqs, f0, Np, Na)
+
+        ## Upnack xyz matrix to make assembling the aet matrix easier
+        CXX, CYY, CZZ = C_xyz[0, 0], C_xyz[1, 1], C_xyz[2, 2]
+        CXY, CXZ, CYZ = C_xyz[0, 1], C_xyz[0, 2], C_xyz[1, 2]
 
 
-        ## Noise spectra of the TDI Channels
-        SAA = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(np.cos(2*self.f0) + 2) \
-            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4*np.cos(2*self.f0) + 2*np.cos(4*self.f0) + 6)
+        ## construct AET matrix elements
+        CAA = (1/9) * (4*CXX + CYY + CZZ - 2*CXY - 2*np.conj(CXY) - 2*CXZ - 2*np.conj(CXZ) + \
+                        CYZ  + np.conj(CYZ))
+
+        CEE = (1/3) * (CZZ + CYY - CYZ - np.conj(CYZ))
+
+        CTT = (1/9) * (CXX + CYY + CZZ + CXY + np.conj(CXY) + CXZ + np.conj(CXZ) + CYZ + np.conj(CYZ))
+
+        CAE = (1/(3*np.sqrt(3))) * (CYY - CZZ - CYZ + np.conj(CYZ) + 2*CXZ - 2*CXY)
+
+        CAT = (1/9) * (2*CXX - CYY - CZZ + 2*CXY - np.conj(CXY) + 2*CXZ - np.conj(CXZ) - CYZ - np.conj(CYZ))
+
+        CET = (1/(3*np.sqrt(3))) * (CZZ - CYY - CYZ + np.conj(CYZ) + np.conj(CXZ) - np.conj(CXY))
+
+        C_aet = np.array([ [CAA, CAE, CAT] , \
+                                    [np.conj(CAE), CEE, CET], \
+                                    [np.conj(CAT), np.conj(CET), CTT] ])
 
 
-        SEE = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(2 + np.cos(2*self.f0)) \
-            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(4 + 4*np.cos(2*self.f0) +  4*(np.cos(2*self.f0))**2 )
-
-        STT = (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sp*(1 - np.cos(2*self.f0)) \
-            + (16.0/3.0) * ((np.sin(2*self.f0))**2) * Sa*(2 - 4*np.cos(2*self.f0) + 2*(np.cos(2*self.f0))**2)
-
-
-        return SAA, SEE, STT
-
+        return C_aet
 
     def xyz_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
 
@@ -103,10 +113,10 @@ class instrNoise():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
@@ -120,9 +130,9 @@ class instrNoise():
         C_mich = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        #SX = 4*SM1* np.sin(2*f0)**2 
+        #SX = 4*SM1* np.sin(2*f0)**2
 
-        C_xyz =  4 * np.sin(2*f0)**2 * C_mich 
+        C_xyz =  4 * np.sin(2*f0)**2 * C_mich
 
         return C_xyz
 
@@ -131,7 +141,7 @@ class instrNoise():
         '''
         Calculates michelson channel noise spectra for a stationary lisa. Following the defintions in
         Adams & Cornish, http://iopscience.iop.org/article/10.1088/0264-9381/18/17/308. We assume that
-        there is no phase noise. 
+        there is no phase noise.
 
 
         Parameters
@@ -142,10 +152,10 @@ class instrNoise():
 
         Np (optional) : float
             Position noise value
-        
+
         Na (optional) : float
             Acceleration noise level
-    
+
 
         Returns
         ---------
@@ -155,11 +165,11 @@ class instrNoise():
 
 
         '''
- 
+
         # Get Sp and Sa
         Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
 
-     
+
         ## Noise spectra of the michelson channels
         S_auto  = 4.0 * (2.0 * Sa * (1.0 + (np.cos(2*f0))**2)  + Sp)
         S_cross =  (-2 * Sp - 8 * Sa) * np.cos(2*f0)

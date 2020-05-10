@@ -139,7 +139,7 @@ class LISA(LISAdata, Bayes):
         if self.params['lisa_config'] == 'stationary':
 
             if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
-                self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0)
+                self.response_mat = self.isgwb_aet_response(self.f0)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
                 self.response_mat = self.isgwb_xyz_response(self.f0)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
@@ -187,15 +187,15 @@ class LISA(LISAdata, Bayes):
 
         ## Figure out which antenna patterns to use
         if self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.isgwb_aet_strain_response
+            self.add_astro_signal = self.isgwb_aet_response
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.isgwb_xyz_strain_response
+            self.add_astro_signal = self.isgwb_xyz_response
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.isgwb_mich_strain_response
+            self.add_astro_signal = self.isgwb_mich_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.gen_aet_asgwb
+            self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.asgwb_xyz_strain_response
+            self.add_astro_signal = self.asgwb_xyz_response
         else:
            raise ValueError('Unknown recovery model selected')
 
