@@ -3,16 +3,18 @@ from scipy.special import lpmn, sph_harm
 import types
 import healpy as hp
 from src.orbitinglisa import orbitinglisa
-#from src.sph_geometry import sph_geometry
+from src.sph_geometry import sph_geometry
 
-class geometry(orbitinglisa):
+class geometry(orbitinglisa, sph_geometry):
 
     '''
     Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.
     '''
 
-    def __init__():
-        import pdb; pdb.set_trace()
+    def __init__(self):
+
+        if self.params['modeltype'] == 'sph_sgwb' or self.inj['injtype'] == 'sph_sgwb':
+            sph_geometry.__init__(self)
 
 
     def doppler_response(self, f0, theta, phi):

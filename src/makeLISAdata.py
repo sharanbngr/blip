@@ -3,6 +3,8 @@ import scipy.signal as sg
 from src.instrNoise import instrNoise
 from src.geometry import geometry
 from scipy.interpolate import interp1d as intrp
+import matplotlib.pyplot as plt
+import healpy as hp
 import os
 
 class LISAdata(geometry, instrNoise):
@@ -17,6 +19,8 @@ class LISAdata(geometry, instrNoise):
         self.params = params
         self.inj = inj
         self.armlength = 2.5e9 ## armlength in meters
+        geometry.__init__(self)
+
 
     ## Method for reading frequency domain spectral data if given in an npz file
     def read_spectrum(self):
@@ -424,7 +428,26 @@ class LISAdata(geometry, instrNoise):
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
         norms = np.sqrt(self.params['fs']*Sgw*N)
 
-        L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
+        if self.inj['injtype'] == 'isgwb':
+            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
+
+        elif self.inj['injtype'] == 'sph_sgwb':
+
+            ## get alms
+            alms_inj = self.blm_2_alm(self.inj['blms'])
+
+            ## converts alm_inj into a healpix max to be plotted and saved
+            skymap_inj = hp.alm2map(alms_inj, self.params['nside'])
+
+            hp.mollview(skymap_inj, title='Angular distribution map')
+            plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+            print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+            plt.close()
+
+            ## response matrix summed over Ylms
+            summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, :], axis=-1)
+            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat, -1, 0))
+
 
         ## generate standard normal complex data frist
         z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
