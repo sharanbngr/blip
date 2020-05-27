@@ -282,7 +282,7 @@ class Bayes():
         '''
 
         # unpack priors
-        alpha, log_omega0, log_Np, log_Na  = theta
+        log_Np, log_Na, alpha, log_omega0 = theta
 
         Np, Na =  10**(log_Np), 10**(log_Na)
 
@@ -361,6 +361,10 @@ class Bayes():
         blm_vals = self.blm_params_2_blms(theta[4:])
 
         alm_vals = self.blm_2_alm(blm_vals)
+
+        ## normalize
+        alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
+
         summ_response_mat = np.sum(self.response_mat*alm_vals[None, None, None, None, :], axis=-1)
 
         ## The noise spectrum of the GW signal. Written down here as a full
@@ -369,6 +373,10 @@ class Bayes():
 
         cov_mat = cov_sgwb + cov_noise
 
+        logL = -np.sum( (np.abs(self.r1)**2) / cov_mat[0, 0, :, :]) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs( cov_mat[0, 0:, :]) ))
+
+
+        '''
         ## change axis order to make taking an inverse easier
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
 
@@ -377,6 +385,7 @@ class Bayes():
         det_cov = np.linalg.det(cov_mat)
 
         logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        '''
 
         loglike = np.real(logL)
 
