@@ -5,14 +5,29 @@ class Bayes():
     '''
     Class with methods for bayesian analysis of different kinds of signals. The methods currently
     include prior and likelihood functions for ISGWB analysis, sky-pixel/radiometer type analysis
-    and a power spectra based spherical harmonic analysis. 
+    and a power spectra based spherical harmonic analysis.
     '''
 
     def __init__(self):
         '''
-        Init for intializing 
+        Init for intializing
         '''
-        aa = 1
+        self.r12 = np.conj(self.r1)*self.r2
+        self.r13 = np.conj(self.r1)*self.r3
+        self.r21 = np.conj(self.r2)*self.r1
+        self.r23 = np.conj(self.r2)*self.r3
+        self.r31 = np.conj(self.r3)*self.r1
+        self.r32 = np.conj(self.r3)*self.r2
+        self.rbar = np.stack((self.r1, self.r2, self.r3), axis=2)
+
+        ## create a data correlation matrix
+        self.rmat = np.zeros((self.rbar.shape[0], self.rbar.shape[1], self.rbar.shape[2], self.rbar.shape[2]), dtype='complex')
+
+        for ii in range(self.rbar.shape[0]):
+            for jj in range(self.rbar.shape[1]):
+                self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
+
+
 
     def instr_prior(self, theta):
 
@@ -24,14 +39,14 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing samples from a unit cube. 
+            A list or numpy array containing samples from a unit cube.
 
         Returns
         ---------
 
         theta   :   float
             theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
-    
+
         '''
 
 
@@ -55,19 +70,19 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing samples from a unit cube. 
+            A list or numpy array containing samples from a unit cube.
 
         Returns
         ---------
 
         theta   :   float
             theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
-    
+
         '''
 
-    
+
         # Unpack: Theta is defined in the unit cube
-        alpha, log_omega0, log_Np, log_Na = theta
+        log_Np, log_Na, alpha, log_omega0 = theta
 
         # Transform to actual priors
         alpha       =  10*alpha-5
@@ -75,7 +90,7 @@ class Bayes():
         log_Np      = -5*log_Np - 39
         log_Na      = -5*log_Na - 46
         self.theta_prior = (alpha, log_omega0, log_Np, log_Na)
-        return (alpha, log_omega0, log_Np, log_Na)
+        return (log_Np, log_Na, alpha, log_omega0)
 
 
     def sph_prior(self, theta):
@@ -87,7 +102,7 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing samples from a unit cube. 
+            A list or numpy array containing samples from a unit cube.
 
         Returns
         ---------
@@ -96,184 +111,35 @@ class Bayes():
             theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
         '''
 
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -5*theta[0] - 39
+        log_Na = -5*theta[1] - 46
 
+        # Prior on alpha, and omega_0
+        alpha = 10*theta[2] - 5
+        log_omega0  = -10*theta[3] - 4
 
-        # Prior on theta[0] which is alpha
-        theta[0] = 10*theta[0] - 5
+        # The rest of the priors define the blm parameter space
+        blm_theta = []
 
-        # The rest of the priors except for the last two are ln_omegas
-        for ii in range(1, theta.size-2):
-            theta[ii] = -10*theta[ii] - 4
+        ## counter for the rest of theta
+        cnt = 4
 
-        # The last two are the priors on the position and acc noise terms. 
-        theta[-2] = -5*theta[-2] - 39
-        theta[-1] = -5*theta[-1] - 46
-        
-    
+        for lval in range(1, self.params['lmax'] + 1):
+            for mval in range(lval + 1):
+
+                if mval == 0:
+                    blm_theta.append(2*theta[cnt] - 1 )
+                    cnt = cnt + 1
+                else:
+                    ## prior on amplitude, phase
+                    blm_theta.append(theta[cnt])
+                    blm_theta.append(2*np.pi*theta[cnt+1])
+                    cnt = cnt + 2
+
+        theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
+
         return theta
-
-    def instr_log_likelihood(self, theta):
-
-        '''
-        Calculate likelihood for only instrumental noise
-        
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for  Np and Na respectively. 
-
-        Returns
-        ---------
-
-        Loglike   :   float
-            The log-likelihood value at the sampled point in the parameter space
-        '''
-
-
-        # unpack priors
-        log_Np, log_Na  = theta
-
-        Np, Na =  10**(log_Np), 10**(log_Na)
-        
-        # Modelled Noise PSD
-        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
-    
-        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is true for an equal arm stationary lisa. 
-
-        S1 = np.repeat(S1.reshape(S1.size, 1), self.r1.shape[1], axis=1)
-        S2 = np.repeat(S2.reshape(S2.size, 1), self.r2.shape[1], axis=1)
-        S3 = np.repeat(S3.reshape(S3.size, 1), self.r3.shape[1], axis=1)
-
-
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1 + (np.abs(self.r2)**2)/S2 + (np.abs(self.r3)**2)/S3 + \
-             np.log(2*np.pi*S1) + np.log(2*np.pi*S2) + np.log(2*np.pi*S3) )
-    
-        return Loglike
-
-
-
-    def isgwb_log_likelihood(self, theta):
-
-        '''
-        Calculate likelihood for an isotropic stochastic background analysis.
-        
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. 
-
-        Returns
-        ---------
-
-        Loglike   :   float
-            The log-likelihood value at the sampled point in the parameter space
-        '''
-
-        # unpack priors
-        alpha, log_omega0, log_Np, log_Na  = theta
-
-        Np, Na =  10**(log_Np), 10**(log_Na)
-
-        # Modelled Noise PSD
-        S1, S2, S3 = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)        
-
-        ## Signal PSD
-        H0 = 2.2*10**(-18)
-        Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
-
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
-
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor.
-        S1_gw = Sgw[:, None]*self.R1
-        S2_gw = Sgw[:, None]*self.R2
-        S3_gw = Sgw[:, None]*self.R3
-
-       
-        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is strictly true for an equal arm stationary lisa. 
-        S1_net, S2_net, S3_net = S1[:, None] + S1_gw, S2[:, None] +  S2_gw, S3[:,None] + S3_gw
-
-        #Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
-        #     np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net) )
-    
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + \
-                     np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) )
-
-        return Loglike
-
-
-
-    def sph_log_likelihood(self, theta):
-
-        '''
-        Calculate likelihood for a power-spectra based spherical harmonic analysis.
-        
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na. 
-
-        Returns
-        ---------
-
-        Loglike   :   float
-            The log-likelihood value at the sampled point in the parameter space
-        '''
-
-
-        # unpack priors
-        alpha, log_Np, log_Na  = theta[0],theta[-2], theta[-1]
-        log_omega0  = theta[1:-2]
-
-
-        Np, Na =  10**(log_Np), 10**(log_Na)
-        
-        # Modelled Noise PSD
-        S1, S2, S3 = self.aet_noise_spectrum(self.fdata,self.f0, Np, Na) 
-
-        
-        ## Signal PSD
-        H0 = 2.2*10**(-18)
-        #Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
-        Omegaf = np.tensordot(10**(log_omega0),(self.fdata/self.params['fref'])**alpha, axes=0 )
-
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
-
-        # Spectrum of an anisotropic SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor. R1, R2 and R3 here are 2-d arrays over frequency and spherical 
-        # harmonic coeffcients
-     
-        S1_gw = np.sum(Sgw.T*self.R1, axis=1)
-        S2_gw = np.sum(Sgw.T*self.R2, axis=1)
-        S3_gw = np.sum(Sgw.T*self.R3, axis=1)
-
-        ## We will assume that the covariance matrix is diagonal and will only calcualte those terms. 
-        ## This is true for an equal arm stationary lisa. 
-        S1_net, S2_net, S3_net = S1[:, None] + S1_gw, S2[:, None] +  S2_gw, S3[:,None] + S3_gw
-        
-        SA_net = np.repeat(SA_net.reshape(SA_net.size, 1), self.r1.shape[1], axis=1)
-        ST_net = np.repeat(ST_net.reshape(ST_net.size, 1), self.r2.shape[1], axis=1)
-        SE_net = np.repeat(SE_net.reshape(SE_net.size, 1), self.r3.shape[1], axis=1)
-        
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/S1_net + (np.abs(self.r2)**2)/S2_net  + (np.abs(self.r3)**2)/S3_net  + \
-             np.log(2*np.pi*S1_net) + np.log(2*np.pi*S2_net) + np.log(2*np.pi*S3_net))
-
-
-        if np.isnan(Loglike):
-            import pdb; pdb.set_trace()
-        return Loglike
-
-
 
     def isgwb_only_prior(self, theta):
 
@@ -285,16 +151,15 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing samples from a unit cube. 
+            A list or numpy array containing samples from a unit cube.
 
         Returns
         ---------
 
         theta   :   float
             theta with each element rescaled. The elements are  interpreted as alpha, omega_ref
-    
-        '''
 
+        '''
 
         # Unpack: Theta is defined in the unit cube
         alpha, log_omega0  = theta
@@ -309,13 +174,59 @@ class Bayes():
 
         '''
         Calculate likelihood for an isotropic stochastic background analysis.
-        
+
 
         Parameters
         -----------
 
         theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively. 
+            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively.
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
+        '''
+
+        # unpack priors
+        alpha, log_omega0  = theta
+
+        ## Signal PSD
+        H0 = 2.2*10**(-18)
+        Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
+
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        ## change axis order to make taking an inverse easier
+        cov_sgwb = Sgw[:, None, None, None]*np.moveaxis(self.response_mat, [-2, -1, -3], [0, 1, 2])
+
+
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_sgwb)
+        det_cov = np.linalg.det(cov_sgwb)
+
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
+        loglike = np.real(logL)
+
+        return loglike
+
+
+    def instr_log_likelihood(self, theta):
+
+        '''
+        Calculate likelihood for only instrumental noise
+
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for  Np and Na respectively.
 
         Returns
         ---------
@@ -326,7 +237,60 @@ class Bayes():
 
 
         # unpack priors
-        alpha, log_omega0 = theta 
+        log_Np, log_Na  = theta
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        # Modelled Noise PSD
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+
+
+        ## repeat C_Noise to have the same time-dimension as everything else
+        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
+
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(cov_noise, [-2, -1], [0, 1])
+
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_mat)
+        det_cov = np.linalg.det(cov_mat)
+
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
+        loglike = np.real(logL)
+
+        return loglike
+
+
+    def isgwb_log_likelihood(self, theta):
+
+        '''
+        Calculate likelihood for an isotropic stochastic background analysis.
+
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively.
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
+        '''
+
+        # unpack priors
+        log_Np, log_Na, alpha, log_omega0 = theta
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        # Modelled Noise PSD
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+
+        ## repeat C_Noise to have the same time-dimension as everything else
+        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
@@ -335,22 +299,97 @@ class Bayes():
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
-        # Spectrum of the SGWB signal as seen in LISA data, ie convoluted with the
-        # detector response tensor.
-        SA = Sgw*self.R1
-        SE = Sgw*self.R2
-        ST = Sgw*self.R3
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*self.response_mat
+
+        cov_mat = cov_sgwb + cov_noise
+
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_mat)
+        det_cov = np.linalg.det(cov_mat)
+
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
+        loglike = np.real(logL)
+
+        return loglike
 
 
-        
-        SA = np.repeat(SA.reshape(SA.size, 1), self.r1.shape[1], axis=1)
-        ST = np.repeat(ST.reshape(ST.size, 1), self.r2.shape[1], axis=1)
-        SE = np.repeat(SE.reshape(SE.size, 1), self.r3.shape[1], axis=1)
 
-        #Loglike  = - 0.5*np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE + (np.abs(self.r3)**2)/ST + \
-        #     np.log(2*np.pi*SA) + np.log(2*np.pi*SE) + np.log(2*np.pi*ST)  )
+    def sph_log_likelihood(self, theta):
 
-        Loglike  = - np.sum( (np.abs(self.r1)**2)/SA + (np.abs(self.r2)**2)/SE +  \
-              np.log(2*np.pi*SA) + np.log(2*np.pi*SE))
+        '''
+        Calculate likelihood for a power-spectra based spherical harmonic analysis.
 
-        return Loglike
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na.
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
+        '''
+
+        # unpack priors
+        log_Np, log_Na, alpha, log_omega0  = theta[0],theta[1], theta[2], theta[3]
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        # Modelled Noise PSD
+        cov_noise = self.instr_noise_spectrum(self.fdata, self.f0, Np, Na)
+
+        ## repeat C_Noise to have the same time-dimension as everything else
+        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
+
+        ## Signal PSD
+        H0 = 2.2*10**(-18)
+        Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
+
+        ## Convert the blm parameter space values to alm values.
+        blm_vals = self.blm_params_2_blms(theta[4:])
+
+        alm_vals = self.blm_2_alm(blm_vals)
+
+        ## normalize
+        alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
+
+        summ_response_mat = np.sum(self.response_mat*alm_vals[None, None, None, None, :], axis=-1)
+
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
+
+        cov_mat = cov_sgwb + cov_noise
+
+        logL = -np.sum( (np.abs(self.r1)**2) / cov_mat[0, 0, :, :]) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs( cov_mat[0, 0:, :]) ))
+
+
+        '''
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_mat)
+        det_cov = np.linalg.det(cov_mat)
+
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        '''
+
+        loglike = np.real(logL)
+
+        return loglike
+
+
+
