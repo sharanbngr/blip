@@ -14,10 +14,11 @@ noiseless_mldc*
 WSL*
 cython_response.c
 cython_response.html
-Prev/
+Analysis/
 mldcparams*
 owndata*
 eogtest*
 bayesfactorplot*
 early_gw.py
 makedata_params.ini
+misc/
