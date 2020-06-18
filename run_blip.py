@@ -255,6 +255,10 @@ class LISA(LISAdata, Bayes):
 
             if self.params['modeltype'] == 'sph_sgwb':
                 alms_inj = self.blm_2_alm(self.inj['blms'])
+
+                ## normalize
+                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
                 summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
                 ## extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, 0])
@@ -439,7 +443,7 @@ def blip(paramsfile='params.ini'):
     if params['modeltype']=='isgwb':
 
         print("Doing an isotropic stochastic analysis...")
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', '$\alpha$', r'$\log_{10} (\Omega_0)$']
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
         npar = len(parameters)
         engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
@@ -456,10 +460,10 @@ def blip(paramsfile='params.ini'):
             for mval in range(lval + 1):
 
                 if mval == 0:
-                    parameters.append(r'b_{' + str(lval) + str(mval) + '}' )
+                    parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                 else:
-                    parameters.append(r'|b_{' + str(lval) + str(mval) + '}|' )
-                    parameters.append(r'\phi_{' + str(lval) + str(mval) + '}' )
+                    parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                    parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
 
         npar = len(parameters)
         engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\

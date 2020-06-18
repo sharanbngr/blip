@@ -436,8 +436,14 @@ class LISAdata(geometry, instrNoise):
             ## get alms
             alms_inj = self.blm_2_alm(self.inj['blms'])
 
+            ## normalize
+            alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+            ## extrct only the non-negative components
+            alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+
             ## converts alm_inj into a healpix max to be plotted and saved
-            skymap_inj = hp.alm2map(alms_inj, self.params['nside'])
+            skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
 
             hp.mollview(skymap_inj, title='Angular distribution map')
             plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
@@ -446,6 +452,8 @@ class LISAdata(geometry, instrNoise):
 
             ## response matrix summed over Ylms
             summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, :], axis=-1)
+
+            ## cholesky decomposition
             L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat, -1, 0))
 
 

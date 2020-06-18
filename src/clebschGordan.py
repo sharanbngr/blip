@@ -14,7 +14,8 @@ class clebschGordan():
         self.blmax = self.params['lmax']
         self.almax = 2*self.blmax
 
-        self.alm_size = Alm.getsize(self.almax)
+        ## size of arrays: for blms its only non-negative m values but for alms it is all of them
+        self.alm_size = (self.almax + 1)**2
         self.blm_size = Alm.getsize(self.blmax)
 
         ## calculate and store beta
@@ -101,8 +102,7 @@ class clebschGordan():
     def blm_2_alm(self, blms_in):
 
         '''
-        Convert complex blm values to alm complex values. Since both describe real fields on
-        the sky, we will only use non-negative m vals.
+        Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
 
         if blms_in.size != self.blm_size:
@@ -153,6 +153,7 @@ class clebschGordan():
                     cnt = cnt + 2
 
         return blm_vals
+
 
     '''
     def calc_one_alm(self, blm_in, l, m):
