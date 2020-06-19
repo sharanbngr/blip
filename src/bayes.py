@@ -134,7 +134,7 @@ class Bayes():
                 else:
                     ## prior on amplitude, phase
                     blm_theta.append(theta[cnt])
-                    blm_theta.append(2*np.pi*theta[cnt+1])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 
         theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
