@@ -439,7 +439,7 @@ def blip(paramsfile='params.ini'):
     if params['modeltype']=='isgwb':
 
         print("Doing an isotropic stochastic analysis...")
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', '$\alpha$', r'$\log_{10} (\Omega_0)$']
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
         npar = len(parameters)
         engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
