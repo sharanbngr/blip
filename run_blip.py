@@ -139,11 +139,11 @@ class LISA(LISAdata, Bayes):
         if self.params['lisa_config'] == 'stationary':
 
             if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
-                self.response_mat = self.isgwb_aet_response(self.f0)
+                self.response_mat = self.isgwb_aet_response(self.f0, self.tsegstart, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
-                self.response_mat = self.isgwb_xyz_response(self.f0)
+                self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegstart, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
-                self.response_mat = self.isgwb_mich_response(self.f0)
+                self.response_mat = self.isgwb_mich_response(self.f0, self.tsegstart, self.tsegmid)
             elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
                 self.response_mat = self.asgwb_mich_response(self.f0)
             elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
@@ -177,11 +177,11 @@ class LISA(LISAdata, Bayes):
                 else:
                     raise ValueError('Unknown recovery model selected')
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-                self.R1, self.R2, self.R3 = self.isgwb_oaet_response(self.f0, self.tsegmid)
+                self.R1, self.R2, self.R3 = self.isgwb_aet_response(self.f0, self.tsegstart, self.tsegmid)
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-                self.R1, self.R2, self.R3 = self.isgwb_oxyz_response(self.f0, self.tsegmid)
+                self.R1, self.R2, self.R3 = self.isgwb_xyz_response(self.f0, self.tsegstart, self.tsegmid)
             elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-                self.R1, self.R2, self.R3 = self.isgwb_omich_response(self.f0, self.tsegmid)
+                self.R1, self.R2, self.R3 = self.isgwb_mich_response(self.f0, self.tsegstart, self.tsegmid)
             elif self.params['modeltype'] == 'noise_only':
                 print('Noise only model chosen ...')
             else:
