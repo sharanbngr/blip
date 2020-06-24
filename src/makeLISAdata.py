@@ -479,7 +479,73 @@ class LISAdata(geometry, instrNoise):
 
         return hX, hY, hZ, tarr
 
+    def add_earlygw_data(self, fs=0.25, dur=1e5):
 
+        cspeed = 3e8 #m/s
+        delf  = 1.0/self.params['dur']
+        frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        fstar = 3e8/(2*np.pi*self.armlength)
+        f0 = frange/(2*fstar)
+
+        N = int(self.params['fs']*self.params['dur'])
+
+        response_mat = self.add_astro_signal(f0)
+
+        ## Cholesky decomposition to get the "sigma" matrix
+        H0 = 2.2*10**(-18) ## in SI units
+        # Calculate noise in case 1, no r and omega0
+        g_bbn = 10.75
+        gs_bbn = 10.75
+        g_eq = 3.3626
+        gs_eq = 3.9091
+        del_R = 2.25*10**-9
+        z_bbn = 5.9*10**9 - 1
+        kcmb = 0.05
+
+        gamma = ((2.3*10**4))**-1 * (g_bbn/g_eq) * (gs_eq/gs_bbn)**1.3333
+
+        A1 = (del_R**2)*gamma/24
+        A2 = (2*np.pi*frange/H0) * (1 / (gamma**0.5 * (1 + z_bbn)))
+        A3 = (2*np.pi*frange/H0) * (0.72/150.)
+
+        alpha_hat = 2 * (3 * self.inj['wHat'] - 1) / (3 * self.inj['wHat'] + 1)
+        Omegaf = self.inj['rts']*(A1 * A2**alpha_hat * A3**self.inj['nHat'])
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
+        norms = np.sqrt(self.params['fs']*Sgw*N)
+
+        L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
+        
+        ## generate standard normal complex data frist
+        z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+
+        ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
+        z_scale = np.zeros(z_norm.shape, dtype='complex')
+
+        for ii in range(frange.size):
+            z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
+
+
+        if np.mod(N, 2) == 0:
+            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.zeros(1), np.flipud(np.conjugate(z_scale[0, :]))))
+            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.zeros(1), np.flipud(np.conjugate(z_scale[1, :]))))
+            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.zeros(1), np.flipud(np.conjugate(z_scale[2, :]))))
+        else:
+            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.flipud(np.conjugate(z_scale[0, :]))))
+            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
+            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
+
+
+        # Take inverse fft to get time series data
+        hX = np.real(np.fft.ifft(htilda_X, N))
+        hY = np.real(np.fft.ifft(htilda_Y, N))
+        hZ = np.real(np.fft.ifft(htilda_Z, N))
+
+        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
+
+
+        return hX, hY, hZ, tarr
 
 
     def add_sgwb_data_tshift(self, fs=0.25, dur=1e5):
