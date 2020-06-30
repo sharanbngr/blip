@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.linalg as LA
 from scipy.special import lpmn, sph_harm
 import types
 import healpy as hp
@@ -35,7 +36,8 @@ class geometry(sph_geometry):
         '''
         ## Branch orbiting and stationary cases; compute satellite position in stationary case based off of first time entry in data.
         if self.params['lisa_config'] == 'stationary':
-            times = tsegmid.fill(tsegstart[0])
+            times = np.empty(len(tsegmid))
+            times.fill(tsegstart[0])
         elif self.params['lisa_config'] == 'orbiting':
             times = tsegmid
         else:
@@ -75,7 +77,6 @@ class geometry(sph_geometry):
 
         return rs1, rs2, rs3
 
-    def 
 
     def doppler_response(self, f0, theta, phi, tsegmid, tsegstart):
         
@@ -306,7 +307,7 @@ class geometry(sph_geometry):
         return R1plus, R1cross, R2plus, R2cross, R3plus, R3cross
     
 
-        def aet_response(self, f0, theta, phi, tsegmid, tsegstart): 
+    def aet_response(self, f0, theta, phi, tsegmid, tsegstart): 
 
 
 
@@ -398,13 +399,13 @@ class geometry(sph_geometry):
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
         
         # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
-        self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
+        rs1, rs2, rs3 = self.lisa_orbits(tsegmid, tsegstart)
         
-        udir = np.einsum('ij,jk',(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],omegahat)
-        vdir = np.einsum('ij,jk',(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],omegahat)
-        wdir = np.einsum('ij,jk',(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],omegahat)
+        udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],omegahat)
+        vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],omegahat)
+        wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],omegahat)
         
-        
+        import pdb
         # Calculate GW transfer function for Michelson channels
         gammaU_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+udir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+udir)))
@@ -429,27 +430,28 @@ class geometry(sph_geometry):
         mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
         nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
         # 1/2 u x u : eplus
-        Fplus_u = 0.5*np.einsum("ijk,jkl", \
-                              np.einsum("ij,ik -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None]), \
+        Fplus_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
-        Fplus_v = 0.5*np.einsum("ijk,jkl", \
-                              np.einsum("ij,ik -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None]), \
+        Fplus_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
-        Fplus_w = 0.5*np.einsum("ijk,jkl", \
-                              np.einsum("ij,ik -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
+        Fplus_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
 
         # 1/2 u x u : ecross
-        Fcross_u = 0.5*np.einsum("ijk,jkl", \
-                              np.einsum("ij,ik -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None]), \
+        Fcross_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
-        Fcross_v = 0.5*np.einsum("ijk,jkl", \
-                              np.einsum("ij,ik -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None]), \
+        Fcross_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
-        Fcross_w = 0.5*np.einsum("ijk,jkl", \
-                              np.einsum("ij,ik -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
+        Fcross_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
         
+
         '''NB -- there remains the question of floating 1/2's'''
         
         ## Michelson Antenna Patterns
@@ -474,7 +476,7 @@ class geometry(sph_geometry):
         R23 = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3 , axis=2)
 
         response_tess = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
-        
+        pdb.set_trace()
         return response_tess
     
     
