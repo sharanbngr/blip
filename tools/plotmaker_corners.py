@@ -3,6 +3,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import corner
+import pickle, argparse
 from healpy import Alm
 
 
@@ -104,4 +105,23 @@ def plotmaker(params, parameters, inj):
     print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
 
+if __name__ == '__main__':
 
+    # Create parser
+    parser = argparse.ArgumentParser(prog='plotmaker', usage='%(prog)s [options] rundir', description='run plotmaker')
+
+    # Add arguments
+    parser.add_argument('rundir', metavar='rundir', type=str, help='The path to the run directory')
+
+    # execute parser
+    args = parser.parse_args()
+
+
+    paramfile = open(args.rundir + '/config.picle')
+
+    ## things are loaded from the pickle file in the same order they are put in
+    params = pickle.load(paramfile)
+    inj = pickle.load(paramfile)
+    parameters = pickle.load(paramfile)
+
+    plotmaker(params, parameters, inj)

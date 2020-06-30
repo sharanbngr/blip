@@ -364,11 +364,13 @@ class LISAdata(geometry, instrNoise):
 
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
-        frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
 
         N = int(self.params['fs']*self.params['dur'])
+
+        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
+
 
         #Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
@@ -387,36 +389,34 @@ class LISAdata(geometry, instrNoise):
             z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
 
 
-
-        if np.mod(N, 2) == 0:
-            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.zeros(1), np.flipud(np.conjugate(z_scale[0, :]))))
-            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.zeros(1), np.flipud(np.conjugate(z_scale[1, :]))))
-            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.zeros(1), np.flipud(np.conjugate(z_scale[2, :]))))
-        else:
-            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.flipud(np.conjugate(z_scale[0, :]))))
-            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
-            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
+        ## The three channels
+        htilda1  = np.concatenate([ [0], z_scale[0, :]])
+        htilda2  = np.concatenate([ [0], z_scale[1, :]])
+        htilda3  = np.concatenate([ [0], z_scale[2, :]])
 
 
         # Take inverse fft to get time series data
-        hX = np.real(np.fft.ifft(htilda_X, N))
-        hY = np.real(np.fft.ifft(htilda_Y, N))
-        hZ = np.real(np.fft.ifft(htilda_Z, N))
+        h1 = np.real(np.fft.ifft(htilda1, N))
+        h2 = np.real(np.fft.ifft(htilda2, N))
+        h3 = np.real(np.fft.ifft(htilda3, N))
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
 
-        return tarr, hX, hY, hZ
+        return tarr, h1, h2, h3
 
     def add_sgwb_data(self, fs=0.25, dur=1e5):
 
+
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
-        frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        N = int(self.params['fs']*self.params['dur'])
+
+        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])
+        #frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
-
-        N = int(self.params['fs']*self.params['dur'])
 
         response_mat = self.add_astro_signal(f0)
 
@@ -426,6 +426,10 @@ class LISAdata(geometry, instrNoise):
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
+
+        ## set Sgw[f=0] = 0 to avoid nans
+        Sgw[0] = 0
+
         norms = np.sqrt(self.params['fs']*Sgw*N)
 
         if self.inj['injtype'] == 'isgwb':
@@ -467,26 +471,18 @@ class LISAdata(geometry, instrNoise):
             z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
 
 
-        if np.mod(N, 2) == 0:
-            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.zeros(1), np.flipud(np.conjugate(z_scale[0, :]))))
-            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.zeros(1), np.flipud(np.conjugate(z_scale[1, :]))))
-            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.zeros(1), np.flipud(np.conjugate(z_scale[2, :]))))
-        else:
-            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.flipud(np.conjugate(z_scale[0, :]))))
-            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
-            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
-
+        ## The three channels
+        htilda1, htilda2, htilda3 = z_scale[0, :],  z_scale[1, :], z_scale[2, :],
 
         # Take inverse fft to get time series data
-        hX = np.real(np.fft.ifft(htilda_X, N))
-        hY = np.real(np.fft.ifft(htilda_Y, N))
-        hZ = np.real(np.fft.ifft(htilda_Z, N))
+        h1 = np.real(np.fft.ifft(htilda1, N))
+        h2 = np.real(np.fft.ifft(htilda2, N))
+        h3 = np.real(np.fft.ifft(htilda3, N))
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
 
-        return hX, hY, hZ, tarr
-
+        return h1, h2, h3, tarr
 
 
 

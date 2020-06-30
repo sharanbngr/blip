@@ -4,6 +4,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 from healpy import Alm
+import pickle, argparse
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 def plotmaker(params,parameters, inj):
@@ -64,7 +65,6 @@ def plotmaker(params,parameters, inj):
                 else:
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
-
 
 
 
@@ -136,4 +136,23 @@ def plotmaker(params,parameters, inj):
 
 
 
+if __name__ == '__main__':
 
+    # Create parser
+    parser = argparse.ArgumentParser(prog='plotmaker', usage='%(prog)s [options] rundir', description='run plotmaker')
+
+    # Add arguments
+    parser.add_argument('rundir', metavar='rundir', type=str, help='The path to the run directory')
+
+    # execute parser
+    args = parser.parse_args()
+
+
+    paramfile = open(args.rundir + '/config.pickle', 'rb')
+
+    ## things are loaded from the pickle file in the same order they are put in
+    params = pickle.load(paramfile)
+    inj = pickle.load(paramfile)
+    parameters = pickle.load(paramfile)
+
+    plotmaker(params, parameters, inj)
