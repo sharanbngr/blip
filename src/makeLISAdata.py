@@ -409,16 +409,30 @@ class LISAdata(geometry, instrNoise):
 
 
         cspeed = 3e8 #m/s
-        delf  = 1.0/self.params['dur']
-        N = int(self.params['fs']*self.params['dur'])
 
-        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])
-        #frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        ## define the splice segment duration
+        tsplice = 1e4
+        delf  = 1.0/tsplice
 
+        ## the segments to be splices are half-overlapping
+        nsplice = 2*int(self.params['dur']/tsplice) + 1
+
+        ## arrays of segmnent start and mid times
+        tstarts = (tsplice/2.0) * np.arange(nsplice)
+        tmids = tstarts + (tsplice/2.0)
+
+        ## Number of time-domain points in a splice segment
+        N = int(self.params['fs']*tsplice)
+
+        ## leave out f = 0
+        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
+
+        ## the charecteristic frequency of LISA, and the scaled frequency array
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
 
-        response_mat = self.add_astro_signal(f0)
+        ## Response matrix
+        response_mat = self.add_astro_signal(f0, tstarts, tmids)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
@@ -427,49 +441,53 @@ class LISAdata(geometry, instrNoise):
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
 
-        ## set Sgw[f=0] = 0 to avoid nans
-        Sgw[0] = 0
-
-        norms = np.sqrt(self.params['fs']*Sgw*N)
-
-        if self.inj['injtype'] == 'isgwb':
-            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
-
-        elif self.inj['injtype'] == 'sph_sgwb':
-
-            ## get alms
-            alms_inj = self.blm_2_alm(self.inj['blms'])
-
-            ## normalize
-            alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
-
-            ## extrct only the non-negative components
-            alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
-
-            ## converts alm_inj into a healpix max to be plotted and saved
-            skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
-
-            hp.mollview(skymap_inj, title='Angular distribution map')
-            plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-            print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-            plt.close()
-
-            ## response matrix summed over Ylms
-            summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, :], axis=-1)
-
-            ## cholesky decomposition
-            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat, -1, 0))
+        ## concatenate with zero norm for the dc value
+        norms = np.concatenate([[0], np.sqrt(self.params['fs']*Sgw*N)])
 
 
-        ## generate standard normal complex data frist
-        z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+        for ii in range(nsplice):
 
-        ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
-        z_scale = np.zeros(z_norm.shape, dtype='complex')
+            if self.inj['injtype'] == 'isgwb':
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
 
-        for ii in range(frange.size):
-            z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
+            elif self.inj['injtype'] == 'sph_sgwb':
 
+                ## get alms
+                alms_inj = self.blm_2_alm(self.inj['blms'])
+
+                ## normalize
+                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+                ## extrct only the non-negative components
+                alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+
+                ## converts alm_inj into a healpix max to be plotted and saved
+                skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+
+                if ii == 0:
+                    hp.mollview(skymap_inj, title='Angular distribution map')
+                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                    plt.close()
+
+                ## response matrix summed over Ylms
+                summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
+
+                ## cholesky decomposition
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+
+
+            ## generate standard normal complex data frist
+            z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+            z_norm2 = z_norm.transpose()
+
+            ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
+            z_scale = np.zeros(z_norm.shape, dtype='complex')
+
+            for jj in range(frange.size):
+                z_scale[:, jj] = np.matmul(L_cholesky[jj, :, :], z_norm[:, jj])
+
+            zscale2 = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm2[:, :, None])
 
         ## The three channels
         htilda1, htilda2, htilda3 = z_scale[0, :],  z_scale[1, :], z_scale[2, :],

@@ -19,20 +19,20 @@ class geometry(sph_geometry):
 
 
     def lisa_orbits(self, tsegmid, tsegstart):
-    
+
         '''
         Define LISA orbital positions at the midpoint of each time integration segment using analytic MLDC orbits.
-        
+
         Parameters
         -----------
-        
+
         tsegmid  :  array
             A numpy array of the tsegmid for each time integration segment.
-            
+
         Returns
         -----------
         rs1, rs2, rs3  :  array
-            Arrays of satellite positions for each segment midpoint in timearray. e.g. rs1[1] is [x1,y1,z1] at t=midpoint[1]=timearray[1]+(segment length)/2. 
+            Arrays of satellite positions for each segment midpoint in timearray. e.g. rs1[1] is [x1,y1,z1] at t=midpoint[1]=timearray[1]+(segment length)/2.
         '''
         ## Branch orbiting and stationary cases; compute satellite position in stationary case based off of first time entry in data.
         if self.params['lisa_config'] == 'stationary':
@@ -42,22 +42,22 @@ class geometry(sph_geometry):
             times = tsegmid
         else:
             raise ValueError('Unknown LISA configuration selected')
-                
-        
+
+
         ## Semimajor axis in m
         a = 1.496e11
-   
-        
+
+
         ## Alpha and beta phases allow for changing of initial satellite orbital phases; default initial conditions are alphaphase=betaphase=0.
         betaphase = 0
         alphaphase = 0
-        
+
         ## Orbital angle alpha(t)
         at = (2*np.pi/31557600)*times + alphaphase
-        
+
         ## Eccentricity. L-dependent, so needs to be altered for time-varied arm length case.
         e = self.armlength/(2*a*np.sqrt(3))
-        
+
         ## Initialize arrays
         beta_n = (2/3)*np.pi*np.array([0,1,2])+betaphase
 
@@ -65,7 +65,7 @@ class geometry(sph_geometry):
         Beta_n, Alpha_t = np.meshgrid(beta_n, at)
 
         ## Calculate inclination and positions for each satellite.
-        x_n = a*np.cos(Alpha_t) + a*e*(np.sin(Alpha_t)*np.cos(Alpha_t)*np.sin(Beta_n) - (1+(np.sin(Alpha_t))**2)*np.cos(Beta_n)) 
+        x_n = a*np.cos(Alpha_t) + a*e*(np.sin(Alpha_t)*np.cos(Alpha_t)*np.sin(Beta_n) - (1+(np.sin(Alpha_t))**2)*np.cos(Beta_n))
         y_n = a*np.sin(Alpha_t) + a*e*(np.sin(Alpha_t)*np.cos(Alpha_t)*np.cos(Beta_n) - (1+(np.cos(Alpha_t))**2)*np.sin(Beta_n))
         z_n = -np.sqrt(3)*a*e*np.cos(Alpha_t - Beta_n)
 
@@ -79,10 +79,10 @@ class geometry(sph_geometry):
 
 
     def doppler_response(self, f0, theta, phi, tsegmid, tsegstart):
-        
+
         '''
         Calculate antenna pattern/ detector transfer functions for a GW originating in the direction of (theta, phi) for the u doppler channel of an orbiting LISA with satellite position vectors rs1, rs2, rs3. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array.
-        
+
 
         Parameters
         -----------
@@ -91,14 +91,14 @@ class geometry(sph_geometry):
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  :  float
-            Sky position values. 
-            
+            Sky position values.
+
         tsegmid  :  array
             A numpy array of the midpoints for each time integration segment.
-            
+
         rs1, rs2, rs3  :  array
             Satellite position vectors.
-        
+
 
         Returns
         ---------
@@ -107,16 +107,16 @@ class geometry(sph_geometry):
             Plus and cross antenna Patterns for the given sky direction for each time in midpoints.
         '''
         print('Calculating detector response functions...')
-        
+
         self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
 
         ## Indices of midpoints array
         timeindices = np.arange(len(tsegmid))
-        
+
         ## Define cos/sin(theta)
         ct = np.cos(theta)
         st = np.sqrt(1-ct**2)
-        
+
         ## Initlize arrays for the detector reponse
         Rplus, Rcross = np.zeros((len(timeindices),f0.size), dtype=complex), np.zeros((len(timeindices),f0.size),dtype=complex)
 
@@ -128,19 +128,19 @@ class geometry(sph_geometry):
             x2 = rs2[0][ti]
             y2 = rs2[1][ti]
             z2 = rs2[2][ti]
-            
+
             ## Add if calculating v, w:
             ## x3 = r3[0][ti]
             ## y3 = r3[1][ti]
             ## z3 = r3[2][ti]
-            
+
             ## Define vector u at time tsegmid[ti]
             uvec = rs2[:,ti] - rs1[:,ti]
             ## Calculate arm length for the u arm
             Lu = np.sqrt(np.dot(uvec,uvec))
             ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
             udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
-            
+
             ## Calculate 1/2(u x u):eplus
             Pcontract = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
                              (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct- \
@@ -149,31 +149,31 @@ class geometry(sph_geometry):
             Ccontract = ((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * \
                           (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct- \
                            ((z2-z1)/Lu)*st))
-    
+
             # Calculate the detector response for each frequency
             for ii in range(0, f0.size):
                 # Calculate GW transfer function for the michelson channels
                 gammaU = 1/2 * (np.sinc(f0[ii]*(1-udir)/np.pi)*np.exp(-1j*f0[ii]*(3+udir)) + \
                                     np.sinc(f0[ii]*(1+udir)/np.pi)*np.exp(-1j*f0[ii]*(1+udir)))
-        
-        
+
+
                 ## Michelson Channel Antenna patterns for + pol: Rplus = 1/2(u x u)Gamma(udir, f):eplus
-        
+
                 Rplus[ti][ii] = Pcontract*gammaU
-                
+
                 ## Michelson Channel Antenna patterns for x pol: Rcross = 1/2(u x u)Gamma(udir, f):ecross
-        
+
                 Rcross[ti][ii] = Ccontract*gammaU
-        
+
         return Rplus, Rcross
 
 
 
-    def michelson_response(self, f0, theta, phi, tsegmid, tsegstart): 
+    def michelson_response(self, f0, theta, phi, tsegmid, tsegstart):
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) at a given time for the three Michelson channels of an orbiting LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -182,14 +182,14 @@ class geometry(sph_geometry):
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-            
+            Sky position values.
+
         rs1, rs2, rs3  :  arrays
             Satellite position vectors.
-            
+
         tsegmid  :  array
             A numpy array of the midpoints for each time integration segment.
-    
+
 
         Returns
         ---------
@@ -198,16 +198,16 @@ class geometry(sph_geometry):
             Plus and cross antenna Patterns for the given sky direction for the three channels for each time in midpoints.
         '''
         print('Calculating detector response functions...')
-        
+
         self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
 
         ## Indices of midpoints array
         timeindices = np.arange(len(tsegmid))
-        
+
         ## Define cos/sin(theta)
         ct = np.cos(theta)
         st = np.sqrt(1-ct**2)
-        
+
         for ti in timeindices:
             ## Define x/y/z for each satellite at time given by tsegmid[ti]
             x1 = rs1[0][ti]
@@ -219,22 +219,22 @@ class geometry(sph_geometry):
             x3 = rs3[0][ti]
             y3 = rs3[1][ti]
             z3 = rs3[2][ti]
-            
+
             ## Define vector u at time timearray[ti]
             uvec = rs2[:,ti] - rs1[:,ti]
             vvec = rs3[:,ti] - rs1[:,ti]
             wvec = rs3[:,ti] - rs2[:,ti]
-    
+
             ## Calculate arm lengths
             Lu = np.sqrt(np.dot(uvec,uvec))
             Lv = np.sqrt(np.dot(vvec,vvec))
             Lw = np.sqrt(np.dot(wvec,wvec))
-         
+
             ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
             udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
             vdir = ((x3-x1)/Lv)*np.cos(phi)*st + ((y3-y1)/Lv)*np.sin(phi)*st + ((z3-z1)/Lv)*ct
             wdir = ((x3-x2)/Lw)*np.cos(phi)*st + ((y3-y2)/Lw)*np.sin(phi)*st + ((z3-z2)/Lw)*ct
-            
+
             ## Calculate 1/2(u x u):eplus
             Pcontract_u = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
                              (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)
@@ -242,46 +242,46 @@ class geometry(sph_geometry):
                              (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)
             Pcontract_w = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
                              (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)
-            
+
             ## Calculate 1/2(u x u):ecross
             Ccontract_u = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * \
                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)
-            
+
             Ccontract_v = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * \
                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)
-            
+
             Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * \
                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)
 
 
             ## Calculate the detector response for each frequency
             for ii in range(0, f0.size):
-    
+
                 ## Calculate GW transfer function for the michelson channels
                 gammaU_p    =    1/2 * (np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(3 + udir)) + \
                                         np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(1 + udir)))
                 gammaU_m    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
                                         np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
-                
+
                 gammaV_p    =    1/2 * (np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(3 + vdir)) + \
                                         np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(1+vdir)))
                 gammaV_m    =    1/2 * (np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - vdir)) + \
                                         np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - vdir)))
-                
+
                 gammaW_p    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 + wdir)) + \
                                         np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 + wdir)))
                 gammaW_m    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                                         np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
                 ## Michelson Channel Antenna patterns for + pol
                 ## Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
-    
+
                 Fplus_u_p   = Pcontract_u*gammaU_p
                 Fplus_u_m   = Pcontract_u*gammaU_m
                 Fplus_v_p   = Pcontract_v*gammaV_p
                 Fplus_v_m   = Pcontract_v*gammaV_m
                 Fplus_w_p   = Pcontract_w*gammaW_p
                 Fplus_w_m   = Pcontract_w*gammaW_m
-    
+
                 ## Michelson Channel Antenna patterns for x pol
                 ## Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
                 Fcross_u_p  = Ccontract_u*gammaU_p
@@ -290,30 +290,30 @@ class geometry(sph_geometry):
                 Fcross_v_m  = Ccontract_v*gammaV_m
                 Fcross_w_p  = Ccontract_w*gammaW_p
                 Fcross_w_m  = Ccontract_w*gammaW_m
-    
-    
+
+
                 ## First Michelson antenna patterns
                 ## Calculate Fplus
                 R1plus = (Fplus_u_p - Fplus_v_p)
                 R2plus = (Fplus_w_p - Fplus_u_m)
                 R3plus = (Fplus_v_m - Fplus_w_m)
-    
+
                 ## Calculate Fcross
                 R1cross = (Fcross_u_p - Fcross_v_p)
                 R2cross = (Fcross_w_p - Fcross_u_m)
                 R3cross = (Fcross_v_m - Fcross_w_m)
-        
+
 
         return R1plus, R1cross, R2plus, R2cross, R3plus, R3cross
-    
 
-    def aet_response(self, f0, theta, phi, tsegmid, tsegstart): 
+
+    def aet_response(self, f0, theta, phi, tsegmid, tsegstart):
 
 
 
         '''
         Calculate Antenna pattern/ detector transfer functions for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of an orbiting LISA. Return the detector responses for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-        
+
 
         Parameters
         -----------
@@ -322,11 +322,11 @@ class geometry(sph_geometry):
             A numpy array of scaled frequencies (see above for def)
 
         phi theta  : float
-            Sky position values. 
-                   
+            Sky position values.
+
         tsegmid  :  array
             A numpy array of the midpoints for each time integration segment.
-            
+
         rs1, rs2, rs3  :  array
             Satellite position vectors.
 
@@ -341,7 +341,7 @@ class geometry(sph_geometry):
         self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
 
         R1plus, R1cross, R2plus, R2cross, R3plus, R3cross  = self.orbiting_michelson_response(f0, theta, phi, tsegmid, tsegstart)
-        
+
 
         ## Calculate antenna patterns for the A, E and T channels
         RAplus = (2/3)*np.sin(2*f0)*(2*R1plus - R2plus - R3plus)
@@ -356,10 +356,10 @@ class geometry(sph_geometry):
 
     def isgwb_mich_response(self, f0, tsegstart, tsegmid):
         '''
-        Calculate the Antenna pattern/detector transfer function for an isotropic SGWB using basic michelson channels. 
+        Calculate the Antenna pattern/detector transfer function for an isotropic SGWB using basic michelson channels.
         Note that since this is the response to an isotropic background, the response function is integrated
         over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
-        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array. 
+        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array.
         Parameters
         -----------
 
@@ -368,7 +368,7 @@ class geometry(sph_geometry):
 
         tsegstart  :  float
             A numpy array of segment start times
-        
+
         tsegmid  :  float
             A numpy array of segment midpoints
 
@@ -376,11 +376,11 @@ class geometry(sph_geometry):
         ---------
 
         response_tess   :   float
-            4D array of covariance matrices for antenna patterns of the three channels, integrated over sky direction 
+            4D array of covariance matrices for antenna patterns of the three channels, integrated over sky direction
             and averaged over polarization, across all frequencies and times.
-            
+
         '''
-        
+
         npix = hp.nside2npix(self.params['nside'])
 
         # Array of pixel indices
@@ -391,21 +391,20 @@ class geometry(sph_geometry):
 
         # Take cosine.
         ctheta = np.cos(theta)
-        
+
         # Area of each pixel in sq.radians
         dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
-        
+
         # Create 2D array of (x,y,z) unit vectors for every sky direction.
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
-        
+
         # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
         rs1, rs2, rs3 = self.lisa_orbits(tsegmid, tsegstart)
-        
+
         udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],omegahat)
         vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],omegahat)
         wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],omegahat)
-        
-        import pdb
+
         # Calculate GW transfer function for Michelson channels
         gammaU_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+udir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+udir)))
@@ -415,7 +414,7 @@ class geometry(sph_geometry):
 
         gammaW_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-wdir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+wdir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+wdir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+wdir)))
-        
+
         gammaU_minus   =    1/2 * (np.sinc(np.einsum("i,jk",f0,1+udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3-udir)) + \
                          np.sinc(np.einsum("i,jk",f0,1-udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1-udir)))
 
@@ -424,8 +423,8 @@ class geometry(sph_geometry):
 
         gammaW_minus   =    1/2 * (np.sinc(np.einsum("i,jk",f0,1+wdir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3-wdir)) + \
                          np.sinc(np.einsum("i,jk",f0,1-wdir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1-wdir)))
-        
-        '''NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations 
+
+        '''NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations
                     as opposed to the explicit forms we've previously used. '''
         mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
         nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
@@ -450,10 +449,10 @@ class geometry(sph_geometry):
         Fcross_w = 0.5*np.einsum("ijk,ijl", \
                               np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
-        
+
 
         '''NB -- there remains the question of floating 1/2's'''
-        
+
         ## Michelson Antenna Patterns
         ## Gammas are (frequency x time x sky direction), Fplus/Fcross are (time x sky direction), exponent is (frequency x time x sky direction)
         Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*np.einsum("i,jk",f0,udir+vdir)/np.sqrt(3))
@@ -476,10 +475,10 @@ class geometry(sph_geometry):
         R23 = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3 , axis=2)
 
         response_tess = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
-        pdb.set_trace()
+
         return response_tess
-    
-    
+
+
     def old_isgwb_mich_response(self, f0):
 
         '''
