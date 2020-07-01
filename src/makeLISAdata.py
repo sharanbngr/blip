@@ -396,9 +396,9 @@ class LISAdata(geometry, instrNoise):
 
 
         # Take inverse fft to get time series data
-        h1 = np.real(np.fft.ifft(htilda1, N))
-        h2 = np.real(np.fft.ifft(htilda2, N))
-        h3 = np.real(np.fft.ifft(htilda3, N))
+        h1 = np.fft.irfft(htilda1, N)
+        h2 = np.fft.irfft(htilda2, N)
+        h3 = np.fft.irfft(htilda3, N)
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
@@ -423,6 +423,7 @@ class LISAdata(geometry, instrNoise):
 
         ## Number of time-domain points in a splice segment
         N = int(self.params['fs']*tsplice)
+        halfN = int(0.5*N)
 
         ## leave out f = 0
         frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
@@ -444,7 +445,14 @@ class LISAdata(geometry, instrNoise):
         ## concatenate with zero norm for the dc value
         norms = np.concatenate([[0], np.sqrt(self.params['fs']*Sgw*N)])
 
+        ## index array for one segment
+        t_arr = np.arange(N)
 
+        ## the window for splicing
+        splice_win = np.sin(np.pi * t_arr/N)
+
+
+        ## Loop over splice segments
         for ii in range(nsplice):
 
             if self.inj['injtype'] == 'isgwb':
@@ -478,27 +486,36 @@ class LISAdata(geometry, instrNoise):
 
 
             ## generate standard normal complex data frist
-            z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
-            z_norm2 = z_norm.transpose()
+            z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
 
-            ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
-            z_scale = np.zeros(z_norm.shape, dtype='complex')
+            ## The data in z_norm is rescaled into z_scale using L_cholesky
+            zscale = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm[:, :, None])[:, :, 0]
 
-            for jj in range(frange.size):
-                z_scale[:, jj] = np.matmul(L_cholesky[jj, :, :], z_norm[:, jj])
+            ## The three channels
+            htilda1, htilda2, htilda3 = z_scale[:, 0],  z_scale[:, 1], z_scale[:, 2]
 
-            zscale2 = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm2[:, :, None])
+            if ii == 0:
+                # Take inverse fft to get time series data
+                h1 = splice_win * np.fft.irfft(htilda1, N)
+                h2 = splice_win * np.fft.irfft(htilda2, N)
+                h3 = splice_win * np.fft.irfft(htilda3, N)
 
-        ## The three channels
-        htilda1, htilda2, htilda3 = z_scale[0, :],  z_scale[1, :], z_scale[2, :],
+            else:
 
-        # Take inverse fft to get time series data
-        h1 = np.real(np.fft.ifft(htilda1, N))
-        h2 = np.real(np.fft.ifft(htilda2, N))
-        h3 = np.real(np.fft.ifft(htilda3, N))
+                ## First append half-splice worth of zeros
+                h1 = np.append(h1, np.zeros(halfN))
+                h2 = np.append(h2, np.zeros(halfN))
+                h3 = np.append(h3, np.zeros(halfN))
+
+                ## Then add the new splice segment
+                h1[-N:] = h1[-N:] + splice_win * np.fft.irfft(htilda1, N)
+                h2[-N:] = h2[-N:] + splice_win * np.fft.irfft(htilda2, N)
+                h3[-N:] = h3[-N:] + splice_win * np.fft.irfft(htilda3, N)
+
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
+        import pdb; pdb.set_trace()
 
         return h1, h2, h3, tarr
 
