@@ -401,10 +401,13 @@ class geometry(sph_geometry):
         # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
         rs1, rs2, rs3 = self.lisa_orbits(tsegmid, tsegstart)
 
-        udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],omegahat)
-        vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],omegahat)
-        wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],omegahat)
+        ## Dimensions of udir is time-segs x sky-pixels
+        udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],omegahat)
+        vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
+        wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
 
+
+        import pdb; pdb.set_trace()
         # Calculate GW transfer function for Michelson channels
         gammaU_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+udir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+udir)))
