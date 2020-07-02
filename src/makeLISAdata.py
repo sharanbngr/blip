@@ -473,9 +473,7 @@ class LISAdata(geometry, instrNoise):
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
-
-<<<<<<< HEAD
-        return hX, hY, hZ, tarr
+        return h1, h2, h3, tarr
 
     def add_earlygw_data(self, fs=0.25, dur=1e5):
 
@@ -534,17 +532,12 @@ class LISAdata(geometry, instrNoise):
             htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
             htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
 
-=======
-        return h1, h2, h3, tarr
->>>>>>> f30ffef... (1) Injections now cover the full freq band, (2) argparse for plotmaker to run from commandline
-
         # Take inverse fft to get time series data
         hX = np.real(np.fft.ifft(htilda_X, N))
         hY = np.real(np.fft.ifft(htilda_Y, N))
         hZ = np.real(np.fft.ifft(htilda_Z, N))
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
-
 
         return hX, hY, hZ, tarr
 
