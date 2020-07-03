@@ -389,7 +389,7 @@ class LISAdata(geometry, instrNoise):
             z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
 
 
-        ## The three channels
+        ## The three channels : concatenate with norm at f = 0 to be zero
         htilda1  = np.concatenate([ [0], z_scale[0, :]])
         htilda2  = np.concatenate([ [0], z_scale[1, :]])
         htilda3  = np.concatenate([ [0], z_scale[2, :]])
@@ -432,7 +432,7 @@ class LISAdata(geometry, instrNoise):
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
 
-        ## Response matrix
+        ## Response matrix : shape (3 x 3 x freq x time) if isotropic
         response_mat = self.add_astro_signal(f0, tstarts, tmids)
 
         ## Cholesky decomposition to get the "sigma" matrix
@@ -442,8 +442,8 @@ class LISAdata(geometry, instrNoise):
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
 
-        ## concatenate with zero norm for the dc value
-        norms = np.concatenate([[0], np.sqrt(self.params['fs']*Sgw*N)])
+        ## the spectrum of the frequecy domain gaussian for ifft
+        norms = np.sqrt(self.params['fs']*Sgw*N)
 
         ## index array for one segment
         t_arr = np.arange(N)
@@ -456,6 +456,7 @@ class LISAdata(geometry, instrNoise):
         for ii in range(nsplice):
 
             if self.inj['injtype'] == 'isgwb':
+                ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
 
             elif self.inj['injtype'] == 'sph_sgwb':
@@ -481,7 +482,7 @@ class LISAdata(geometry, instrNoise):
                 ## response matrix summed over Ylms
                 summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
 
-                ## cholesky decomposition
+                ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
 
@@ -489,10 +490,13 @@ class LISAdata(geometry, instrNoise):
             z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
 
             ## The data in z_norm is rescaled into z_scale using L_cholesky
-            zscale = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm[:, :, None])[:, :, 0]
+            z_scale = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm[:, :, None])[:, :, 0]
 
-            ## The three channels
-            htilda1, htilda2, htilda3 = z_scale[:, 0],  z_scale[:, 1], z_scale[:, 2]
+            ## The three channels : concatenate with norm at f = 0 to be zero
+            htilda1  = np.concatenate([ [0], z_scale[:, 0]])
+            htilda2  = np.concatenate([ [0], z_scale[:, 1]])
+            htilda3  = np.concatenate([ [0], z_scale[:, 2]])
+
 
             if ii == 0:
                 # Take inverse fft to get time series data
@@ -513,9 +517,10 @@ class LISAdata(geometry, instrNoise):
                 h3[-N:] = h3[-N:] + splice_win * np.fft.irfft(htilda3, N)
 
 
-        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
+        ## remove the first half and the last half splice.
+        h1, h2, h3 = h1[halfN:-halfN], h2[halfN:-halfN], h3[halfN:-halfN]
 
-        import pdb; pdb.set_trace()
+        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
         return h1, h2, h3, tarr
 

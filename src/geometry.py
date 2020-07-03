@@ -408,7 +408,8 @@ class geometry(sph_geometry):
 
 
         import pdb; pdb.set_trace()
-        # Calculate GW transfer function for Michelson channels
+        ## Calculate GW transfer function for Michelson channels
+        ## For the back and forth ligh travel
         gammaU_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+udir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+udir)))
 
@@ -431,26 +432,31 @@ class geometry(sph_geometry):
                     as opposed to the explicit forms we've previously used. '''
         mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
         nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
-        # 1/2 u x u : eplus
+
+        # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
         Fplus_u = 0.5*np.einsum("ijk,ijl", \
-                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None]), \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :], (rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
         Fplus_v = 0.5*np.einsum("ijk,ijl", \
-                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None]), \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
         Fplus_w = 0.5*np.einsum("ijk,ijl", \
-                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
 
         # 1/2 u x u : ecross
         Fcross_u = 0.5*np.einsum("ijk,ijl", \
-                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None],(rs2-rs1)/LA.norm(rs2-rs1,axis=1)[:,None]), \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
         Fcross_v = 0.5*np.einsum("ijk,ijl", \
-                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None],(rs3-rs1)/LA.norm(rs3-rs1,axis=1)[:,None]), \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
         Fcross_w = 0.5*np.einsum("ijk,ijl", \
-                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None],(rs3-rs2)/LA.norm(rs3-rs2,axis=1)[:,None]), \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
 
 
