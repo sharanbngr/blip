@@ -406,13 +406,18 @@ class geometry(sph_geometry):
         vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
         wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
 
-
-        import pdb; pdb.set_trace()
+        ii = 0
         ## Calculate GW transfer function for Michelson channels
         ## For the back and forth ligh travel
+        gammaU_freq    =    1/2 * (np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(3+udir)) + \
+                             np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(1+udir)))
+
+
+
         gammaU_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+udir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+udir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+udir)))
 
+        import pdb; pdb.set_trace()
         gammaV_plus    =    1/2 * (np.sinc(np.einsum("i,jk",f0,1-vdir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,3+vdir)) + \
                          np.sinc(np.einsum("i,jk",f0,1+vdir)/np.pi)*np.exp(-1j*np.einsum("i,jk",f0,1+vdir)))
 
