@@ -35,8 +35,10 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
+        print('calculating the anisotropic responses')
+
         ## array size of almax
-        alm_size = Alm.getsize(self.almax)
+        alm_size = (self.almax + 1)**2
 
         npix = hp.nside2npix(self.params['nside'])
 
@@ -64,16 +66,18 @@ class sph_geometry(clebschGordan):
         R12 = np.zeros((f0.size, alm_size), dtype='complex')
         R13 = np.zeros((f0.size, alm_size), dtype='complex')
         R23 = np.zeros((f0.size, alm_size), dtype='complex')
+        R21 = np.zeros((f0.size, alm_size), dtype='complex')
+        R31 = np.zeros((f0.size, alm_size), dtype='complex')
+        R32 = np.zeros((f0.size, alm_size), dtype='complex')
+
 
         ## initalize array for Ylms
         Ylms = np.zeros((npix, alm_size ), dtype='complex')
 
         ## Get the spherical harmonics
-        cnt = 0
-        for lval in range(self.params['lmax'] + 1):
-            for mval in range(lval + 1):
-                Ylms[:, cnt] = sph_harm(mval, lval, phi, theta)
-                cnt = cnt + 1
+        for ii in range(alm_size):
+            lval, mval = self.idxtoalm(self.almax, ii)
+            Ylms[:, ii] = sph_harm(mval, lval, phi, theta)
 
 
         # Calculate the detector response for each frequency
@@ -134,7 +138,7 @@ class sph_geometry(clebschGordan):
             F1 = (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2
             F2 = (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2
             F3 = (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2
-            F12 = np.conj(Fplus1)*Fplus1 + np.conj(Fcross1)*Fcross2
+            F12 = np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2
             F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
             F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
 
@@ -144,8 +148,12 @@ class sph_geometry(clebschGordan):
             R12[ii, :] = dOmega/(8*np.pi)*np.sum( F12[:, None] * Ylms, axis=0 )
             R13[ii, :] = dOmega/(8*np.pi)*np.sum( F13[:, None] * Ylms, axis=0)
             R23[ii, :] = dOmega/(8*np.pi)*np.sum( F23[:, None] * Ylms, axis=0)
+            R21[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(F12[:, None]) * Ylms, axis=0 )
+            R31[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(F13[:, None]) * Ylms, axis=0)
+            R32[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(F23[:, None]) * Ylms, axis=0)
 
-        response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
+
+        response_mat = np.array([ [R1, R12, R13] , [R21, R2, R23], [R31, R32, R3] ])
 
         return response_mat
 
