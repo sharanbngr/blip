@@ -224,7 +224,6 @@ class LISA(LISAdata, Bayes):
                 R3 = np.real(summ_response_mat[2, 2, :, 0])
 
             else:
-                import pdb; pdb.set_trace()
                 ## extra auto-power GW responses
                 R1 = np.real(self.response_mat[0, 0, :, 0])
                 R2 = np.real(self.response_mat[1, 1, :, 0])
