@@ -418,6 +418,9 @@ class LISAdata(geometry, instrNoise):
         nsplice = 2*int(self.params['dur']/tsplice) + 1
 
         ## arrays of segmnent start and mid times
+        #tmids = (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
+
+        ## arrays of segmnent start and mid times
         tstarts = (tsplice/2.0) * np.arange(nsplice)
         tmids = tstarts + (tsplice/2.0)
 
