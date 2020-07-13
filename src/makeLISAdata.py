@@ -407,7 +407,7 @@ class LISAdata(geometry, instrNoise):
 
     def add_sgwb_data(self, fs=0.25, dur=1e5):
 
-
+        
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
         N = int(self.params['fs']*self.params['dur'])

@@ -92,14 +92,14 @@ class Bayes():
         return (log_Np, log_Na, alpha, log_omega0)
 
     def primo_prior(self, theta):
-        log_Np, log_Na, nHat, wHat = theta
-        
-        nHat = 2*nHat - 1
-        wHat = 2*wHat - 0.33
+        # log_Np, log_Na, nHat, wHat = theta
+        log_Np, log_Na, nHat= theta
+        nHat = 2*nHat 
+        # wHat = 2*wHat - 0.33
         log_Np = -5*log_Np - 39
         log_Na = -5*log_Na - 46
         
-        return (log_Np, log_Na, nHat, wHat)
+        return (log_Np, log_Na, nHat)
         
     def sph_prior(self, theta):
 
@@ -328,7 +328,11 @@ class Bayes():
 
 
     def primo_log_likelihood(self, theta):
-        log_Np, log_Na, nHat, wHat = theta
+        # log_Np, log_Na, nHat, wHat = theta
+        log_Np, log_Na, nHat = theta
+        
+        ###
+        wHat = self.inj['wHat']
         
         Np, Na = 10**(log_Np), 10**(log_Na)
         

@@ -525,8 +525,8 @@ def blip(paramsfile='params.ini'):
     elif params['modeltype'] == 'primordial':
 
         print("Doing primordial stochastic analysis ...")
-        parameters = [
-            r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$', r'$\hat{w}$']
+        # parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$', r'$\hat{w}$']
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$']
         npar = len(parameters)
         engine = NestedSampler(lisa.primo_log_likelihood, lisa.primo_prior,
                                npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
@@ -557,8 +557,10 @@ def blip(paramsfile='params.ini'):
     print("npar = " + str(npar))
 
     # -------------------- Extract and Plot posteriors ---------------------------
+    print('Running signal engine ... ')
     engine.run_nested(dlogz=0.5, print_progress=True)
     ### addtional ###
+    print('Running instrument noise engine ... ')
     instr_engine.run_nested(dlogz=0.5, print_progress=True)
     
     # re-scale weights to have a maximum of one
