@@ -18,7 +18,9 @@ class geometry(sph_geometry):
             sph_geometry.__init__(self)
 
 
-    def lisa_orbits(self, tsegmid, tsegstart):
+
+    def lisa_orbits(self, tsegmid):
+
 
         '''
         Define LISA orbital positions at the midpoint of each time integration segment using analytic MLDC orbits.
@@ -36,8 +38,11 @@ class geometry(sph_geometry):
         '''
         ## Branch orbiting and stationary cases; compute satellite position in stationary case based off of first time entry in data.
         if self.params['lisa_config'] == 'stationary':
+            # Calculate start time from tsegmid
+            tstart = tsegmid[0] - (tsegmid[1] - tsegmid[0])/2
+            # Fill times array with just the start time
             times = np.empty(len(tsegmid))
-            times.fill(tsegstart[0])
+            times.fill(tstart)
         elif self.params['lisa_config'] == 'orbiting':
             times = tsegmid
         else:
@@ -354,7 +359,7 @@ class geometry(sph_geometry):
 
         return RAplus, RAcross, REplus, REcross, RTplus, RTcross
 
-    def isgwb_mich_response(self, f0, tsegstart, tsegmid):
+    def isgwb_mich_response(self, f0, tsegmid):
         '''
         Calculate the Antenna pattern/detector transfer function for an isotropic SGWB using basic michelson channels.
         Note that since this is the response to an isotropic background, the response function is integrated
@@ -399,15 +404,19 @@ class geometry(sph_geometry):
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
 
         # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
-        rs1, rs2, rs3 = self.lisa_orbits(tsegmid, tsegstart)
 
+        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
+
+        ## Calculate directional unit vector dot products
         ## Dimensions of udir is time-segs x sky-pixels
         udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],omegahat)
         vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
         wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
 
+
         ## NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations
         ##             as opposed to the explicit forms we've previously used. '''
+
         mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
         nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
 
@@ -436,6 +445,7 @@ class geometry(sph_geometry):
         Fcross_w = 0.5*np.einsum("ijk,ijl", \
                               np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
 
 
         # Initlize arrays for the detector reponse
@@ -495,11 +505,6 @@ class geometry(sph_geometry):
         response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
 
         return response_mat
-
-
-
-
-
 
 
     def old_isgwb_mich_response(self, f0):
@@ -626,7 +631,7 @@ class geometry(sph_geometry):
         return response_mat
 
 
-    def isgwb_xyz_response(self, f0, tsegstart, tsegmid):
+    def isgwb_xyz_response(self, f0, tsegmid):
 
         '''
         Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using X, Y and Z TDI
@@ -645,13 +650,13 @@ class geometry(sph_geometry):
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        mich_response_mat = self.isgwb_mich_response(f0)
+        mich_response_mat = self.isgwb_mich_response(f0,tsegmid)
         xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :]))**2
 
         return xyz_response_mat
 
 
-    def isgwb_aet_response(self, f0, tsegstart, tsegmid):
+    def isgwb_aet_response(self, f0, tsegmid):
 
         '''
         Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using A, E and T TDI channels.
@@ -671,7 +676,7 @@ class geometry(sph_geometry):
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
 
-        xyz_response_mat = self.isgwb_xyz_response(f0)
+        xyz_response_mat = self.isgwb_xyz_response(f0,tsegmid)
 
         ## Upnack xyz matrix to make assembling the aet matrix easier
         RXX, RYY, RZZ = xyz_response_mat[0, 0], xyz_response_mat[1, 1], xyz_response_mat[2, 2]
