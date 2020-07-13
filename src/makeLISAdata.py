@@ -421,8 +421,7 @@ class LISAdata(geometry, instrNoise):
         #tmids = (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
 
         ## arrays of segmnent start and mid times
-        tstarts = (tsplice/2.0) * np.arange(nsplice)
-        tmids = tstarts + (tsplice/2.0)
+        tmids =  (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
 
         ## Number of time-domain points in a splice segment
         N = int(self.params['fs']*tsplice)
@@ -436,7 +435,7 @@ class LISAdata(geometry, instrNoise):
         f0 = frange/(2*fstar)
 
         ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-        response_mat = self.add_astro_signal(f0, tstarts, tmids)
+        response_mat = self.add_astro_signal(f0, tmids)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
@@ -473,10 +472,10 @@ class LISAdata(geometry, instrNoise):
                 ## extrct only the non-negative components
                 alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
 
-                ## converts alm_inj into a healpix max to be plotted and saved
-                skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
-
                 if ii == 0:
+
+                    ## converts alm_inj into a healpix max to be plotted and saved
+                    skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
                     hp.mollview(skymap_inj, title='Angular distribution map')
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')

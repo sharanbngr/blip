@@ -129,7 +129,7 @@ class LISA(LISAdata, Bayes):
         ## Calculate reponse function to use for analysis
         if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
             self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
-            
+
         elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
             self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
 
@@ -137,11 +137,11 @@ class LISA(LISAdata, Bayes):
             self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
 
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
-            self.response_mat = self.asgwb_mich_response(self.f0)
+            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
-            self.response_mat = self.asgwb_xyz_response(self.f0)
+            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-            self.response_mat = self.asgwb_aet_response(self.f0)
+            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
         elif self.params['modeltype'] == 'noise_only':
             print('Noise only model chosen ...')

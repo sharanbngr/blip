@@ -404,7 +404,6 @@ class geometry(sph_geometry):
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
 
         # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
-
         rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
 
         ## Calculate directional unit vector dot products
