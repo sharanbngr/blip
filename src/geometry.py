@@ -526,7 +526,7 @@ class geometry(sph_geometry):
         '''
 
         mich_response_mat = self.isgwb_mich_response(f0,tsegmid)
-        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :]))**2
+        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None]))**2
 
         return xyz_response_mat
 
