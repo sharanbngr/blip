@@ -445,7 +445,7 @@ class LISAdata(geometry, instrNoise):
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
 
         ## the spectrum of the frequecy domain gaussian for ifft
-        norms = np.sqrt(self.params['fs']*Sgw*N)
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2
 
         ## index array for one segment
         t_arr = np.arange(N)
