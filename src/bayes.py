@@ -243,7 +243,7 @@ class Bayes():
             The log-likelihood value at the sampled point in the parameter space
         '''
 
-
+        
         # unpack priors
         log_Np, log_Na  = theta
 
@@ -266,7 +266,7 @@ class Bayes():
         logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
-
+        
         return loglike
 
 
@@ -328,6 +328,8 @@ class Bayes():
 
 
     def primo_log_likelihood(self, theta):
+        
+        
         # log_Np, log_Na, nHat, wHat = theta
         log_Np, log_Na, nHat = theta
         

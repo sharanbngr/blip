@@ -389,16 +389,16 @@ class LISAdata(geometry, instrNoise):
             z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
 
 
-        ## The three channels
+        ## The three channels : concatenate with norm at f = 0 to be zero
         htilda1  = np.concatenate([ [0], z_scale[0, :]])
         htilda2  = np.concatenate([ [0], z_scale[1, :]])
         htilda3  = np.concatenate([ [0], z_scale[2, :]])
 
 
         # Take inverse fft to get time series data
-        h1 = np.real(np.fft.ifft(htilda1, N))
-        h2 = np.real(np.fft.ifft(htilda2, N))
-        h3 = np.real(np.fft.ifft(htilda3, N))
+        h1 = np.fft.irfft(htilda1, N)
+        h2 = np.fft.irfft(htilda2, N)
+        h3 = np.fft.irfft(htilda3, N)
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
@@ -407,18 +407,35 @@ class LISAdata(geometry, instrNoise):
 
     def add_sgwb_data(self, fs=0.25, dur=1e5):
 
-        
+
         cspeed = 3e8 #m/s
-        delf  = 1.0/self.params['dur']
-        N = int(self.params['fs']*self.params['dur'])
 
-        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])
-        #frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        ## define the splice segment duration
+        tsplice = 1e4
+        delf  = 1.0/tsplice
 
+        ## the segments to be splices are half-overlapping
+        nsplice = 2*int(self.params['dur']/tsplice) + 1
+
+        ## arrays of segmnent start and mid times
+        #tmids = (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
+
+        ## arrays of segmnent start and mid times
+        tmids =  (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
+
+        ## Number of time-domain points in a splice segment
+        N = int(self.params['fs']*tsplice)
+        halfN = int(0.5*N)
+
+        ## leave out f = 0
+        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
+
+        ## the charecteristic frequency of LISA, and the scaled frequency array
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
 
-        response_mat = self.add_astro_signal(f0)
+        ## Response matrix : shape (3 x 3 x freq x time) if isotropic
+        response_mat = self.add_astro_signal(f0, tmids)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
@@ -427,69 +444,118 @@ class LISAdata(geometry, instrNoise):
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
 
-        ## set Sgw[f=0] = 0 to avoid nans
-        Sgw[0] = 0
+        ## the spectrum of the frequecy domain gaussian for ifft
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2
 
-        norms = np.sqrt(self.params['fs']*Sgw*N)
+        ## index array for one segment
+        t_arr = np.arange(N)
 
-        if self.inj['injtype'] == 'isgwb':
-            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
-
-        elif self.inj['injtype'] == 'sph_sgwb':
-
-            ## get alms
-            alms_inj = self.blm_2_alm(self.inj['blms'])
-
-            ## converts alm_inj into a healpix max to be plotted and saved
-            skymap_inj = hp.alm2map(alms_inj, self.params['nside'])
-
-            hp.mollview(skymap_inj, title='Angular distribution map')
-            plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-            print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-            plt.close()
-
-            ## response matrix summed over Ylms
-            summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, :], axis=-1)
-            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat, -1, 0))
+        ## the window for splicing
+        splice_win = np.sin(np.pi * t_arr/N)
 
 
-        ## generate standard normal complex data frist
-        z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+        ## Loop over splice segments
+        for ii in range(nsplice):
 
-        ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
-        z_scale = np.zeros(z_norm.shape, dtype='complex')
+            if self.inj['injtype'] == 'isgwb':
+                ## move frequency to be the zeroth-axis, then cholesky decomp
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
 
-        for ii in range(frange.size):
-            z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
+            elif self.inj['injtype'] == 'sph_sgwb':
+
+                ## get alms
+                alms_inj = self.blm_2_alm(self.inj['blms'])
+
+                ## normalize
+                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+                ## extrct only the non-negative components
+                alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+
+                if ii == 0:
+
+                    ## converts alm_inj into a healpix max to be plotted and saved
+                    skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+                    hp.mollview(skymap_inj, title='Angular distribution map')
+                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                    plt.close()
+
+                ## response matrix summed over Ylms
+                summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
+
+                ## move frequency to be the zeroth-axis, then cholesky decomp
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
 
-        ## The three channels
-        htilda1, htilda2, htilda3 = z_scale[0, :],  z_scale[1, :], z_scale[2, :],
+            ## generate standard normal complex data frist
+            z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
 
-        # Take inverse fft to get time series data
-        h1 = np.real(np.fft.ifft(htilda1, N))
-        h2 = np.real(np.fft.ifft(htilda2, N))
-        h3 = np.real(np.fft.ifft(htilda3, N))
+            ## The data in z_norm is rescaled into z_scale using L_cholesky
+            z_scale = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm[:, :, None])[:, :, 0]
+
+            ## The three channels : concatenate with norm at f = 0 to be zero
+            htilda1  = np.concatenate([ [0], z_scale[:, 0]])
+            htilda2  = np.concatenate([ [0], z_scale[:, 1]])
+            htilda3  = np.concatenate([ [0], z_scale[:, 2]])
+
+
+            if ii == 0:
+                # Take inverse fft to get time series data
+                h1 = splice_win * np.fft.irfft(htilda1, N)
+                h2 = splice_win * np.fft.irfft(htilda2, N)
+                h3 = splice_win * np.fft.irfft(htilda3, N)
+
+            else:
+
+                ## First append half-splice worth of zeros
+                h1 = np.append(h1, np.zeros(halfN))
+                h2 = np.append(h2, np.zeros(halfN))
+                h3 = np.append(h3, np.zeros(halfN))
+
+                ## Then add the new splice segment
+                h1[-N:] = h1[-N:] + splice_win * np.fft.irfft(htilda1, N)
+                h2[-N:] = h2[-N:] + splice_win * np.fft.irfft(htilda2, N)
+                h3[-N:] = h3[-N:] + splice_win * np.fft.irfft(htilda3, N)
+
+
+        ## remove the first half and the last half splice.
+        h1, h2, h3 = h1[halfN:-halfN], h2[halfN:-halfN], h3[halfN:-halfN]
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
         return h1, h2, h3, tarr
 
     def add_earlygw_data(self, fs=0.25, dur=1e5):
-
+        
         cspeed = 3e8 #m/s
-        delf  = 1.0/self.params['dur']
-        frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
+        
+        ## define the splice segment duration
+        tsplice = 1e4
+        delf = 1.0/tsplice
+        
+        ## the segments to be splices are half-overlapping
+        nsplice = 2*int(self.params['dur']/tsplice) + 1
+
+        ## arrays of segmnent start and mid times
+        tmids =  (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
+
+        ## Number of time-domain points in a splice segment
+        N = int(self.params['fs']*tsplice)
+        halfN = int(0.5*N)
+
+        ## leave out f = 0
+        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
+
+        ## the charecteristic frequency of LISA, and the scaled frequency array
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
 
-        N = int(self.params['fs']*self.params['dur'])
-
-        response_mat = self.add_astro_signal(f0)
-
+        ## Response matrix : shape (3 x 3 x freq x time) if isotropic
+        response_mat = self.add_astro_signal(f0, tmids)
+        
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
-        # Calculate noise in case 1, no r and omega0
         g_bbn = 10.75
         gs_bbn = 10.75
         g_eq = 3.3626
@@ -506,42 +572,59 @@ class LISAdata(geometry, instrNoise):
 
         alpha_hat = 2 * (3 * self.inj['wHat'] - 1) / (3 * self.inj['wHat'] + 1)
         Omegaf = self.inj['rts']*(A1 * A2**alpha_hat * A3**self.inj['nHat'])
-
+        
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
-        norms = np.sqrt(self.params['fs']*Sgw*N)
 
-        L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat, -1, 0))
+        ## the spectrum of the frequecy domain gaussian for ifft
+        norms = np.sqrt(self.params['fs']*Sgw*N)/2
+
+        ## index array for one segment
+        t_arr = np.arange(N)
+
+        ## the window for splicing
+        splice_win = np.sin(np.pi * t_arr/N)
         
-        ## generate standard normal complex data frist
-        z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
+        for ii in range(nsplice):
+            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
+        
+            ## generate standard normal complex data frist
+            z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
 
-        ## initialize a new scaled array. The data in z_norm will be rescaled into z_scale
-        z_scale = np.zeros(z_norm.shape, dtype='complex')
+            ## The data in z_norm is rescaled into z_scale using L_cholesky
+            z_scale = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm[:, :, None])[:, :, 0]
 
-        for ii in range(frange.size):
-            z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
+            ## The three channels : concatenate with norm at f = 0 to be zero
+            htilda1  = np.concatenate([ [0], z_scale[:, 0]])
+            htilda2  = np.concatenate([ [0], z_scale[:, 1]])
+            htilda3  = np.concatenate([ [0], z_scale[:, 2]])
+        
+            if ii == 0:
+                # import pdb; pdb.set_trace()
+                # Take inverse fft to get time series data
+                h1 = splice_win * np.fft.irfft(htilda1, N)
+                h2 = splice_win * np.fft.irfft(htilda2, N)
+                h3 = splice_win * np.fft.irfft(htilda3, N)
+
+            else:
+                ## First append half-splice worth of zeros
+                h1 = np.append(h1, np.zeros(halfN))
+                h2 = np.append(h2, np.zeros(halfN))
+                h3 = np.append(h3, np.zeros(halfN))
+
+                ## Then add the new splice segment
+                h1[-N:] = h1[-N:] + splice_win * np.fft.irfft(htilda1, N)
+                h2[-N:] = h2[-N:] + splice_win * np.fft.irfft(htilda2, N)
+                h3[-N:] = h3[-N:] + splice_win * np.fft.irfft(htilda3, N)
 
 
-        if np.mod(N, 2) == 0:
-            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.zeros(1), np.flipud(np.conjugate(z_scale[0, :]))))
-            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.zeros(1), np.flipud(np.conjugate(z_scale[1, :]))))
-            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.zeros(1), np.flipud(np.conjugate(z_scale[2, :]))))
-        else:
-            htilda_X = np.concatenate((np.zeros(1), z_scale[0, :], np.flipud(np.conjugate(z_scale[0, :]))))
-            htilda_Y = np.concatenate((np.zeros(1), z_scale[1, :], np.flipud(np.conjugate(z_scale[1, :]))))
-            htilda_Z = np.concatenate((np.zeros(1), z_scale[2, :], np.flipud(np.conjugate(z_scale[2, :]))))
-
-        # Take inverse fft to get time series data
-        hX = np.real(np.fft.ifft(htilda_X, N))
-        hY = np.real(np.fft.ifft(htilda_Y, N))
-        hZ = np.real(np.fft.ifft(htilda_Z, N))
+        ## remove the first half and the last half splice.
+        h1, h2, h3 = h1[halfN:-halfN], h2[halfN:-halfN], h3[halfN:-halfN]
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
-        return hX, hY, hZ, tarr
-
-
+        return h1, h2, h3, tarr
+        
     def add_sgwb_data_tshift(self, fs=0.25, dur=1e5):
 
         '''
@@ -772,5 +855,4 @@ class LISAdata(geometry, instrNoise):
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
 
         return r1, r2, r3, fdata, tsegstart, tsegmid
-
 
