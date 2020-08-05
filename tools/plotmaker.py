@@ -3,9 +3,116 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
+import healpy as hp
 from healpy import Alm
 import pickle, argparse
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+
+
+def mapmaker(params, post):
+
+    # size of the blm array
+    blm_size = Alm.getsize(params['lmax'])
+
+    npix = hp.nside2npix(params['nside'])
+
+    # Initialize power skymap
+    omega_map = np.zeros(npix)
+
+    blmax = params['lmax']
+
+    for ii in range(post.shape[0]):
+
+        sample = post[ii, :]
+
+        # Omega at 1 mHz
+        Omega_1mHz = (10**(sample[3])) * (1e-3/25)**(sample[2])
+
+        ## blms.
+        blms = np.append([1], sample[4:])
+
+        ## Complex array of blm values for both +ve m values
+        blm_vals = np.zeros(blm_size, dtype='complex')
+
+        ## this is b00, alsways set to 1
+        blm_vals[0] = 1
+        norm, cnt = 1, 1
+
+        for lval in range(1, blmax + 1):
+            for mval in range(lval + 1):
+
+                idx = Alm.getidx(blmax, lval, mval)
+
+                if mval == 0:
+                    blm_vals[idx] = blms[cnt]
+                    cnt = cnt + 1
+                else:
+                    ## prior on amplitude, phase
+                    blm_vals[idx] = blms[cnt] * np.exp(2*np.pi*blms[cnt+1])
+                    cnt = cnt + 2
+
+        norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
+
+        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, params['nside'], verbose=False))**2
+
+        ## add to the omega map
+        omega_map = omega_map + Omega_1mHz * prob_map
+
+    omega_map = omega_map/post.shape[0]
+
+    hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
+    print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
+    plt.close()
+
+
+    #### ------------ Now plot median value
+
+    # median values of the posteriors
+    med_vals = np.median(post, axis=0)
+
+    ## blms.
+    blms_median = np.append([1], med_vals[4:])
+
+    # Omega at 1 mHz
+    Omega_1mHz_median = (10**(med_vals[3])) * (1e-3/25)**(med_vals[2])
+
+    ## Complex array of blm values for both +ve m values
+    blm_median_vals = np.zeros(blm_size, dtype='complex')
+
+    ## this is b00, alsways set to 1
+    blm_median_vals[0] = 1
+    cnt = 1
+
+    for lval in range(1, blmax + 1):
+        for mval in range(lval + 1):
+
+            idx = Alm.getidx(blmax, lval, mval)
+
+            if mval == 0:
+                blm_median_vals[idx] = blms_median[cnt]
+                cnt = cnt + 1
+            else:
+                ## prior on amplitude, phase
+                blm_median_vals[idx] = blms_median[cnt] * np.exp(2*np.pi*blms_median[cnt+1])
+                cnt = cnt + 2
+
+    norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
+
+    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, params['nside'], verbose=False))**2
+
+    hp.mollview(omega_map, title='median skymap of $\\Omega(f= 1mHz)$')
+    plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+    print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+    plt.close()
+
+
+
+
+
+    import pdb; pdb.set_trace()
+
+    return
 
 def plotmaker(params,parameters, inj):
 
@@ -26,6 +133,11 @@ def plotmaker(params,parameters, inj):
     '''
 
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
+
+    ## if modeltype is sph, first call the mapmaker.
+    if params['modeltype']=='sph_sgwb':
+        mapmaker(params, post)
+
 
     ## setup the truevals dict
     truevals = []
@@ -65,8 +177,6 @@ def plotmaker(params,parameters, inj):
                 else:
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
-
-
 
 
     if len(truevals) > 0:
