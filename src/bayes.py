@@ -99,6 +99,7 @@ class Bayes():
         log_Np = -5*log_Np - 39
         log_Na = -5*log_Na - 46
         
+        # return (log_Np, log_Na, nHat, wHat)
         return (log_Np, log_Na, nHat)
         
     def sph_prior(self, theta):

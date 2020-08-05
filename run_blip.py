@@ -10,7 +10,6 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
-# from eogtest import open_img
 
 
 class LISA(LISAdata, Bayes):
@@ -42,15 +41,7 @@ class LISA(LISAdata, Bayes):
         # Figure out which response function to use for recoveries
         self.which_response()
 
-        if self.params['lisa_config'] == 'stationary' and self.params['modeltype'] != 'noise_only':
-
-            self.response_mat = np.repeat(
-                self.response_mat[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
-
-        elif self.params['lisa_config'] == 'orbiting' and self.params['modeltype'] != 'noise_only':
-            self.R1, self.R2, self.R3 = self.R1.T, self.R2.T, self.R3.T
-        if self.params['lisa_config'] == 'stationary':
-            self.diag_spectra()
+        self.diag_spectra()
 
     def makedata(self):
         '''
@@ -79,16 +70,14 @@ class LISA(LISAdata, Bayes):
 
         self.timearray = times[0:N]
         if delt != (times[1] - times[0]):
-            raise ValueError(
-                'The noise and signal arrays are at different sampling frequencies!')
+            raise ValueError('The noise and signal arrays are at different sampling frequencies!')
 
         # If we increased the sample rate above for doing time-shifts, we will now downsample.
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
 
         # Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(
-            self.h1, self.h2, self.h3, self.timearray)
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(self.h1, self.h2, self.h3, self.timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -111,8 +100,7 @@ class LISA(LISAdata, Bayes):
             h3 = (1.0/3.0)*(h1 + h2 + h3)
 
         # Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(
-            h1, h2, h3, self.timearray)
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -147,66 +135,26 @@ class LISA(LISAdata, Bayes):
         if self.params['lisa_config'] == 'stationary':
 
             if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'aet':
-                self.response_mat = self.isgwb_aet_response(self.f0)
+                self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'xyz':
-                self.response_mat = self.isgwb_xyz_response(self.f0)
+                self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'michelson':
-                self.response_mat = self.isgwb_mich_response(self.f0)
+                self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'michelson':
-                self.response_mat = self.asgwb_mich_response(self.f0)
+                self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'xyz':
-                self.response_mat = self.asgwb_xyz_response(self.f0)
+                self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'aet':
-                self.response_mat = self.asgwb_aet_response(self.f0)
+                self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
             # Temporary; currently only have xyz response
             elif self.params['modeltype'] == 'primordial' and self.params['tdi_lev'] == 'xyz':
-                self.response_mat = self.isgwb_xyz_response(self.f0)
-            
+                self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
+
             elif self.params['modeltype'] == 'noise_only':
                 print('Noise only model chosen ...')
             else:
                 raise ValueError('Unknown recovery model selected')
-
-        # Orbiting LISA case:
-        elif self.params['lisa_config'] == 'orbiting':
-
-            if self.params['loadResponse']:
-                if self.params['loadCustom']:
-                    print("Loading user specified detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt(self.params['responsefile1']), np.loadtxt(
-                        self.params['responsefile2']), np.loadtxt(self.params['responsefile3'])
-                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'aet':
-                    print("Loading previously calculated AET detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayAET.txt'), np.loadtxt(
-                        'R2arrayAET.txt'), np.loadtxt('R3arrayAET.txt')
-                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'xyz':
-                    print("Loading previously calculated XYZ detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayXYZ.txt'), np.loadtxt(
-                        'R2arrayXYZ.txt'), np.loadtxt('R3arrayXYZ.txt')
-                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'michelson':
-                    print(
-                        "Loading previously calculated Michelson detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayMich.txt'), np.loadtxt(
-                        'R2arrayMich.txt'), np.loadtxt('R3arrayMich.txt')
-                else:
-                    raise ValueError('Unknown recovery model selected')
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'aet':
-                self.R1, self.R2, self.R3 = self.isgwb_oaet_response(
-                    self.f0, self.tsegmid)
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'xyz':
-                self.R1, self.R2, self.R3 = self.isgwb_oxyz_response(
-                    self.f0, self.tsegmid)
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'michelson':
-                self.R1, self.R2, self.R3 = self.isgwb_omich_response(
-                    self.f0, self.tsegmid)
-            elif self.params['modeltype'] == 'noise_only':
-                print('Noise only model chosen ...')
-            else:
-                raise ValueError('Unknown recovery model selected')
-
-        else:
-            raise ValueError('Unknown LISA configuration selected')
 
     def which_astro_signal(self):
 
@@ -245,12 +193,10 @@ class LISA(LISAdata, Bayes):
         Nperseg = int(self.params['fs']*self.params['seglen'])
 
         # PSD from the FFTs
-        data_PSD1, data_PSD2, data_PSD3 = np.mean(np.abs(self.r1)**2, axis=1), np.mean(
-            np.abs(self.r2)**2, axis=1), np.mean(np.abs(self.r3)**2, axis=1)
+        data_PSD1, data_PSD2, data_PSD3 = np.mean(np.abs(self.r1)**2, axis=1), np.mean(np.abs(self.r2)**2, axis=1), np.mean(np.abs(self.r3)**2, axis=1)
 
         # "Cut" to desired frequencies
-        idx = np.logical_and(
-            self.fdata >= self.params['fmin'], self.fdata <= self.params['fmax'])
+        idx = np.logical_and(self.fdata >= self.params['fmin'], self.fdata <= self.params['fmax'])
         psdfreqs = self.fdata[idx]
 
         # Charactersitic frequency
@@ -310,7 +256,7 @@ class LISA(LISAdata, Bayes):
                 A3 = (2*np.pi*self.fdata/H0) * (0.72/150.)
 
                 alpha_hat = 2 * (3 * self.inj['wHat'] - 1) / (3 * self.inj['wHat'] + 1)
-                Omegaf = self.inj['rts']*(A1 * A2**alpha_hat * A3**self.inj['nHat'])
+                Omegaf = self.inj['rts'] * (A1 * A2**alpha_hat * A3**self.inj['nHat'])
 
             else:  # isgwb params
                 # SGWB signal levels of the mldc data
@@ -334,12 +280,11 @@ class LISA(LISAdata, Bayes):
             plt.loglog(self.fdata, S1_gw, label='gw required')
 
         plt.loglog(self.fdata, S3, label='required')
-        plt.loglog(psdfreqs, data_PSD3,
-                   label='PSD of the data series', alpha=0.6)
+        plt.loglog(psdfreqs, data_PSD3, label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        # plt.ylim([1e-44, 5e-40])
+        plt.ylim([1e-46, 5e-40])
         plt.grid()
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
@@ -458,7 +403,6 @@ def blip(paramsfile='params.ini'):
         inj['nHat'] = float(config.get("inj", "nHat"))
         inj['wHat'] = float(config.get("inj", "wHat"))
         inj['rts'] = float(config.get("inj", "rts"))
-        
 
     # some run parameters
     params['out_dir'] = str(config.get("run_params", "out_dir"))
@@ -492,19 +436,16 @@ def blip(paramsfile='params.ini'):
     if params['modeltype'] == 'isgwb':
 
         print("Doing an isotropic stochastic analysis...")
-        parameters = [
-            r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
         npar = len(parameters)
-        engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,
-                               npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
+        engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     elif params['modeltype'] == 'sph_sgwb':
 
         print("Doing a spherical harmonic stochastic analysis ...")
 
         # add the basic parameters first
-        parameters = [
-            r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
 
         # add the blms
         for lval in range(1, params['lmax'] + 1):
@@ -517,30 +458,32 @@ def blip(paramsfile='params.ini'):
                     parameters.append(r'\phi_{' + str(lval) + str(mval) + '}')
 
         npar = len(parameters)
-        engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,
-                               npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
+        engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     elif params['modeltype'] == 'primordial':
 
         print("Doing primordial stochastic analysis ...")
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$', r'$\hat{w}$']
+        # parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$', r'$\hat{w}$']
+        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$']
         npar = len(parameters)
-        engine = NestedSampler(lisa.primo_log_likelihood, lisa.primo_prior,
-                               npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
+        engine = NestedSampler(lisa.primo_log_likelihood, lisa.primo_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
+
+        # additional engine for noise
+        instr_params = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+        instr_npar = len(instr_params)
+        instr_engine = NestedSampler(lisa.instr_log_likelihood, lisa.instr_prior, instr_npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     elif params['modeltype'] == 'noise_only':
         print("Doing an instrumental noise only analysis ...")
         parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
         npar = len(parameters)
-        engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,
-                               npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
+        engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     elif params['modeltype'] == 'isgwb_only':
         print("Doing an isgwb signal only analysis ...")
         parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
         npar = len(parameters)
-        engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,
-                               npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
+        engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     else:
         raise ValueError('Unknown recovery model selected')
@@ -548,7 +491,8 @@ def blip(paramsfile='params.ini'):
     print("npar = " + str(npar))
 
     # -------------------- Extract and Plot posteriors ---------------------------
-    engine.run_nested(dlogz=0.5, print_progress=True)
+    engine.run_nested(dlogz=0.5,print_progress=True )
+
 
     # re-scale weights to have a maximum of one
     res = engine.results
@@ -562,9 +506,9 @@ def blip(paramsfile='params.ini'):
     logzerr = res['logzerr']
 
     # Construct filenames based on parameter configuration
-    if params['lisa_config'] == 'stationary':
+    if params['lisa_config']=='stationary':
         configchar = '_s'
-    elif params['lisa_config'] == 'orbiting':
+    elif params['lisa_config']=='orbiting':
         configchar = '_o'
     else:
         configchar = ''
@@ -577,9 +521,9 @@ def blip(paramsfile='params.ini'):
     logzerrname = '/logzerr'+seedchar+configchar+'.txt'
 
     # Save posteriors to file
-    np.savetxt(params['out_dir'] + "/post_samples.txt", post_samples)
-    np.savetxt(params['out_dir'] + logzname, logz)
-    np.savetxt(params['out_dir'] + logzerrname, logzerr)
+    np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
+    np.savetxt(params['out_dir'] + logzname,logz)
+    np.savetxt(params['out_dir'] + logzerrname,logzerr)
 
     # Save parameters as a pickle
     outfile = open(params['out_dir'] + '/config.pickle', 'wb')
@@ -589,8 +533,6 @@ def blip(paramsfile='params.ini'):
 
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, inj)
-    # open_img(params['out_dir'])
-
 
 if __name__ == "__main__":
 

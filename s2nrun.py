@@ -101,8 +101,7 @@ class LISA(LISAdata, Bayes):
             h3 = (1.0/3.0)*(h1 + h2 + h3)
 
         # Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(
-            h1, h2, h3, self.timearray)
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
 
         # Charactersitic frequency. Define f0
         cspeed = 3e8
@@ -137,17 +136,17 @@ class LISA(LISAdata, Bayes):
         if self.params['lisa_config'] == 'stationary':
 
             if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'aet':
-                self.response_mat = self.isgwb_aet_response(self.f0)
+                self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'xyz':
-                self.response_mat = self.isgwb_xyz_response(self.f0)
+                self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'michelson':
-                self.response_mat = self.isgwb_mich_response(self.f0)
+                self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'michelson':
-                self.response_mat = self.asgwb_mich_response(self.f0)
+                self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'xyz':
-                self.response_mat = self.asgwb_xyz_response(self.f0)
+                self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'aet':
-                self.response_mat = self.asgwb_aet_response(self.f0)
+                self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
             # Temporary; currently only have xyz response
             elif self.params['modeltype'] == 'primordial' and self.params['tdi_lev'] == 'xyz':
@@ -157,46 +156,6 @@ class LISA(LISAdata, Bayes):
                 print('Noise only model chosen ...')
             else:
                 raise ValueError('Unknown recovery model selected')
-
-        # Orbiting LISA case:
-        elif self.params['lisa_config'] == 'orbiting':
-
-            if self.params['loadResponse']:
-                if self.params['loadCustom']:
-                    print("Loading user specified detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt(self.params['responsefile1']), np.loadtxt(
-                        self.params['responsefile2']), np.loadtxt(self.params['responsefile3'])
-                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'aet':
-                    print("Loading previously calculated AET detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayAET.txt'), np.loadtxt(
-                        'R2arrayAET.txt'), np.loadtxt('R3arrayAET.txt')
-                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'xyz':
-                    print("Loading previously calculated XYZ detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayXYZ.txt'), np.loadtxt(
-                        'R2arrayXYZ.txt'), np.loadtxt('R3arrayXYZ.txt')
-                elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'michelson':
-                    print(
-                        "Loading previously calculated Michelson detector responses...")
-                    self.R1, self.R2, self.R3 = np.loadtxt('R1arrayMich.txt'), np.loadtxt(
-                        'R2arrayMich.txt'), np.loadtxt('R3arrayMich.txt')
-                else:
-                    raise ValueError('Unknown recovery model selected')
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'aet':
-                self.R1, self.R2, self.R3 = self.isgwb_oaet_response(
-                    self.f0, self.tsegmid)
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'xyz':
-                self.R1, self.R2, self.R3 = self.isgwb_oxyz_response(
-                    self.f0, self.tsegmid)
-            elif self.params['modeltype'] == 'isgwb' and self.params['tdi_lev'] == 'michelson':
-                self.R1, self.R2, self.R3 = self.isgwb_omich_response(
-                    self.f0, self.tsegmid)
-            elif self.params['modeltype'] == 'noise_only':
-                print('Noise only model chosen ...')
-            else:
-                raise ValueError('Unknown recovery model selected')
-
-        else:
-            raise ValueError('Unknown LISA configuration selected')
 
     def which_astro_signal(self):
 
