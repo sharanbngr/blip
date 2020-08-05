@@ -352,6 +352,8 @@ def blip(paramsfile='params.ini'):
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))
     params['lmax'] = int(config.get("params", "lmax"))
+    params['tstart'] = float(config.get("params", "tstart"))
+
 
 
     # Injection Dict
@@ -420,6 +422,7 @@ def blip(paramsfile='params.ini'):
         # add the basic parameters first
         parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
 
+
         # add the blms
         for lval in range(1, params['lmax'] + 1):
             for mval in range(lval + 1):
@@ -429,6 +432,10 @@ def blip(paramsfile='params.ini'):
                 else:
                     parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
                     parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+
+        ## RM this line later.
+        # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
+        # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
 
         npar = len(parameters)
         engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\

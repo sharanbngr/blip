@@ -137,7 +137,12 @@ class Bayes():
                     blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 
+        # rm these three lines later.
+        # blm_theta.append(theta[4])
+        # blm_theta.append(2*np.pi*theta[5] - np.pi)
+
         theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
+
 
         return theta
 
@@ -357,9 +362,13 @@ class Bayes():
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
-        ## Convert the blm parameter space values to alm values.
-        blm_vals = self.blm_params_2_blms(theta[4:])
+        ## rm this line later
+        # blm_theta  = np.append([0.0], theta[4:])
 
+        blm_theta  = theta[4:]
+
+        ## Convert the blm parameter space values to alm values.
+        blm_vals = self.blm_params_2_blms(blm_theta)
         alm_vals = self.blm_2_alm(blm_vals)
 
         ## normalize

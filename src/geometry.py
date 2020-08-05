@@ -3,7 +3,6 @@ import numpy.linalg as LA
 from scipy.special import lpmn, sph_harm
 import types
 import healpy as hp
-#from src.orbitinglisa import orbitinglisa
 from src.sph_geometry import sph_geometry
 
 class geometry(sph_geometry):

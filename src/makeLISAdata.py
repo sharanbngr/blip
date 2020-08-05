@@ -405,7 +405,7 @@ class LISAdata(geometry, instrNoise):
 
         return tarr, h1, h2, h3
 
-    def add_sgwb_data(self, fs=0.25, dur=1e5):
+    def add_sgwb_data(self, tbreak = 0.0):
 
 
         cspeed = 3e8 #m/s
@@ -421,7 +421,7 @@ class LISAdata(geometry, instrNoise):
         #tmids = (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
 
         ## arrays of segmnent start and mid times
-        tmids =  (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
+        tmids = self.params['tstart'] + tbreak +  (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
 
         ## Number of time-domain points in a splice segment
         N = int(self.params['fs']*tsplice)
