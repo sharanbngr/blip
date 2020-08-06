@@ -110,7 +110,6 @@ def mapmaker(params, post):
 
 
 
-    import pdb; pdb.set_trace()
 
     return
 
