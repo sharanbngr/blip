@@ -20,7 +20,13 @@ class LISA(LISAdata, Bayes):
     '''
 
     def __init__(self,  params, inj):
-
+        
+        if params['FixSeed']:
+            from tools.SetRandomState import SetRandomState as setrs
+            seed = params['seed']
+            randst = setrs(seed)
+        else:
+            randst = None
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
@@ -426,13 +432,14 @@ def blip(paramsfile='params.ini'):
 
     # Initialize lisa class
     lisa = LISA(params, inj)
-
+    
     if params['FixSeed']:
         from tools.SetRandomState import SetRandomState as setrs
         seed = params['seed']
         randst = setrs(seed)
     else:
         randst = None
+        
     if params['modeltype'] == 'isgwb':
 
         print("Doing an isotropic stochastic analysis...")
