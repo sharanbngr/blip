@@ -10,7 +10,6 @@ from src.bayes import Bayes
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 import scipy.signal as sg
-# from eogtest import open_img
 
 
 class LISA(LISAdata, Bayes):
@@ -22,6 +21,13 @@ class LISA(LISAdata, Bayes):
 
     def __init__(self,  params, inj):
 
+        if params['FixSeed']:
+            from tools.SetRandomState import SetRandomState as setrs
+            seed = params['seed']
+            randst = setrs(seed)
+        else:
+            randst = None
+        
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
@@ -434,6 +440,7 @@ def blip(paramsfile='params.ini'):
         randst = setrs(seed)
     else:
         randst = None
+        
     if params['modeltype'] == 'isgwb':
 
         print("Doing an isotropic stochastic analysis...")

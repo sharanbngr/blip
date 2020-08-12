@@ -27,6 +27,7 @@ class LISA(LISAdata, Bayes):
             randst = setrs(seed)
         else:
             randst = None
+        
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
@@ -474,11 +475,6 @@ def blip(paramsfile='params.ini'):
         parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$']
         npar = len(parameters)
         engine = NestedSampler(lisa.primo_log_likelihood, lisa.primo_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
-
-        # additional engine for noise
-        instr_params = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-        instr_npar = len(instr_params)
-        instr_engine = NestedSampler(lisa.instr_log_likelihood, lisa.instr_prior, instr_npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     elif params['modeltype'] == 'noise_only':
         print("Doing an instrumental noise only analysis ...")
