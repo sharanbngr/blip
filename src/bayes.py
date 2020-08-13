@@ -83,7 +83,6 @@ class Bayes():
 
         # Unpack: Theta is defined in the unit cube
         log_Np, log_Na, alpha, log_omega0 = theta
-
         # Transform to actual priors
         alpha       =  10*alpha-5
         log_omega0  = -10*log_omega0 - 4
@@ -92,7 +91,19 @@ class Bayes():
         self.theta_prior = (alpha, log_omega0, log_Np, log_Na)
         return (log_Np, log_Na, alpha, log_omega0)
 
-
+    def primo_prior(self, theta):
+        
+        log_Np, log_Na, nHat = theta
+        ## Setting wHat as a parameter too
+        # log_Np, log_Na, nHat, wHat = theta
+        # wHat = 2*wHat - 0.33
+        nHat = 2*nHat 
+        log_Np = -5*log_Np - 39
+        log_Na = -5*log_Na - 46
+        
+        # return (log_Np, log_Na, nHat, wHat)
+        return (log_Np, log_Na, nHat)
+        
     def sph_prior(self, theta):
 
         '''
@@ -235,7 +246,7 @@ class Bayes():
             The log-likelihood value at the sampled point in the parameter space
         '''
 
-
+        
         # unpack priors
         log_Np, log_Na  = theta
 
@@ -258,7 +269,7 @@ class Bayes():
         logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
-
+        
         return loglike
 
 
@@ -319,7 +330,66 @@ class Bayes():
         return loglike
 
 
+    def primo_log_likelihood(self, theta):
+        
+        ## Setting wHat as a parameter too
+        # log_Np, log_Na, nHat, wHat = theta
+        log_Np, log_Na, nHat = theta
+        
+        ## Comment this if wHat is a parameter too
+        wHat = self.inj['wHat']
+        ##
+        
+        Np, Na = 10**(log_Np), 10**(log_Na)
+        
+        # Modelled Noise PSD
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
+        ## repeat C_Noise to have the same time-dimension as everything else
+        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
+
+        ## Signal PSD
+        H0 = 2.2*10**(-18)
+        g_bbn = 10.75
+        gs_bbn = 10.75
+        g_eq = 3.3626
+        gs_eq = 3.9091
+        del_R = 2.25*10**-9
+        z_bbn = 5.9*10**9 - 1
+        kcmb = 0.05
+
+        gamma = ((2.3*10**4))**-1 * (g_bbn/g_eq) * (gs_eq/gs_bbn)**1.3333
+        
+        A1 = (del_R**2)*gamma/24
+        A2 = (2*np.pi*self.fdata/H0) * (1 / (gamma**0.5 * (1 + z_bbn)))
+        A3 = (2*np.pi*self.fdata/H0) * (0.72/150.)
+        alpha_hat = 2 * (3 * wHat - 1) / (3 * wHat + 1)
+
+        Omegaf = self.inj['rts'] * (A1 * A2**alpha_hat * A3**nHat)
+        
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
+        
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*self.response_mat
+
+        cov_mat = cov_sgwb + cov_noise
+
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+
+        ## take inverse and determinant
+        inv_cov = np.linalg.inv(cov_mat)
+        det_cov = np.linalg.det(cov_mat)
+
+        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
+        loglike = np.real(logL)
+        
+        return loglike
+    
+    
     def sph_log_likelihood(self, theta):
 
         '''
