@@ -112,12 +112,12 @@ class Bayes():
         '''
 
         # The first two are the priors on the position and acc noise terms.
-        log_Np = -5*theta[0] - 39
-        log_Na = -5*theta[1] - 46
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
 
         # Prior on alpha, and omega_0
-        alpha = 10*theta[2] - 5
-        log_omega0  = -10*theta[3] - 4
+        alpha = 8*theta[2] - 4
+        log_omega0  = -6*theta[3] - 5
 
         # The rest of the priors define the blm parameter space
         blm_theta = []
