@@ -23,4 +23,8 @@ early_gw.py
 makedata_params.ini
 misc/
 TODO*
+analysis/
+error.lisa
+lisa.pbs
+out.lisa
 
