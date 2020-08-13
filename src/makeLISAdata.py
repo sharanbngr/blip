@@ -527,7 +527,7 @@ def add_sgwb_data(self, fs=0.25, dur=1e5):
         ## remove the first half and the last half splice.
         h1, h2, h3 = h1[halfN:-halfN], h2[halfN:-halfN], h3[halfN:-halfN]
 
-        tarr =  self.params['tstart'] + tbreak + np.arange(0, self.params['dur'], 1.0/self.params['fs'])
+        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
         return h1, h2, h3, tarr
 
