@@ -405,9 +405,8 @@ class LISAdata(geometry, instrNoise):
 
         return tarr, h1, h2, h3
 
-    def add_sgwb_data(self, fs=0.25, dur=1e5):
-
-
+def add_sgwb_data(self, fs=0.25, dur=1e5):
+  
         cspeed = 3e8 #m/s
 
         ## define the splice segment duration

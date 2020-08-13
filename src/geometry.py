@@ -577,4 +577,3 @@ class geometry(sph_geometry):
                                     [np.conj(RAT), np.conj(RET), RTT] ])
 
         return aet_response_mat
-

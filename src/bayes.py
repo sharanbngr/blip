@@ -145,7 +145,7 @@ class Bayes():
                 else:
                     ## prior on amplitude, phase
                     blm_theta.append(theta[cnt])
-                    blm_theta.append(2*np.pi*theta[cnt+1])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 
         theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
@@ -443,10 +443,6 @@ class Bayes():
 
         cov_mat = cov_sgwb + cov_noise
 
-        logL = -np.sum( (np.abs(self.r1)**2) / cov_mat[0, 0, :, :]) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs( cov_mat[0, 0:, :]) ))
-
-
-        '''
         ## change axis order to make taking an inverse easier
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
 
@@ -455,7 +451,6 @@ class Bayes():
         det_cov = np.linalg.det(cov_mat)
 
         logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
-        '''
 
         loglike = np.real(logL)
 

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.special import lpmn, sph_harm
+import numpy.linalg as LA
 import types
 import healpy as hp
 from healpy import Alm
@@ -11,7 +12,7 @@ class sph_geometry(clebschGordan):
         clebschGordan.__init__(self)
 
 
-    def asgwb_mich_response(self, f0):
+    def asgwb_mich_response(self, f0, tsegmid):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using michelson channels,
@@ -35,8 +36,10 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
+        print('calculating the anisotropic responses')
+
         ## array size of almax
-        alm_size = Alm.getsize(self.almax)
+        alm_size = (self.almax + 1)**2
 
         npix = hp.nside2npix(self.params['nside'])
 
@@ -52,28 +55,69 @@ class sph_geometry(clebschGordan):
         # Area of each pixel in sq.radians
         dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
-        ## Create directional vectors
-        udir = np.sqrt(1-ctheta**2) * np.sin(phi + np.pi/6)
-        vdir = np.sqrt(1-ctheta**2) * np.sin(phi - np.pi/6)
-        wdir = vdir - udir
+        # Create 2D array of (x,y,z) unit vectors for every sky direction.
+        omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
+
+        # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
+        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
+
+        ## Calculate directional unit vector dot products
+        ## Dimensions of udir is time-segs x sky-pixels
+        udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],omegahat)
+        vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
+        wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
+
+        ## NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations
+        ##             as opposed to the explicit forms we've previously used. '''
+        mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
+        nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
+
+        # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
+        Fplus_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :], (rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fplus_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fplus_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        # 1/2 u x u : ecross
+        Fcross_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fcross_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fcross_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
 
         # Initlize arrays for the detector reponse
-        R1 = np.zeros((f0.size, alm_size), dtype='complex')
-        R2 = np.zeros((f0.size, alm_size), dtype='complex')
-        R3 = np.zeros((f0.size, alm_size), dtype='complex')
-        R12 = np.zeros((f0.size, alm_size), dtype='complex')
-        R13 = np.zeros((f0.size, alm_size), dtype='complex')
-        R23 = np.zeros((f0.size, alm_size), dtype='complex')
+        R1 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R2 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R3 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R12 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R13 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R23 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R21 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R31 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+        R32 = np.zeros((f0.size, tsegmid.size, alm_size), dtype='complex')
+
 
         ## initalize array for Ylms
         Ylms = np.zeros((npix, alm_size ), dtype='complex')
 
         ## Get the spherical harmonics
-        cnt = 0
-        for lval in range(self.params['lmax'] + 1):
-            for mval in range(lval + 1):
-                Ylms[:, cnt] = sph_harm(mval, lval, phi, theta)
-                cnt = cnt + 1
+        for ii in range(alm_size):
+            lval, mval = self.idxtoalm(self.almax, ii)
+            Ylms[:, ii] = sph_harm(mval, lval, phi, theta)
 
 
         # Calculate the detector response for each frequency
@@ -100,24 +144,6 @@ class sph_geometry(clebschGordan):
             gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
                              np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
 
-            ## response function u x u : eplus
-            ##  Fplus_u = (u x u):eplus
-
-            Fplus_u   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 - \
-                            np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
-                            0.5*((np.cos(phi))**2 - ctheta**2))
-
-            Fplus_v   = (1/4*(1-ctheta**2) + 1/2*(ctheta**2)*(np.cos(phi))**2 + \
-                            np.sqrt(3/16)*np.sin(2*phi)*(1+ctheta**2) + \
-                            0.5*((np.cos(phi))**2 - ctheta**2))
-
-            Fplus_w   = (1 - (1+ctheta**2)*(np.cos(phi))**2)
-
-            ##  Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-            Fcross_u  = - ctheta * (np.sin(2*phi + np.pi/3))
-            Fcross_v  = - ctheta * (np.sin(2*phi - np.pi/3))
-            Fcross_w   = ctheta*np.sin(2*phi)
-
             ## Calculate Fplus
             Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
             Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
@@ -134,23 +160,27 @@ class sph_geometry(clebschGordan):
             F1 = (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2
             F2 = (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2
             F3 = (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2
-            F12 = np.conj(Fplus1)*Fplus1 + np.conj(Fcross1)*Fcross2
+            F12 = np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2
             F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
             F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
 
-            R1[ii, :] = dOmega/(8*np.pi)*np.sum( F1[:, None] * Ylms , axis=0 )
-            R2[ii, :] = dOmega/(8*np.pi)*np.sum( F2[:, None] * Ylms, axis=0 )
-            R3[ii, :] = dOmega/(8*np.pi)*np.sum( F3[:, None] * Ylms, axis=0 )
-            R12[ii, :] = dOmega/(8*np.pi)*np.sum( F12[:, None] * Ylms, axis=0 )
-            R13[ii, :] = dOmega/(8*np.pi)*np.sum( F13[:, None] * Ylms, axis=0)
-            R23[ii, :] = dOmega/(8*np.pi)*np.sum( F23[:, None] * Ylms, axis=0)
+            R1[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F1, Ylms)
+            R2[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F2, Ylms)
+            R3[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F3, Ylms)
+            R12[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F12, Ylms)
+            R13[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F13, Ylms)
+            R23[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F23, Ylms)
+            R21[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F12), Ylms)
+            R31[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F13), Ylms)
+            R32[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F23), Ylms)
 
-        response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
+
+        response_mat = np.array([ [R1, R12, R13] , [R21, R2, R23], [R31, R32, R3] ])
 
         return response_mat
 
 
-    def asgwb_xyz_response(self, f0):
+    def asgwb_xyz_response(self, f0, tsegmid):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using X,Y,Z TDI channels,
@@ -176,13 +206,13 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        mich_response_mat = self.asgwb_mich_response(f0)
-        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :]))**2
+        mich_response_mat = self.asgwb_mich_response(f0, tsegmid)
+        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
 
         return xyz_response_mat
 
 
-    def asgwb_aet_response(self, f0):
+    def asgwb_aet_response(self, f0, tsegmid):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using X,Y,Z TDI channels,
@@ -210,7 +240,7 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        xyz_response_mat = self.asgwb_xyz_response(f0)
+        xyz_response_mat = self.asgwb_xyz_response(f0, tsegmid)
 
         ## Upnack xyz matrix to make assembling the aet matrix easier
         RXX, RYY, RZZ = xyz_response_mat[0, 0], xyz_response_mat[1, 1], xyz_response_mat[2, 2]

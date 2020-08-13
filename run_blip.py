@@ -15,7 +15,8 @@ import scipy.signal as sg
 class LISA(LISAdata, Bayes):
 
     '''
-    Generic class for getting data and setting up the prior space and likelihood. This is tuned for ISGWB analysis at the moment
+    Generic class for getting data and setting up the prior space
+    and likelihood. This is tuned for ISGWB analysis at the moment
     but it should not be difficult to modify for other use cases.
     '''
 
@@ -48,12 +49,14 @@ class LISA(LISAdata, Bayes):
         # Figure out which response function to use for recoveries
         self.which_response()
 
+        # Make some simple diagnostic plots to contrast spectra
         self.diag_spectra()
 
     def makedata(self):
+
         '''
-        Just a wrapper function to use the methods the LISAdata class to generate data. Return
-        Frequency domain data.
+        Just a wrapper function to use the methods the LISAdata class
+        to generate data. Return Frequency domain data.
         '''
 
         # Generate TDI noise
@@ -73,13 +76,17 @@ class LISA(LISAdata, Bayes):
                 h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
 
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
-            self.h1, self.h2, self.h3 = self.h1 + h1_gw, self.h2 + h2_gw, self.h3 + h3_gw
+
+            # Add gravitational-wave time series to noise time-series
+            self.h1 = self.h1 + h1_gw
+            self.h2 = self.h2 + h2_gw
+            self.h3 = self.h3 + h3_gw
 
         self.timearray = times[0:N]
         if delt != (times[1] - times[0]):
             raise ValueError('The noise and signal arrays are at different sampling frequencies!')
 
-        # If we increased the sample rate above for doing time-shifts, we will now downsample.
+        # Desample if we increased the sample rate for time-shifts.
         if self.params['fs'] != 1.0/delt:
             self.params['fs'] = 1.0/delt
 
@@ -93,9 +100,10 @@ class LISA(LISAdata, Bayes):
 
     def read_mldc_data(self):
         '''
-        Just a wrapper function to use the methods the LISAdata class to read data. Return frequency
-        domain data. Since this was used primarily for the MLDC, this assumes that the data is doppler tracking
-        and converts to strain data.
+        Just a wrapper function to use the methods the LISAdata class to
+        read data. Return frequency domain data. Since this was used
+        primarily for the MLDC, this assumes that the data is doppler
+        tracking and converts to strain data.
         '''
         print("Reading data ...")
         h1, h2, h3, self.timearray = self.read_data()
@@ -114,7 +122,7 @@ class LISA(LISAdata, Bayes):
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
 
-        # Convert doppler data to strain data if the datatype of readfile is doppler.
+        # Convert doppler data to strain if readfile datatype is doppler.
         if self.params['datatype'] == 'doppler':
             # This is needed to convert from doppler data to strain data.
             self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
@@ -140,7 +148,6 @@ class LISA(LISAdata, Bayes):
         
         # Stationary LISA case:
         if self.params['lisa_config'] == 'stationary':
-
             if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'aet':
                 self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
             elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev'] == 'xyz':
@@ -234,6 +241,10 @@ class LISA(LISAdata, Bayes):
 
             if self.params['modeltype'] == 'sph_sgwb':
                 alms_inj = self.blm_2_alm(self.inj['blms'])
+
+                # normalize
+                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
                 summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, 0])
@@ -301,9 +312,10 @@ class LISA(LISAdata, Bayes):
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
+
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
-
+        
         ii, jj = 2, 0
 
         if self.params['modeltype'] == 'noise_only':
@@ -453,18 +465,16 @@ def blip(paramsfile='params.ini'):
         # add the blms
         for lval in range(1, params['lmax'] + 1):
             for mval in range(lval + 1):
-
                 if mval == 0:
-                    parameters.append(r'b_{' + str(lval) + str(mval) + '}')
+                    parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                 else:
-                    parameters.append(r'|b_{' + str(lval) + str(mval) + '}|')
-                    parameters.append(r'\phi_{' + str(lval) + str(mval) + '}')
+                    parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                    parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
 
         npar = len(parameters)
         engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior, npar, bound='multi', sample='rwalk', nlive=nlive, rstate=randst)
 
     elif params['modeltype'] == 'primordial':
-
         print("Doing primordial stochastic analysis ...")
         ## Setting wHat as a parameter too
         # parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$', r'$\hat{w}$']
