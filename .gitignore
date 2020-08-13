@@ -1,7 +1,6 @@
 *.pyc
 *.png
 *.pdf
-*.txt
 test*
 *~
 R1array*
@@ -14,13 +13,11 @@ noiseless_mldc*
 WSL*
 cython_response.c
 cython_response.html
-Analysis/
+/Prev
+/.git
 mldcparams*
 owndata*
 eogtest*
 bayesfactorplot*
-early_gw.py
-makedata_params.ini
-misc/
-TODO*
-
+test*
+vectest*
