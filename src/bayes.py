@@ -92,10 +92,12 @@ class Bayes():
         return (log_Np, log_Na, alpha, log_omega0)
 
     def primo_prior(self, theta):
+        
+        log_Np, log_Na, nHat = theta
+        ## Setting wHat as a parameter too
         # log_Np, log_Na, nHat, wHat = theta
-        log_Np, log_Na, nHat= theta
-        nHat = 2*nHat 
         # wHat = 2*wHat - 0.33
+        nHat = 2*nHat 
         log_Np = -5*log_Np - 39
         log_Na = -5*log_Na - 46
         
@@ -330,12 +332,13 @@ class Bayes():
 
     def primo_log_likelihood(self, theta):
         
-        
+        ## Setting wHat as a parameter too
         # log_Np, log_Na, nHat, wHat = theta
         log_Np, log_Na, nHat = theta
         
-        ###
+        ## Comment this if wHat is a parameter too
         wHat = self.inj['wHat']
+        ##
         
         Np, Na = 10**(log_Np), 10**(log_Na)
         
@@ -362,13 +365,11 @@ class Bayes():
         A3 = (2*np.pi*self.fdata/H0) * (0.72/150.)
         alpha_hat = 2 * (3 * wHat - 1) / (3 * wHat + 1)
 
-        
         Omegaf = self.inj['rts'] * (A1 * A2**alpha_hat * A3**nHat)
         
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
         
-
         ## The noise spectrum of the GW signal. Written down here as a full
         ## covariance matrix axross all the channels.
         cov_sgwb = Sgw[None, None, :, None]*self.response_mat

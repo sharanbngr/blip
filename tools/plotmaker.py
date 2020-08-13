@@ -76,9 +76,6 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
 
-
-
-
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
     else:

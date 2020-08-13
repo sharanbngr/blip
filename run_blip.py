@@ -117,8 +117,7 @@ class LISA(LISAdata, Bayes):
         # Convert doppler data to strain data if the datatype of readfile is doppler.
         if self.params['datatype'] == 'doppler':
             # This is needed to convert from doppler data to strain data.
-            self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(
-                4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
+            self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
 
         elif self.params['datatype'] == 'strain':
             pass
@@ -138,6 +137,7 @@ class LISA(LISAdata, Bayes):
 
     def which_response(self):
         # Figure out which antenna patterns to use
+        
         # Stationary LISA case:
         if self.params['lisa_config'] == 'stationary':
 
@@ -153,11 +153,13 @@ class LISA(LISAdata, Bayes):
                 self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
             elif self.params['modeltype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'aet':
                 self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
-
-            # Temporary; currently only have xyz response
             elif self.params['modeltype'] == 'primordial' and self.params['tdi_lev'] == 'xyz':
                 self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
-
+            elif self.params['modeltype'] == 'primordial' and self.params['tdi_lev'] == 'aet':
+                self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
+            elif self.params['modeltype'] == 'primordial' and self.params['tdi_lev'] == 'michelson':
+                self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
+            
             elif self.params['modeltype'] == 'noise_only':
                 print('Noise only model chosen ...')
             else:
@@ -178,10 +180,12 @@ class LISA(LISAdata, Bayes):
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype'] == 'sph_sgwb' and self.params['tdi_lev'] == 'xyz':
             self.add_astro_signal = self.asgwb_xyz_response
-
-        # Temporary
         elif self.inj['injtype'] == 'primordial' and self.params['tdi_lev'] == 'xyz':
             self.add_astro_signal = self.isgwb_xyz_response
+        elif self.inj['injtype'] == 'primordial' and self.params['tdi_lev'] == 'aet':
+            self.add_astro_signal = self.isgwb_aet_response
+        elif self.inj['injtype'] == 'primordial' and self.params['tdi_lev'] == 'michelson':
+            self.add_astro_signal = self.isgwb_mich_response
 
         else:
             raise ValueError('Unknown recovery model selected')
@@ -230,8 +234,7 @@ class LISA(LISAdata, Bayes):
 
             if self.params['modeltype'] == 'sph_sgwb':
                 alms_inj = self.blm_2_alm(self.inj['blms'])
-                summ_response_mat = np.sum(
-                    self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, 0])
                 R2 = np.real(summ_response_mat[1, 1, :, 0])
@@ -265,7 +268,7 @@ class LISA(LISAdata, Bayes):
                 alpha_hat = 2 * (3 * self.inj['wHat'] - 1) / (3 * self.inj['wHat'] + 1)
                 Omegaf = self.inj['rts'] * (A1 * A2**alpha_hat * A3**self.inj['nHat'])
 
-            else:  # isgwb params
+            else:
                 # SGWB signal levels of the mldc data
                 Omega0, alpha = 10**self.inj['ln_omega0'], self.inj['alpha']
 
@@ -296,8 +299,7 @@ class LISA(LISAdata, Bayes):
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
-        print('Diagnostic spectra plot made in ' +
-              self.params['out_dir'] + '/diag_psd.png')
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
@@ -311,14 +313,11 @@ class LISA(LISAdata, Bayes):
         else:
             Sx = C_noise[ii, jj, :] + Sgw*self.response_mat[ii, jj, :, 0]
 
-        CSDx = np.mean(np.conj(self.rbar[:, :, ii])
-                       * self.rbar[:, :, jj], axis=1)
+        CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
         plt.subplot(2, 1, 1)
-        plt.loglog(self.fdata, np.abs(np.real(Sx)),
-                   label='Re(Required ' + str(ii+1) + str(jj+1) + ')')
-        plt.loglog(psdfreqs, np.abs(np.real(CSDx)),
-                   label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+        plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')')
+        plt.loglog(psdfreqs, np.abs(np.real(CSDx)), label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
         plt.legend()
@@ -327,10 +326,8 @@ class LISA(LISAdata, Bayes):
         plt.grid()
 
         plt.subplot(2, 1, 2)
-        plt.loglog(self.fdata, np.abs(np.imag(Sx)),
-                   label='Im(Required ' + str(ii+1) + str(jj+1) + ')')
-        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)),
-                   label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+        plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')')
+        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)), label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
         plt.legend()
@@ -338,10 +335,8 @@ class LISA(LISAdata, Bayes):
         plt.ylim([1e-44, 5e-40])
         plt.grid()
 
-        plt.savefig(self.params['out_dir'] + '/diag_csd_' +
-                    str(ii+1) + str(jj+1) + '.png', dpi=200)
-        print('Diagnostic spectra plot made in ' +
-              self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
+        plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
 
 
@@ -471,6 +466,7 @@ def blip(paramsfile='params.ini'):
     elif params['modeltype'] == 'primordial':
 
         print("Doing primordial stochastic analysis ...")
+        ## Setting wHat as a parameter too
         # parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$', r'$\hat{w}$']
         parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\hat{n}$']
         npar = len(parameters)
