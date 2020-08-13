@@ -405,8 +405,9 @@ class LISAdata(geometry, instrNoise):
 
         return tarr, h1, h2, h3
 
-def add_sgwb_data(self, fs=0.25, dur=1e5):
-  
+    def add_sgwb_data(self, fs=0.25, dur=1e5):
+
+
         cspeed = 3e8 #m/s
 
         ## define the splice segment duration
@@ -525,105 +526,8 @@ def add_sgwb_data(self, fs=0.25, dur=1e5):
 
         return h1, h2, h3, tarr
 
-    def add_earlygw_data(self, fs=0.25, dur=1e5):
-        
-        cspeed = 3e8 #m/s
-        
-        ## define the splice segment duration
-        tsplice = 1e4
-        delf = 1.0/tsplice
-        
-        ## the segments to be splices are half-overlapping
-        nsplice = 2*int(self.params['dur']/tsplice) + 1
-
-        ## arrays of segmnent start and mid times
-        tmids =  (tsplice/2.0) * np.arange(nsplice) + (tsplice/2.0)
-
-        ## Number of time-domain points in a splice segment
-        N = int(self.params['fs']*tsplice)
-        halfN = int(0.5*N)
-
-        ## leave out f = 0
-        frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
-
-        ## the charecteristic frequency of LISA, and the scaled frequency array
-        fstar = 3e8/(2*np.pi*self.armlength)
-        f0 = frange/(2*fstar)
-
-        ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-        response_mat = self.add_astro_signal(f0, tmids)
-        
-        ## Cholesky decomposition to get the "sigma" matrix
-        H0 = 2.2*10**(-18) ## in SI units
-        g_bbn = 10.75
-        gs_bbn = 10.75
-        g_eq = 3.3626
-        gs_eq = 3.9091
-        del_R = 2.25*10**-9
-        z_bbn = 5.9*10**9 - 1
-        kcmb = 0.05
-
-        gamma = ((2.3*10**4))**-1 * (g_bbn/g_eq) * (gs_eq/gs_bbn)**1.3333
-
-        A1 = (del_R**2)*gamma/24
-        A2 = (2*np.pi*frange/H0) * (1 / (gamma**0.5 * (1 + z_bbn)))
-        A3 = (2*np.pi*frange/H0) * (0.72/150.)
-
-        alpha_hat = 2 * (3 * self.inj['wHat'] - 1) / (3 * self.inj['wHat'] + 1)
-        Omegaf = self.inj['rts']*(A1 * A2**alpha_hat * A3**self.inj['nHat'])
-        
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
-
-        ## the spectrum of the frequecy domain gaussian for ifft
-        norms = np.sqrt(self.params['fs']*Sgw*N)/2
-
-        ## index array for one segment
-        t_arr = np.arange(N)
-
-        ## the window for splicing
-        splice_win = np.sin(np.pi * t_arr/N)
-        
-        for ii in range(nsplice):
-            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
-        
-            ## generate standard normal complex data frist
-            z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
-
-            ## The data in z_norm is rescaled into z_scale using L_cholesky
-            z_scale = np.einsum('ijk, ikl -> ijl', L_cholesky, z_norm[:, :, None])[:, :, 0]
-
-            ## The three channels : concatenate with norm at f = 0 to be zero
-            htilda1  = np.concatenate([ [0], z_scale[:, 0]])
-            htilda2  = np.concatenate([ [0], z_scale[:, 1]])
-            htilda3  = np.concatenate([ [0], z_scale[:, 2]])
-        
-            if ii == 0:
-                # import pdb; pdb.set_trace()
-                # Take inverse fft to get time series data
-                h1 = splice_win * np.fft.irfft(htilda1, N)
-                h2 = splice_win * np.fft.irfft(htilda2, N)
-                h3 = splice_win * np.fft.irfft(htilda3, N)
-
-            else:
-                ## First append half-splice worth of zeros
-                h1 = np.append(h1, np.zeros(halfN))
-                h2 = np.append(h2, np.zeros(halfN))
-                h3 = np.append(h3, np.zeros(halfN))
-
-                ## Then add the new splice segment
-                h1[-N:] = h1[-N:] + splice_win * np.fft.irfft(htilda1, N)
-                h2[-N:] = h2[-N:] + splice_win * np.fft.irfft(htilda2, N)
-                h3[-N:] = h3[-N:] + splice_win * np.fft.irfft(htilda3, N)
 
 
-        ## remove the first half and the last half splice.
-        h1, h2, h3 = h1[halfN:-halfN], h2[halfN:-halfN], h3[halfN:-halfN]
-
-        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
-
-        return h1, h2, h3, tarr
-        
     def add_sgwb_data_tshift(self, fs=0.25, dur=1e5):
 
         '''
@@ -854,4 +758,5 @@ def add_sgwb_data(self, fs=0.25, dur=1e5):
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
 
         return r1, r2, r3, fdata, tsegstart, tsegmid
+
 

@@ -47,16 +47,6 @@ def plotmaker(params,parameters, inj):
         truevals.append( inj['alpha'] )
         truevals.append( inj['ln_omega0'] )
 
-    
-    elif params['modeltype'] =='primordial':
-        
-        truevals.append(inj['log_Np'])
-        truevals.append(inj['log_Na'])
-        truevals.append(inj['nHat'])
-        
-        if len(parameters) == 4:
-            truevals.append(inj['wHat'])
-    
     elif params['modeltype']=='sph_sgwb':
 
         truevals.append(inj['log_Np'])
@@ -75,6 +65,9 @@ def plotmaker(params,parameters, inj):
                 else:
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
+
+
+
 
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
