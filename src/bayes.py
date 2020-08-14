@@ -112,12 +112,12 @@ class Bayes():
         '''
 
         # The first two are the priors on the position and acc noise terms.
-        log_Np = -5*theta[0] - 39
-        log_Na = -5*theta[1] - 46
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
 
         # Prior on alpha, and omega_0
-        alpha = 10*theta[2] - 5
-        log_omega0  = -10*theta[3] - 4
+        alpha = 8*theta[2] - 4
+        log_omega0  = -6*theta[3] - 5
 
         # The rest of the priors define the blm parameter space
         blm_theta = []
@@ -137,7 +137,12 @@ class Bayes():
                     blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 
+        # rm these three lines later.
+        # blm_theta.append(theta[4])
+        # blm_theta.append(2*np.pi*theta[5] - np.pi)
+
         theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
+
 
         return theta
 
@@ -357,9 +362,13 @@ class Bayes():
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
-        ## Convert the blm parameter space values to alm values.
-        blm_vals = self.blm_params_2_blms(theta[4:])
+        ## rm this line later
+        # blm_theta  = np.append([0.0], theta[4:])
 
+        blm_theta  = theta[4:]
+
+        ## Convert the blm parameter space values to alm values.
+        blm_vals = self.blm_params_2_blms(blm_theta)
         alm_vals = self.blm_2_alm(blm_vals)
 
         ## normalize
