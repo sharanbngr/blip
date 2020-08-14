@@ -149,7 +149,7 @@ class clebschGordan():
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_vals[idx] = blm_params[cnt] * np.exp(blm_params[cnt+1])
+                    blm_vals[idx] = blm_params[cnt] * np.exp(1j * blm_params[cnt+1])
                     cnt = cnt + 2
 
         return blm_vals

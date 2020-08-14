@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib
-matplotlib.use('Agg')
+#matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 import healpy as hp
@@ -48,7 +48,7 @@ def mapmaker(params, post):
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_vals[idx] = blms[cnt] * np.exp(2*np.pi*blms[cnt+1])
+                    blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
                     cnt = cnt + 2
 
         norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
@@ -94,7 +94,7 @@ def mapmaker(params, post):
                 cnt = cnt + 1
             else:
                 ## prior on amplitude, phase
-                blm_median_vals[idx] = blms_median[cnt] * np.exp(2*np.pi*blms_median[cnt+1])
+                blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
                 cnt = cnt + 2
 
     norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
@@ -177,16 +177,6 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-=======
->>>>>>> ab1c34d048fe15d9694e6bd50b630cb8ee0c204c
-=======
-
-
-
->>>>>>> 7190c99b70fcd65c9dfb5204578c53078c1ab621
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
     else:
