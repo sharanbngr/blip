@@ -481,7 +481,8 @@ class LISAdata(geometry, instrNoise):
                     plt.close()
 
                 ## response matrix summed over Ylms
-                summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                #summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
