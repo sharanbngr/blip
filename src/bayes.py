@@ -1,4 +1,5 @@
 import numpy as np
+#from line_profiler import LineProfiler
 
 class Bayes():
 
@@ -323,8 +324,6 @@ class Bayes():
 
         return loglike
 
-
-
     def sph_log_likelihood(self, theta):
 
         '''
@@ -374,7 +373,8 @@ class Bayes():
         ## normalize
         alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
 
-        summ_response_mat = np.sum(self.response_mat*alm_vals[None, None, None, None, :], axis=-1)
+        #summ_response_mat2 = np.sum(self.response_mat*alm_vals[None, None, None, None, :], axis=-1)
+        summ_response_mat = np.einsum('ijklm,m', self.response_mat, alm_vals)
 
         ## The noise spectrum of the GW signal. Written down here as a full
         ## covariance matrix axross all the channels.
@@ -386,14 +386,46 @@ class Bayes():
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
 
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_mat)
-        det_cov = np.linalg.det(cov_mat)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        #inv_cov2 = np.linalg.inv(cov_mat)
+        #det_cov2 = np.linalg.det(cov_mat)
+
+        #logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
 
         return loglike
+
+
+def bespoke_inv(A):
+
+
+    """
+
+    compute inverse without division by det; ...xv3xc3 input, or array of matrices assumed
+
+    Credit to Eelco Hoogendoorn at stackexchange for this piece of wizardy. This is > 3 times
+    faster than numpy's det and inv methods used in a fully vectorized way as of numpy 1.19.1
+
+    https://stackoverflow.com/questions/21828202/fast-inverse-and-transpose-matrix-in-python
+
+    """
+
+
+    AI = np.empty_like(A)
+
+    for i in range(3):
+        AI[...,i,:] = np.cross(A[...,i-2,:], A[...,i-1,:])
+
+    det = np.einsum('...i,...i->...', AI, A).mean(axis=-1)
+
+    inv_T =  AI / det[...,None,None]
+
+    # inverse by swapping the inverse transpose
+    return np.swapaxes(inv_T, -1,-2), det
 
 
 

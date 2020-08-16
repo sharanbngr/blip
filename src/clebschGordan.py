@@ -21,6 +21,20 @@ class clebschGordan():
         ## calculate and store beta
         self.calc_beta()
 
+        ## calculate and store the output of the idxtoalm method for blmax.
+        ## This will be used many times for the spherical harmonic likelihood
+
+        ## Array of blm values for both +ve and -ve indices
+        self.bl_idx = np.zeros(2*self.blm_size - self.blmax - 1, dtype='int')
+        self.bm_idx = np.zeros(2*self.blm_size - self.blmax - 1, dtype='int')
+
+
+        for ii in range(self.bl_idx.size):
+
+            #lval, mval = Alm.getlm(blmax, jj)
+            self.bl_idx[ii], self.bm_idx[ii] = self.idxtoalm(self.blmax, ii)
+
+
     def idxtoalm(self, lmax, ii):
 
         '''
@@ -86,8 +100,8 @@ class clebschGordan():
 
         for jj in range(blms_full.size):
 
-            #lval, mval = Alm.getlm(blmax, jj)
-            lval, mval = self.idxtoalm(self.blmax, jj)
+            lval, mval = self.bl_idx[jj], self.bm_idx[jj]
+            #lval, mval = self.idxtoalm(self.blmax, jj)
 
             if mval >= 0:
                 blms_full[jj] = blms_in[Alm.getidx(self.blmax, lval, mval)]
@@ -97,7 +111,6 @@ class clebschGordan():
                 blms_full[jj] = (-1)**mval *  np.conj(blms_in[Alm.getidx(self.blmax, lval, mval)])
 
         return blms_full
-
 
     def blm_2_alm(self, blms_in):
 
@@ -110,15 +123,19 @@ class clebschGordan():
 
 
         ## initialize alm array
-        alm_vals = np.zeros(self.alm_size, dtype='complex')
+        #alm_vals = np.zeros(self.alm_size, dtype='complex')
 
         ## convert blm array into a full blm array with -m values too
         blm_full = self.calc_blm_full(blms_in)
 
-        B1, B2 = np.meshgrid(blm_full, blm_full)
+        #B1, B2 = np.meshgrid(blm_full, blm_full)
 
-        for ii in range(alm_vals.size):
-            alm_vals[ii] = np.sum(self.beta_vals[ii, :, :]*B1*B2)
+        alm_vals = np.einsum('ijk,j,k', self.beta_vals, blm_full, blm_full)
+
+        #for ii in range(alm_vals.size):
+        #    alm_vals[ii] = np.sum(self.beta_vals[ii, :, :]*B1*B2)
+
+        #import pdb; pdb.set_trace()
 
         return alm_vals
 
