@@ -322,6 +322,7 @@ def blip(paramsfile='params.ini'):
     Output: Files containing evidence and pdfs of the parameters
     '''
 
+
     #  --------------- Read the params file --------------------------------
 
     # Initialize Dictionaries
@@ -386,19 +387,9 @@ def blip(paramsfile='params.ini'):
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
 
-    # --------------------------- NESTED SAMPLER --------------------------------
 
-    # Make output folder
-    subprocess.call(["mkdir", "-p", params['out_dir']])
 
-    # Copy the params file to outdir, to keep track of the parameters of each run.
-    subprocess.call(["cp", paramsfile, params['out_dir']])
-
-    # ------------------------------ Run Nestle ----------------------------------
-
-    # Initialize lisa class
-    lisa =  LISA(params, inj)
-
+    # Fix random seed
     if params['FixSeed']:
         from tools.SetRandomState import SetRandomState as setrs
         seed = params['seed']
@@ -407,6 +398,21 @@ def blip(paramsfile='params.ini'):
         randst = None
 
 
+
+    # Make directories, copy stuff
+
+    # Make output folder
+    subprocess.call(["mkdir", "-p", params['out_dir']])
+
+    # Copy the params file to outdir, to keep track of the parameters of each run.
+    subprocess.call(["cp", paramsfile, params['out_dir']])
+
+
+    # Initialize lisa class
+    lisa =  LISA(params, inj)
+
+
+    # create the nested sampler objects
     if params['modeltype']=='isgwb':
 
         print("Doing an isotropic stochastic analysis...")
@@ -460,7 +466,19 @@ def blip(paramsfile='params.ini'):
 
     print("npar = " + str(npar))
 
-    # -------------------- Extract and Plot posteriors ---------------------------
+    '''
+    vals = [inj['log_Np'], inj['log_Na'] ,inj['alpha'], inj['ln_omega0'], -0.6, 0.6, np.pi/2]
+    like = lisa.sph_log_likelihood
+
+    import time
+
+    t0 = time.perf_counter()
+    for ii in range(200):
+        like(vals)
+
+    print(str(time.perf_counter() - t0) + ' sec for 200 function calls ')
+    '''
+    # -------------------- Run nested sampler ---------------------------
     engine.run_nested(dlogz=0.5,print_progress=True )
 
 

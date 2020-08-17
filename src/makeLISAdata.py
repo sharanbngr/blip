@@ -462,16 +462,23 @@ class LISAdata(geometry, instrNoise):
 
             elif self.inj['injtype'] == 'sph_sgwb':
 
-                ## get alms
-                alms_inj = self.blm_2_alm(self.inj['blms'])
-
-                ## normalize
-                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
-
-                ## extrct only the non-negative components
-                alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
-
                 if ii == 0:
+
+                    ## need to set up a few things before doing the spherical harmonic inj
+
+                    ## extract alms
+                    alms_inj = self.blm_2_alm(self.inj['blms'])
+
+                    ## normalize
+                    alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+                    ## extrct only the non-negative components
+                    alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+
+
+                    ## response matrix summed over Ylms
+                    summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                    #summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
                     ## converts alm_inj into a healpix max to be plotted and saved
                     skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
@@ -479,10 +486,6 @@ class LISAdata(geometry, instrNoise):
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
-
-                ## response matrix summed over Ylms
-                #summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
-                summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
