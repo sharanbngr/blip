@@ -477,8 +477,7 @@ class LISAdata(geometry, instrNoise):
 
 
                     ## response matrix summed over Ylms
-                    summ_response_mat = np.sum(response_mat*alms_inj[None, None, None, None, :], axis=-1)
-                    #summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
+                    summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
                     ## converts alm_inj into a healpix max to be plotted and saved
                     skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
@@ -525,7 +524,7 @@ class LISAdata(geometry, instrNoise):
         ## remove the first half and the last half splice.
         h1, h2, h3 = h1[halfN:-halfN], h2[halfN:-halfN], h3[halfN:-halfN]
 
-        tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
+        tarr = self.params['tstart'] + tbreak +  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
         return h1, h2, h3, tarr
 
