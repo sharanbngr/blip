@@ -210,12 +210,10 @@ class Bayes():
         ## change axis order to make taking an inverse easier
         cov_sgwb = Sgw[:, None, None, None]*np.moveaxis(self.response_mat, [-2, -1, -3], [0, 1, 2])
 
-
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_sgwb)
-        det_cov = np.linalg.det(cov_sgwb)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
 
@@ -258,10 +256,10 @@ class Bayes():
         cov_mat = np.moveaxis(cov_noise, [-2, -1], [0, 1])
 
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_mat)
-        det_cov = np.linalg.det(cov_mat)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
 
         loglike = np.real(logL)
 
@@ -315,10 +313,10 @@ class Bayes():
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
 
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_mat)
-        det_cov = np.linalg.det(cov_mat)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
 
         loglike = np.real(logL)
 
@@ -373,7 +371,6 @@ class Bayes():
         ## normalize
         alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
 
-        #summ_response_mat2 = np.sum(self.response_mat*alm_vals[None, None, None, None, :], axis=-1)
         summ_response_mat = np.einsum('ijklm,m', self.response_mat, alm_vals)
 
         ## The noise spectrum of the GW signal. Written down here as a full
@@ -387,11 +384,6 @@ class Bayes():
 
         ## take inverse and determinant
         inv_cov, det_cov = bespoke_inv(cov_mat)
-
-        #inv_cov2 = np.linalg.inv(cov_mat)
-        #det_cov2 = np.linalg.det(cov_mat)
-
-        #logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
