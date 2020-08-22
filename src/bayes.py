@@ -130,11 +130,11 @@ class Bayes():
             for mval in range(lval + 1):
 
                 if mval == 0:
-                    blm_theta.append(2*theta[cnt] - 1 )
+                    blm_theta.append(6*theta[cnt] - 3)
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_theta.append(theta[cnt])
+                    blm_theta.append(3* theta[cnt])
                     blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 

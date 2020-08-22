@@ -475,13 +475,20 @@ class LISAdata(geometry, instrNoise):
                     ## extrct only the non-negative components
                     alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
 
+                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
 
                     ## response matrix summed over Ylms
                     summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
-                    ## converts alm_inj into a healpix max to be plotted and saved
-                    skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
-                    hp.mollview(skymap_inj, title='Angular distribution map')
+                    # converts alm_inj into a healpix max to be plotted and saved
+                    # Plot with twice the analysis nside for better resolution
+                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+
+                    Omegamap_inj = Omega_1mHz * skymap_inj
+
+                    hp.graticule()
+                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()

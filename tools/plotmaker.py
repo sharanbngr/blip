@@ -14,7 +14,10 @@ def mapmaker(params, post):
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
 
-    npix = hp.nside2npix(params['nside'])
+    ## we will plot with a larger nside than the analysis for finer plots
+    nside = 2*params['nside']
+
+    npix = hp.nside2npix(nside)
 
     # Initialize power skymap
     omega_map = np.zeros(npix)
@@ -53,7 +56,7 @@ def mapmaker(params, post):
 
         norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
 
-        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, params['nside'], verbose=False))**2
+        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside , verbose=False))**2
 
         ## add to the omega map
         omega_map = omega_map + Omega_1mHz * prob_map
@@ -61,6 +64,7 @@ def mapmaker(params, post):
     omega_map = omega_map/post.shape[0]
 
     hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    hp.graticule()
     plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
     print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
     plt.close()
@@ -99,9 +103,10 @@ def mapmaker(params, post):
 
     norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
 
-    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, params['nside'], verbose=False))**2
+    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside , verbose=False))**2
 
     hp.mollview(omega_map, title='median skymap of $\\Omega(f= 1mHz)$')
+    hp.graticule()
     plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
     print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
     plt.close()
