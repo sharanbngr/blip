@@ -14,11 +14,26 @@ class clebschGordan():
         self.blmax = self.params['lmax']
         self.almax = 2*self.blmax
 
-        self.alm_size = Alm.getsize(self.almax)
+        ## size of arrays: for blms its only non-negative m values but for alms it is all of them
+        self.alm_size = (self.almax + 1)**2
         self.blm_size = Alm.getsize(self.blmax)
 
         ## calculate and store beta
         self.calc_beta()
+
+        ## calculate and store the output of the idxtoalm method for blmax.
+        ## This will be used many times for the spherical harmonic likelihood
+
+        ## Array of blm values for both +ve and -ve indices
+        self.bl_idx = np.zeros(2*self.blm_size - self.blmax - 1, dtype='int')
+        self.bm_idx = np.zeros(2*self.blm_size - self.blmax - 1, dtype='int')
+
+
+        for ii in range(self.bl_idx.size):
+
+            #lval, mval = Alm.getlm(blmax, jj)
+            self.bl_idx[ii], self.bm_idx[ii] = self.idxtoalm(self.blmax, ii)
+
 
     def idxtoalm(self, lmax, ii):
 
@@ -85,8 +100,7 @@ class clebschGordan():
 
         for jj in range(blms_full.size):
 
-            #lval, mval = Alm.getlm(blmax, jj)
-            lval, mval = self.idxtoalm(self.blmax, jj)
+            lval, mval = self.bl_idx[jj], self.bm_idx[jj]
 
             if mval >= 0:
                 blms_full[jj] = blms_in[Alm.getidx(self.blmax, lval, mval)]
@@ -97,28 +111,19 @@ class clebschGordan():
 
         return blms_full
 
-
     def blm_2_alm(self, blms_in):
 
         '''
-        Convert complex blm values to alm complex values. Since both describe real fields on
-        the sky, we will only use non-negative m vals.
+        Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
 
         if blms_in.size != self.blm_size:
             raise ValueError('The size of the input blm array does not match the size defined by lmax ')
 
-
-        ## initialize alm array
-        alm_vals = np.zeros(self.alm_size, dtype='complex')
-
         ## convert blm array into a full blm array with -m values too
         blm_full = self.calc_blm_full(blms_in)
 
-        B1, B2 = np.meshgrid(blm_full, blm_full)
-
-        for ii in range(alm_vals.size):
-            alm_vals[ii] = np.sum(self.beta_vals[ii, :, :]*B1*B2)
+        alm_vals = np.einsum('ijk,j,k', self.beta_vals, blm_full, blm_full)
 
         return alm_vals
 
@@ -149,28 +154,10 @@ class clebschGordan():
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_vals[idx] = blm_params[cnt] * np.exp(2*np.pi*blm_params[cnt+1])
+                    blm_vals[idx] = blm_params[cnt] * np.exp(1j * blm_params[cnt+1])
                     cnt = cnt + 2
 
         return blm_vals
 
-    '''
-    def calc_one_alm(self, blm_in, l, m):
-
-        #calculate one specific alm corresponding to (l, m) value from complex blm values
 
 
-        ## initialize alm array
-        if m == 0:
-            alm_vals = np.zeros(blm_shape)
-        else:
-            alm_vals = np.zeros(blm_shape, dtype='complex')
-
-        B1, B2 = np.meshgrid(blm_vals, blm_vals)
-
-        alm_idx = Alm.getidx(almax, l, m)
-        alm_vals = np.sum(self.beta_vals[alm_idx, :, :]*B1*B2)
-
-        return alm_vals
-
-    '''

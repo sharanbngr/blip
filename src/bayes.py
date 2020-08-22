@@ -1,4 +1,5 @@
 import numpy as np
+#from line_profiler import LineProfiler
 
 class Bayes():
 
@@ -112,12 +113,12 @@ class Bayes():
         '''
 
         # The first two are the priors on the position and acc noise terms.
-        log_Np = -5*theta[0] - 39
-        log_Na = -5*theta[1] - 46
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
 
         # Prior on alpha, and omega_0
-        alpha = 10*theta[2] - 5
-        log_omega0  = -10*theta[3] - 4
+        alpha = 8*theta[2] - 4
+        log_omega0  = -6*theta[3] - 5
 
         # The rest of the priors define the blm parameter space
         blm_theta = []
@@ -129,15 +130,20 @@ class Bayes():
             for mval in range(lval + 1):
 
                 if mval == 0:
-                    blm_theta.append(2*theta[cnt] - 1 )
+                    blm_theta.append(6*theta[cnt] - 3)
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_theta.append(theta[cnt])
-                    blm_theta.append(2*np.pi*theta[cnt+1])
+                    blm_theta.append(3* theta[cnt])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 
+        # rm these three lines later.
+        # blm_theta.append(theta[4])
+        # blm_theta.append(2*np.pi*theta[5] - np.pi)
+
         theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
+
 
         return theta
 
@@ -204,12 +210,10 @@ class Bayes():
         ## change axis order to make taking an inverse easier
         cov_sgwb = Sgw[:, None, None, None]*np.moveaxis(self.response_mat, [-2, -1, -3], [0, 1, 2])
 
-
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_sgwb)
-        det_cov = np.linalg.det(cov_sgwb)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
 
@@ -252,10 +256,10 @@ class Bayes():
         cov_mat = np.moveaxis(cov_noise, [-2, -1], [0, 1])
 
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_mat)
-        det_cov = np.linalg.det(cov_mat)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
 
         loglike = np.real(logL)
 
@@ -309,16 +313,14 @@ class Bayes():
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
 
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_mat)
-        det_cov = np.linalg.det(cov_mat)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
 
         loglike = np.real(logL)
 
         return loglike
-
-
 
     def sph_log_likelihood(self, theta):
 
@@ -357,15 +359,19 @@ class Bayes():
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
-        ## Convert the blm parameter space values to alm values.
-        blm_vals = self.blm_params_2_blms(theta[4:])
+        ## rm this line later
+        # blm_theta  = np.append([0.0], theta[4:])
 
+        blm_theta  = theta[4:]
+
+        ## Convert the blm parameter space values to alm values.
+        blm_vals = self.blm_params_2_blms(blm_theta)
         alm_vals = self.blm_2_alm(blm_vals)
 
         ## normalize
         alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
 
-        summ_response_mat = np.sum(self.response_mat*alm_vals[None, None, None, None, :], axis=-1)
+        summ_response_mat = np.einsum('ijklm,m', self.response_mat, alm_vals)
 
         ## The noise spectrum of the GW signal. Written down here as a full
         ## covariance matrix axross all the channels.
@@ -373,23 +379,45 @@ class Bayes():
 
         cov_mat = cov_sgwb + cov_noise
 
-        logL = -np.sum( (np.abs(self.r1)**2) / cov_mat[0, 0, :, :]) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs( cov_mat[0, 0:, :]) ))
-
-
-        '''
         ## change axis order to make taking an inverse easier
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
 
         ## take inverse and determinant
-        inv_cov = np.linalg.inv(cov_mat)
-        det_cov = np.linalg.det(cov_mat)
+        inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.sum(inv_cov*self.rmat) - np.sum(np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
-        '''
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
 
         return loglike
+
+
+def bespoke_inv(A):
+
+
+    """
+
+    compute inverse without division by det; ...xv3xc3 input, or array of matrices assumed
+
+    Credit to Eelco Hoogendoorn at stackexchange for this piece of wizardy. This is > 3 times
+    faster than numpy's det and inv methods used in a fully vectorized way as of numpy 1.19.1
+
+    https://stackoverflow.com/questions/21828202/fast-inverse-and-transpose-matrix-in-python
+
+    """
+
+
+    AI = np.empty_like(A)
+
+    for i in range(3):
+        AI[...,i,:] = np.cross(A[...,i-2,:], A[...,i-1,:])
+
+    det = np.einsum('...i,...i->...', AI, A).mean(axis=-1)
+
+    inv_T =  AI / det[...,None,None]
+
+    # inverse by swapping the inverse transpose
+    return np.swapaxes(inv_T, -1,-2), det
 
 
 

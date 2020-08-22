@@ -5,7 +5,7 @@ import healpy as hp
 class orbitinglisa():
 
     '''
-    Module containing geometry methods accounting for an orbiting satellie. The methods here include a base orbit, a single doppler channel, for 
+    Module containing geometry methods accounting for an orbiting satellite. The methods here include a base orbit, a single doppler channel, for 
     the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations. 
     '''
 
