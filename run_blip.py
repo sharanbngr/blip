@@ -22,13 +22,6 @@ class LISA(LISAdata, Bayes):
 
     def __init__(self,  params, inj):
         
-        if params['FixSeed']:
-            from tools.SetRandomState import SetRandomState as setrs
-            seed = params['seed']
-            randst = setrs(seed)
-        else:
-            randst = None
-        
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
@@ -428,6 +421,13 @@ def blip(paramsfile='params.ini'):
     nlive = int(config.get("run_params", "nlive"))
     nthread = int(config.get("run_params", "Nthreads"))
 
+    if params['FixSeed']:
+        from tools.SetRandomState import SetRandomState as setrs
+        seed = params['seed']
+        randst = setrs(seed)
+    else:
+        randst = None
+    
     # --------------------------- NESTED SAMPLER --------------------------------
 
     # Make output folder
@@ -441,12 +441,7 @@ def blip(paramsfile='params.ini'):
     # Initialize lisa class
     lisa = LISA(params, inj)
     
-    if params['FixSeed']:
-        from tools.SetRandomState import SetRandomState as setrs
-        seed = params['seed']
-        randst = setrs(seed)
-    else:
-        randst = None
+    
         
     if params['modeltype'] == 'isgwb':
 
