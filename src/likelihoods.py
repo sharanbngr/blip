@@ -1,7 +1,7 @@
 import numpy as np
 #from line_profiler import LineProfiler
 
-class Bayes():
+class likelihoods():
 
     '''
     Class with methods for bayesian analysis of different kinds of signals. The methods currently
@@ -30,152 +30,6 @@ class Bayes():
 
 
 
-    def instr_prior(self, theta):
-
-
-        '''
-        Prior function for only instrumental noise
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing samples from a unit cube.
-
-        Returns
-        ---------
-
-        theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
-
-        '''
-
-
-        # Unpack: Theta is defined in the unit cube
-        log_Np, log_Na = theta
-
-        # Transform to actual priors
-        log_Np = -5*log_Np - 39
-        log_Na = -5*log_Na - 46
-
-        return (log_Np, log_Na)
-
-
-    def isgwb_prior(self, theta):
-
-
-        '''
-        Prior function for an isotropic stochastic backgound analysis.
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing samples from a unit cube.
-
-        Returns
-        ---------
-
-        theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
-
-        '''
-
-
-        # Unpack: Theta is defined in the unit cube
-        log_Np, log_Na, alpha, log_omega0 = theta
-
-        # Transform to actual priors
-        alpha       =  10*alpha-5
-        log_omega0  = -10*log_omega0 - 4
-        log_Np      = -5*log_Np - 39
-        log_Na      = -5*log_Na - 46
-        self.theta_prior = (alpha, log_omega0, log_Np, log_Na)
-        return (log_Np, log_Na, alpha, log_omega0)
-
-
-    def sph_prior(self, theta):
-
-        '''
-        Prior for a power spectra based spherical harmonic anisotropic analysis
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing samples from a unit cube.
-
-        Returns
-        ---------
-
-        theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
-        '''
-
-        # The first two are the priors on the position and acc noise terms.
-        log_Np = -4*theta[0] - 39
-        log_Na = -4*theta[1] - 46
-
-        # Prior on alpha, and omega_0
-        alpha = 8*theta[2] - 4
-        log_omega0  = -6*theta[3] - 5
-
-        # The rest of the priors define the blm parameter space
-        blm_theta = []
-
-        ## counter for the rest of theta
-        cnt = 4
-
-        for lval in range(1, self.params['lmax'] + 1):
-            for mval in range(lval + 1):
-
-                if mval == 0:
-                    blm_theta.append(6*theta[cnt] - 3)
-                    cnt = cnt + 1
-                else:
-                    ## prior on amplitude, phase
-                    blm_theta.append(3* theta[cnt])
-                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
-                    cnt = cnt + 2
-
-        # rm these three lines later.
-        # blm_theta.append(theta[4])
-        # blm_theta.append(2*np.pi*theta[5] - np.pi)
-
-        theta = [log_Np, log_Na, alpha, log_omega0] + blm_theta
-
-
-        return theta
-
-    def isgwb_only_prior(self, theta):
-
-
-        '''
-        Prior function for an isotropic stochastic backgound analysis.
-
-        Parameters
-        -----------
-
-        theta   : float
-            A list or numpy array containing samples from a unit cube.
-
-        Returns
-        ---------
-
-        theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref
-
-        '''
-
-        # Unpack: Theta is defined in the unit cube
-        alpha, log_omega0  = theta
-
-        # Transform to actual priors
-        alpha       = 10*alpha-5
-        log_omega0  = -10*log_omega0 - 4
-
-        return (alpha, log_omega0)
-
     def isgwb_only_log_likelihood(self, theta):
 
         '''
@@ -186,7 +40,8 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively.
+            A list or numpy array containing rescaled samples from the unit cube. The elements
+            are interpreted as samples for alpha, omega_ref, Np and Na respectively.
 
         Returns
         ---------
@@ -230,7 +85,8 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for  Np and Na respectively.
+            A list or numpy array containing rescaled samples from the unit cube. The elements
+            are interpreted as samples for  Np and Na respectively.
 
         Returns
         ---------
@@ -276,7 +132,8 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elementes are interpreted as samples for alpha, omega_ref, Np and Na respectively.
+            A list or numpy array containing rescaled samples from the unit cube. The elements
+            are interpreted as samples for alpha, omega_ref, Np and Na respectively.
 
         Returns
         ---------
@@ -332,7 +189,9 @@ class Bayes():
         -----------
 
         theta   : float
-            A list or numpy array containing rescaled samples from the unit cube. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na.
+            A list or numpy array containing rescaled samples from the unit cube. The elements are
+            interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element
+            is always alpha and the last two are always Np and Na.
 
         Returns
         ---------

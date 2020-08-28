@@ -1,16 +1,14 @@
 import pickle
 import numpy as np
-from dynesty import NestedSampler
-from dynesty.utils import resample_equal
 import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
-from src.bayes import Bayes
+from src.likelihoods import likelihoods
 from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 # from eogtest import open_img
+from src.dynesty_engine import dynesty_engine
 
-
-class LISA(LISAdata, Bayes):
+class LISA(LISAdata, likelihoods):
 
     '''
     Generic class for getting data and setting up the prior space
@@ -25,7 +23,9 @@ class LISA(LISAdata, Bayes):
 
         # Make noise spectra
         self.which_noise_spectrum()
-        self.which_astro_signal()
+
+        if self.inj['doInj']:
+            self.which_astro_signal()
 
         # Generate or get mldc data
         if self.params['mldc']:
@@ -34,7 +34,7 @@ class LISA(LISAdata, Bayes):
             self.makedata()
 
         # Set up the Bayes class
-        Bayes.__init__(self)
+        likelihoods.__init__(self)
 
         # Figure out which response function to use for recoveries
         self.which_response()
@@ -354,7 +354,7 @@ def blip(paramsfile='params.ini'):
     params['nside'] = int(config.get("params", "nside"))
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart"))
-
+    params['sampler'] = str(config.get("params", "sampler"))
 
 
     # Injection Dict
@@ -411,107 +411,29 @@ def blip(paramsfile='params.ini'):
     # Initialize lisa class
     lisa =  LISA(params, inj)
 
+    if params['sampler'] == 'dynesty':
 
-    # create the nested sampler objects
-    if params['modeltype']=='isgwb':
+        # Create engine
+        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, randst)
+        post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
 
-        print("Doing an isotropic stochastic analysis...")
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-        npar = len(parameters)
-        engine = NestedSampler(lisa.isgwb_log_likelihood, lisa.isgwb_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+        # Save posteriors to file
+        np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
+        np.savetxt(params['out_dir'] + "/logz.txt", logz)
+        np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
 
-    elif params['modeltype']=='sph_sgwb':
+    elif params['sampler'] == 'emcee':
 
-        print("Doing a spherical harmonic stochastic analysis ...")
+        # Create engine
+        engine, parameters = emcee_engine.define_engine(lisa, params, nlive, randst)
+        post_samples, logz, logzerr = emcee_engine.run_engine()
 
-        # add the basic parameters first
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+        # Save posteriors to file
+        np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
 
+    else: 
+        raise TypeError('Unknown sampler model chosen. Only dynesty & emcee are supported')
 
-        # add the blms
-        for lval in range(1, params['lmax'] + 1):
-            for mval in range(lval + 1):
-
-                if mval == 0:
-                    parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
-                else:
-                    parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                    parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-
-        ## RM this line later.
-        # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
-        # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
-
-        npar = len(parameters)
-        engine = NestedSampler(lisa.sph_log_likelihood, lisa.sph_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-
-    elif params['modeltype']=='noise_only':
-        print("Doing an instrumental noise only analysis ...")
-        parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-        npar = len(parameters)
-        engine = NestedSampler(lisa.instr_log_likelihood,  lisa.instr_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-
-    elif params['modeltype'] =='isgwb_only':
-        print("Doing an isgwb signal only analysis ...")
-        parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-        npar = len(parameters)
-        engine = NestedSampler(lisa.isgwb_only_log_likelihood,  lisa.isgwb_only_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
-
-    else:
-        raise ValueError('Unknown recovery model selected')
-
-    print("npar = " + str(npar))
-
-    '''
-    vals = [inj['log_Np'], inj['log_Na'] ,inj['alpha'], inj['ln_omega0'], -0.6, 0.6, np.pi/2]
-    like = lisa.sph_log_likelihood
-
-    import time
-
-    t0 = time.perf_counter()
-    for ii in range(200):
-        like(vals)
-
-    print(str(time.perf_counter() - t0) + ' sec for 200 function calls ')
-    '''
-    # -------------------- Run nested sampler ---------------------------
-    engine.run_nested(dlogz=0.5,print_progress=True )
-
-
-    # re-scale weights to have a maximum of one
-    res = engine.results
-    weights = np.exp(res['logwt'] - res['logz'][-1])
-    weights[-1] = 1 - np.sum(weights[0:-1])
-
-    post_samples = resample_equal(res.samples, weights)
-
-    # Pull the evidence and the evidence error
-    logz = res['logz']
-    logzerr = res['logzerr']
-
-    # Construct filenames based on parameter configuration
-    if params['lisa_config']=='stationary':
-        configchar = '_s'
-    elif params['lisa_config']=='orbiting':
-        configchar = '_o'
-    else:
-        configchar = ''
-
-    if params['FixSeed']:
-        seedchar = '_rs'+str(seed)
-    else:
-        seedchar = ''
-    logzname = '/logz'+seedchar+configchar+'.txt'
-    logzerrname = '/logzerr'+seedchar+configchar+'.txt'
-
-    # Save posteriors to file
-    np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
-    np.savetxt(params['out_dir'] + logzname,logz)
-    np.savetxt(params['out_dir'] + logzerrname,logzerr)
 
     # Save parameters as a pickle
     outfile = open(params['out_dir'] + '/config.pickle', 'wb')
