@@ -9,12 +9,7 @@ class dynesty_engine():
     Class for interfacing with dynesty sampler. This method also contains the
     priors definition for all models written to work with the dynesty sampler.
     '''
-
-    #def __init__(lisaobj):
-
-    # set engine
-    #    self.define_engine(lisaobj)
-
+    
 
     @classmethod
     def define_engine(cls, lisaobj, params, nlive, randst):
@@ -163,11 +158,11 @@ class dynesty_engine():
         log_omega0  = -10*log_omega0 - 4
         log_Np      = -5*log_Np - 39
         log_Na      = -5*log_Na - 46
-        self.theta_prior = (alpha, log_omega0, log_Np, log_Na)
+        
         return (log_Np, log_Na, alpha, log_omega0)
 
     @staticmethod
-    def sph_prior(self, theta):
+    def sph_prior(theta):
 
         '''
         Prior for a power spectra based spherical harmonic anisotropic analysis

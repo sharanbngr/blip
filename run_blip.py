@@ -7,6 +7,7 @@ from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
+from src.emcee_engine import emcee_engine
 
 class LISA(LISAdata, likelihoods):
 
@@ -425,8 +426,8 @@ def blip(paramsfile='params.ini'):
     elif params['sampler'] == 'emcee':
 
         # Create engine
-        engine, parameters = emcee_engine.define_engine(lisa, params, nlive, randst)
-        post_samples, logz, logzerr = emcee_engine.run_engine()
+        engine, parameters, init_samples = emcee_engine.define_engine(lisa, params, nlive, randst)
+        post_samples = emcee_engine.run_engine(engine, init_samples)
 
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
