@@ -194,7 +194,7 @@ def plotmaker(params,parameters, inj):
     if params['out_dir'][-1] != '/':
         params['out_dir'] = params['out_dir'] + '/'
 
-   ## Make chainconsumer corner plots
+    ## Make chainconsumer corner plots
     cc = ChainConsumer()
     cc.add_chain(post, parameters=parameters)
     cc.configure(smooth=False, kde=False, max_ticks=3, sigmas=np.array([1, 2]), label_font_size=30, tick_font_size=20, \
