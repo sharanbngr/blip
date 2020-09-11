@@ -188,13 +188,23 @@ class dynesty_engine():
         alpha = 8*theta[2] - 4
         log_omega0  = -6*theta[3] - 5
 
+        # Calculate lmax from the size of theta blm arrays. The shape is 
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is 
+        # an independent parameter
+        lmax = np.sqrt( theta[4:].size + 1 ) - 1
+
+        if lmax.is_integer():
+            lmax = int(lmax)
+        else:
+            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+
         # The rest of the priors define the blm parameter space
         blm_theta = []
 
         ## counter for the rest of theta
         cnt = 4
 
-        for lval in range(1, self.params['lmax'] + 1):
+        for lval in range(1, lmax + 1):
             for mval in range(lval + 1):
 
                 if mval == 0:
