@@ -51,7 +51,8 @@ def mapmaker(params, post):
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
+                    #blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
+                    blm_vals[idx] = blms[cnt] + 1j * blms[cnt+1]
                     cnt = cnt + 2
 
         norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
@@ -98,7 +99,8 @@ def mapmaker(params, post):
                 cnt = cnt + 1
             else:
                 ## prior on amplitude, phase
-                blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
+                #blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
+                blm_median_vals[idx] = blms_median[cnt]  +  1j * blms_median[cnt+1]
                 cnt = cnt + 2
 
     norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
@@ -179,8 +181,11 @@ def plotmaker(params,parameters, inj):
                 if mval == 0:
                     truevals.append(np.real(inj['blms'][idx]))
                 else:
-                    truevals.append(np.abs(inj['blms'][idx]))
-                    truevals.append(np.angle(inj['blms'][idx]))
+                    #truevals.append(np.abs(inj['blms'][idx]))
+                    #truevals.append(np.angle(inj['blms'][idx]))
+
+                    truevals.append(np.real(inj['blms'][idx]))
+                    truevals.append(np.imag(inj['blms'][idx]))
 
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
