@@ -220,7 +220,7 @@ class dynesty_engine():
 
                     # prior on real and imaginary parts
                     blm_theta.append(6*theta[cnt] - 3)
-                    blm_theta.append(6*theta[cnt] - 3)
+                    blm_theta.append(6*theta[cnt + 1] - 3)
 
                     cnt = cnt + 2
 
