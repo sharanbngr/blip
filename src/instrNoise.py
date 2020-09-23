@@ -126,7 +126,6 @@ class instrNoise():
 
 
         '''
-
         C_mich = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
