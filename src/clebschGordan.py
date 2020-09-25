@@ -153,8 +153,9 @@ class clebschGordan():
                     blm_vals[idx] = blm_params[cnt]
                     cnt = cnt + 1
                 else:
-                    ## prior on amplitude, phase
-                    blm_vals[idx] = blm_params[cnt] * np.exp(1j * blm_params[cnt+1])
+                    ## add the real and imaginary parts to get complex blm
+                    blm_vals[idx] = blm_params[cnt] + 1j * blm_params[cnt+1]
+                    #blm_vals[idx] = blm_params[cnt] * np.exp(1j * blm_params[cnt+1])
                     cnt = cnt + 2
 
         return blm_vals

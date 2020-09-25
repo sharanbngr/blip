@@ -51,7 +51,8 @@ def mapmaker(params, post):
                     cnt = cnt + 1
                 else:
                     ## prior on amplitude, phase
-                    blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
+                    #blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
+                    blm_vals[idx] = blms[cnt] + 1j * blms[cnt+1]
                     cnt = cnt + 2
 
         norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
@@ -98,7 +99,8 @@ def mapmaker(params, post):
                 cnt = cnt + 1
             else:
                 ## prior on amplitude, phase
-                blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
+                #blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
+                blm_median_vals[idx] = blms_median[cnt]  +  1j * blms_median[cnt+1]
                 cnt = cnt + 2
 
     norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
@@ -179,8 +181,11 @@ def plotmaker(params,parameters, inj):
                 if mval == 0:
                     truevals.append(np.real(inj['blms'][idx]))
                 else:
-                    truevals.append(np.abs(inj['blms'][idx]))
-                    truevals.append(np.angle(inj['blms'][idx]))
+                    #truevals.append(np.abs(inj['blms'][idx]))
+                    #truevals.append(np.angle(inj['blms'][idx]))
+
+                    truevals.append(np.real(inj['blms'][idx]))
+                    truevals.append(np.imag(inj['blms'][idx]))
 
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
@@ -197,7 +202,7 @@ def plotmaker(params,parameters, inj):
     ## Make chainconsumer corner plots
     cc = ChainConsumer()
     cc.add_chain(post, parameters=parameters)
-    cc.configure(smooth=False, kde=False, max_ticks=3, sigmas=np.array([1, 2]), label_font_size=30, tick_font_size=20, \
+    cc.configure(smooth=False, kde=False, max_ticks=3, sigmas=np.array([1, 2]), label_font_size=20, tick_font_size=20, \
             summary=False, statistics="max_central", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
     cc.configure_truth(color='g', ls='--', alpha=0.7)
 
@@ -239,7 +244,7 @@ def plotmaker(params,parameters, inj):
 
         label =  parameters[ii][:-1] + ' = ' + mean_form + '^{+' + err[0] + '}_{-' + err[1] + '}$'
 
-        ax.set_title(label, {'fontsize':23}, loc='left')
+        ax.set_title(label, {'fontsize':18}, loc='left')
 
 
     ## Save posterior

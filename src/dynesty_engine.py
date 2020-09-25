@@ -9,7 +9,7 @@ class dynesty_engine():
     Class for interfacing with dynesty sampler. This method also contains the
     priors definition for all models written to work with the dynesty sampler.
     '''
-    
+
 
     @classmethod
     def define_engine(cls, lisaobj, params, nlive, randst):
@@ -39,8 +39,11 @@ class dynesty_engine():
                     if mval == 0:
                         parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                     else:
-                        parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                        parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+                        #parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                        #parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+                        parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
+                        parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
+
 
             ## RM is line later.
             # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
@@ -158,7 +161,7 @@ class dynesty_engine():
         log_omega0  = -10*log_omega0 - 4
         log_Np      = -5*log_Np - 39
         log_Na      = -5*log_Na - 46
-        
+
         return (log_Np, log_Na, alpha, log_omega0)
 
     @staticmethod
@@ -188,8 +191,8 @@ class dynesty_engine():
         alpha = 8*theta[2] - 4
         log_omega0  = -6*theta[3] - 5
 
-        # Calculate lmax from the size of theta blm arrays. The shape is 
-        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is 
+        # Calculate lmax from the size of theta blm arrays. The shape is
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
         lmax = np.sqrt( theta[4:].size + 1 ) - 1
 
@@ -211,9 +214,14 @@ class dynesty_engine():
                     blm_theta.append(6*theta[cnt] - 3)
                     cnt = cnt + 1
                 else:
-                    ## prior on amplitude, phase
-                    blm_theta.append(3* theta[cnt])
-                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    # prior on amplitude, phase
+                    # blm_theta.append(3* theta[cnt])
+                    # blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+
+                    # prior on real and imaginary parts
+                    blm_theta.append(6*theta[cnt] - 3)
+                    blm_theta.append(6*theta[cnt + 1] - 3)
+
                     cnt = cnt + 2
 
         # rm these three lines later.
