@@ -646,12 +646,12 @@ class LISAdata(geometry, instrNoise):
         ## set grid density
         grid_fill = 200
         ## create grid *in cartesian coordinates*
+        ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
         ## distances in kpc
-        gal_rad = 40
+        gal_rad = 20
         xs = np.linspace(-gal_rad,gal_rad,grid_fill)
         ys = np.linspace(-gal_rad,gal_rad,grid_fill)
-        # rs = np.linspace(0,25,grid_fill) # bounding radii of galactic center and Milky Way, respectively
-        zs = np.linspace(-20,20,grid_fill)
+        zs = np.linspace(-5,5,grid_fill)
         x, y, z = np.meshgrid(xs,ys,zs)
         r = np.sqrt(x**2 + y**2)
         ## Calculate density distribution
