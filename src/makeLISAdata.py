@@ -5,6 +5,9 @@ from src.geometry import geometry
 from scipy.interpolate import interp1d as intrp
 import matplotlib.pyplot as plt
 import healpy as hp
+from astropy import units as u
+from astropy import coordinates as cc
+from math import pi
 import os
 
 class LISAdata(geometry, instrNoise):
@@ -625,6 +628,83 @@ class LISAdata(geometry, instrNoise):
 
         return h1, h2, h3, times
 
+    def generate_galactic_foreground(self, rh=2.9, zh=0.3, nside=24):
+        '''
+        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
+        rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
+        Thin disk has rh=2.9kpc, zh=0.3kpc; Thick disk has rh=3.31kpc, zh=0.9kpc. Defaults to thin disk. 
+        The distribution is azimuthally symmetric in the galactocentric frame.
+        nside is the healpix nside for the produced skymap.
+        Returns
+        ---------
+        DWD_FG_skymap : float
+            Healpy GW power skymap of the DWD galactic foreground.
+        logskymap : float
+            Healpy log GW power skymap. For plotting purposes.
+        
+        '''
+        ## set grid density
+        grid_fill = 200
+        ## create grid *in cartesian coordinates*
+        ## distances in kpc
+        gal_rad = 40
+        xs = np.linspace(-gal_rad,gal_rad,grid_fill)
+        ys = np.linspace(-gal_rad,gal_rad,grid_fill)
+        # rs = np.linspace(0,25,grid_fill) # bounding radii of galactic center and Milky Way, respectively
+        zs = np.linspace(-20,20,grid_fill)
+        x, y, z = np.meshgrid(xs,ys,zs)
+        r = np.sqrt(x**2 + y**2)
+        ## Calculate density distribution
+        rho_c = 1e4 # some fiducial central density (?? not sure what to use for this)
+        r_cut = 2.1 #kpc
+        r0 = 0.075 #kpc
+        alpha = 1.8
+        q = 0.5
+        disk_density = rho_c*np.exp(-r/rh)*np.exp(-np.abs(z)/zh) 
+        bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
+        DWD_density = disk_density + bulge_density
+        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
+        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
+        SSBc = gc.transform_to(cc.Galactic)
+        ## Calculate GW strain and power
+        DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
+        DWD_powers = DWD_strains**2 
+        ## Transform to healpix basis
+        pixels = hp.ang2pix(nside,np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        ## Create skymap
+        DWD_FG_skymap = np.zeros(hp.nside2npix(nside))
+        ## Bin
+        for i in range(DWD_FG_skymap.size):
+            DWD_FG_skymap[i] = np.sum((pixels==i)*DWD_powers)
+        ## create logarithmic skymap for plotting purposes
+        logskymap = np.log10(DWD_FG_skymap + 10**-15 * (DWD_FG_skymap==0))
+        
+        return DWD_FG_skymap, logskymap
+        
+
+    def add_galactic_foreground_data(self, rh=2.9, zh=0.3, nside=24):
+        '''
+        Transform the foreground produced in generate_galactic_foreground() into timeseries LISA strain data.
+        
+        Returns
+        ---------
+        h1, h2, h3 : float
+            Time series data for the three TDI channels
+        times : float
+            Time array of the data
+        
+        '''
+        DWD_FG_skymap = generate_galactic_foreground(rh,zh,nside)
+        
+        ## something...
+        
+        ## simple power law (2/3 in Omega), ampitude in each pixel given by skymap
+        fs = frequency_range
+        DWD_freq_skymap = np.outer(DWD_FG_skymap,fs**(2/3))
+        
+        ## something else...
+        
+        return h1, h2, h3, times
 
     def read_data(self):
 

@@ -381,6 +381,9 @@ def blip(paramsfile='params.ini'):
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
+    inj['DWD_norm']    = float(config.get("inj", "DWD_norm")) ## power normalization for DWD background; update name once we know what this is
+    inj['rh']          = float(config.get("inj", "rh"))
+    inj['zh']          = float(config.get("inj", "zh"))
 
     if inj['injtype'] ==  'sph_sgwb':
         blm_vals = config.get("inj", "blms")
