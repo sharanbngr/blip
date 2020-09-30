@@ -7,7 +7,7 @@ from tools.plotmaker import plotmaker
 import matplotlib.pyplot as plt
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
-from src.emcee_engine import emcee_engine
+#from src.emcee_engine import emcee_engine
 
 class LISA(LISAdata, likelihoods):
 
@@ -274,6 +274,22 @@ class LISA(LISAdata, likelihoods):
         plt.close()
 
 
+        ## lets also plot psd residue.
+        rel_res_mean = (data_PSD3 - S3)/S3
+
+        plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue')
+        plt.xlabel('f in Hz')
+        plt.ylabel(' Rel. residue')
+        plt.ylim([-1.50, 1.50])
+        plt.legend()
+        plt.grid()
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+
+
+        plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
+        print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
+        plt.close()
+
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
 
@@ -432,7 +448,7 @@ def blip(paramsfile='params.ini'):
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
 
-    else: 
+    else:
         raise TypeError('Unknown sampler model chosen. Only dynesty & emcee are supported')
 
 
