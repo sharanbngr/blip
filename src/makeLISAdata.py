@@ -707,9 +707,9 @@ class LISAdata(geometry, instrNoise):
         ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
         gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
         SSBc = gc.transform_to(cc.Galactic)
-        ## Calculate GW strain and power
-        DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
-        DWD_powers = DWD_strains**2 
+        ## Calculate GW power
+        #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
+        DWD_powers = DWD_density*(np.array(SSBc.distance))**-2
         ## Filter nearby grid points (cut out 2kpc sphere)
         ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
         ## the density distribution and filtering out resolveable SNR>80 binaries
