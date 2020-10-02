@@ -151,6 +151,13 @@ class LISA(LISAdata, likelihoods):
             self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
+            
+        elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
+            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
+            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='aet':
+            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
         elif self.params['modeltype'] == 'noise_only':
             print('Noise only model chosen ...')
@@ -171,6 +178,12 @@ class LISA(LISAdata, likelihoods):
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.asgwb_xyz_response
+        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.asgwb_mich_response
+        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.asgwb_aet_response
+        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
         else:
            raise ValueError('Unknown recovery model selected')
@@ -381,7 +394,6 @@ def blip(paramsfile='params.ini'):
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
-    inj['DWD_norm']    = float(config.get("inj", "DWD_norm")) ## power normalization for DWD background; update name once we know what this is
     inj['rh']          = float(config.get("inj", "rh"))
     inj['zh']          = float(config.get("inj", "zh"))
 

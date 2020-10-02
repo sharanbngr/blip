@@ -500,11 +500,53 @@ class LISAdata(geometry, instrNoise):
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
+                    
+                
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
 
+            elif self.inj['injtype'] == 'dwd_fg':
+
+                if ii == 0:
+
+                    ## need to set up a few things before doing the spherical harmonic inj
+                    
+                    ## generate skymap
+                    DWD_FG_map, log_DWD_FG_map = self.generate_galactic_foreground(self, self.params['rh'], self.params['zh'])
+                    ## convert to blms
+                    DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
+                    ## extract alms
+                    alms_inj = self.blm_2_alm(DWD_FG_sph)
+
+                    ## normalize
+                    alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+                    ## extrct only the non-negative components
+                    alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+
+                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+
+                    ## response matrix summed over Ylms
+                    summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
+
+                    # converts alm_inj into a healpix max to be plotted and saved
+                    # Plot with twice the analysis nside for better resolution
+                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+
+                    Omegamap_inj = Omega_1mHz * skymap_inj
+
+                    hp.graticule()
+                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+
+                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                    plt.close()
+
+                ## move frequency to be the zeroth-axis, then cholesky decomp
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+                
             ## generate standard normal complex data frist
             z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
 
@@ -628,18 +670,17 @@ class LISAdata(geometry, instrNoise):
 
         return h1, h2, h3, times
 
-    def generate_galactic_foreground(self, rh=2.9, zh=0.3, nside=24):
+    def generate_galactic_foreground(self, rh=2.9, zh=0.3):
         '''
         Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
         rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
         Thin disk has rh=2.9kpc, zh=0.3kpc; Thick disk has rh=3.31kpc, zh=0.9kpc. Defaults to thin disk. 
         The distribution is azimuthally symmetric in the galactocentric frame.
-        nside is the healpix nside for the produced skymap.
         Returns
         ---------
-        DWD_FG_skymap : float
+        DWD_FG_map : float
             Healpy GW power skymap of the DWD galactic foreground.
-        logskymap : float
+        log_DWD_FG_map : float
             Healpy log GW power skymap. For plotting purposes.
         
         '''
@@ -655,7 +696,7 @@ class LISAdata(geometry, instrNoise):
         x, y, z = np.meshgrid(xs,ys,zs)
         r = np.sqrt(x**2 + y**2)
         ## Calculate density distribution
-        rho_c = 1e4 # some fiducial central density (?? not sure what to use for this)
+        rho_c = 1 # some fiducial central density (?? not sure what to use for this)
         r_cut = 2.1 #kpc
         r0 = 0.075 #kpc
         alpha = 1.8
@@ -669,42 +710,40 @@ class LISAdata(geometry, instrNoise):
         ## Calculate GW strain and power
         DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
         DWD_powers = DWD_strains**2 
+        ## Filter nearby grid points (cut out 2kpc sphere)
+        ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
+        ## the density distribution and filtering out resolveable SNR>80 binaries
+        DWD_unresolved_powers = DWD_powers*(np.array(SSBc.distance) > 2)
         ## Transform to healpix basis
-        pixels = hp.ang2pix(nside,np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         ## Create skymap
-        DWD_FG_skymap = np.zeros(hp.nside2npix(nside))
+        DWD_FG_map = np.zeros(hp.nside2npix(self.params['nside']))
         ## Bin
-        for i in range(DWD_FG_skymap.size):
-            DWD_FG_skymap[i] = np.sum((pixels==i)*DWD_powers)
+        for i in range(DWD_FG_map.size):
+            DWD_FG_map[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         ## create logarithmic skymap for plotting purposes
-        logskymap = np.log10(DWD_FG_skymap + 10**-15 * (DWD_FG_skymap==0))
+        log_DWD_FG_map = np.log10(DWD_FG_map + 10**-15 * (DWD_FG_map==0))
         
-        return DWD_FG_skymap, logskymap
+        return DWD_FG_map, log_DWD_FG_map
         
-
-    def add_galactic_foreground_data(self, rh=2.9, zh=0.3, nside=24):
+    
+    def sph_galactic_foreground(self, DWD_FG_map):
         '''
-        Transform the foreground produced in generate_galactic_foreground() into timeseries LISA strain data.
+        Transform the foreground produced in generate_galactic_foreground() into
+        b_lm spherical harmonic basis
         
         Returns
         ---------
-        h1, h2, h3 : float
-            Time series data for the three TDI channels
-        times : float
-            Time array of the data
-        
+        DWD_FG_sph : float
+            Spherical harmonic healpy expansion of the galactic foreground
         '''
-        DWD_FG_skymap = generate_galactic_foreground(rh,zh,nside)
+        ## Take square root of powers
+        sqrt_map = np.sqrt(DWD_FG_map)
+        ## Generate blms of power (alms of sqrt(power))
+        DWD_FG_sph = hp.sphtfunc.map2alm(sqrt_map)
         
-        ## something...
+        return DWD_FG_sph
         
-        ## simple power law (2/3 in Omega), ampitude in each pixel given by skymap
-        fs = frequency_range
-        DWD_freq_skymap = np.outer(DWD_FG_skymap,fs**(2/3))
-        
-        ## something else...
-        
-        return h1, h2, h3, times
 
     def read_data(self):
 
