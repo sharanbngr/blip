@@ -116,9 +116,9 @@ class clebschGordan():
         '''
         Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
-
-        if blms_in.size != self.blm_size:
-            raise ValueError('The size of the input blm array does not match the size defined by lmax ')
+        if self.inj['injtype'] != 'dwd_fg':
+            if blms_in.size != self.blm_size:
+                raise ValueError('The size of the input blm array does not match the size defined by lmax ')
 
         ## convert blm array into a full blm array with -m values too
         blm_full = self.calc_blm_full(blms_in)

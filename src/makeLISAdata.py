@@ -514,7 +514,7 @@ class LISAdata(geometry, instrNoise):
                     ## need to set up a few things before doing the spherical harmonic inj
                     
                     ## generate skymap
-                    DWD_FG_map, log_DWD_FG_map = self.generate_galactic_foreground(self, self.params['rh'], self.params['zh'])
+                    DWD_FG_map, log_DWD_FG_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
                     ## convert to blms
                     DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
                     ## extract alms
