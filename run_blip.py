@@ -262,12 +262,13 @@ class LISA(LISAdata, likelihoods):
 
             # Power spectra of the SGWB
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
-
+            import pdb
+            pdb.set_trace()
             # Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw*R1, Sgw*R2, Sgw*R3
+            S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
 
             # The total noise spectra is the sum of the instrumental + astrophysical
-            S1, S2, S3 = S1 + S1_gw, S2 + S2_gw, S3 + S3_gw
+            S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
 
             plt.loglog(self.fdata, S1_gw, label='gw required')
 

@@ -2,6 +2,7 @@ import numpy as np
 import scipy.signal as sg
 from src.instrNoise import instrNoise
 from src.geometry import geometry
+from src.sph_geometry import sph_geometry
 from scipy.interpolate import interp1d as intrp
 import matplotlib.pyplot as plt
 import healpy as hp
@@ -10,7 +11,7 @@ from astropy import coordinates as cc
 from math import pi
 import os
 
-class LISAdata(geometry, instrNoise):
+class LISAdata(geometry, sph_geometry, instrNoise):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation
@@ -23,6 +24,7 @@ class LISAdata(geometry, instrNoise):
         self.inj = inj
         self.armlength = 2.5e9 ## armlength in meters
         geometry.__init__(self)
+        sph_geometry.__init__(self)
 
 
     ## Method for reading frequency domain spectral data if given in an npz file
@@ -538,10 +540,21 @@ class LISAdata(geometry, instrNoise):
                     Omegamap_inj = Omega_1mHz * skymap_inj
 
                     hp.graticule()
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
-
+                    hp.mollview(Omegamap_inj, coord=['E'], title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                    plt.close()
+                    
+                    hp.graticule()
+                    hp.mollview(DWD_FG_map, coord=['E'], title='Simulated DWD Foreground skymap')
+                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+                    plt.close()
+                    hp.graticule()
+                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=['E'], title='Simulated DWD Foreground alm map')
+                    plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                     plt.close()
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
@@ -717,12 +730,16 @@ class LISAdata(geometry, instrNoise):
         ## Transform to healpix basis
         pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         ## Create skymap
-        DWD_FG_map = np.zeros(hp.nside2npix(self.params['nside']))
+        DWD_FG_mapG = np.zeros(hp.nside2npix(self.params['nside']))
         ## Bin
-        for i in range(DWD_FG_map.size):
-            DWD_FG_map[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        for i in range(DWD_FG_mapG.size):
+            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         ## create logarithmic skymap for plotting purposes
-        log_DWD_FG_map = np.log10(DWD_FG_map + 10**-15 * (DWD_FG_map==0))
+        log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+        ## Transform into the ecliptic
+        rGE = hp.rotator.Rotator(coord=['G','E'])
+        DWD_FG_map = rGE.rotate_map_pixel(DWD_FG_mapG)
+        log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
         
         return DWD_FG_map, log_DWD_FG_map
         
