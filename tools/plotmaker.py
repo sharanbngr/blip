@@ -187,6 +187,13 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.real(inj['blms'][idx]))
                     truevals.append(np.imag(inj['blms'][idx]))
 
+    if params['modeltype']=='dwd_fg':
+
+        truevals.append(inj['log_Np'])
+        truevals.append( inj['log_Na'])
+        truevals.append( inj['alpha'] )
+        truevals.append( inj['ln_omega0'] )
+        
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
     else:

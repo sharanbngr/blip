@@ -4,6 +4,7 @@ import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
 from src.likelihoods import likelihoods
 from tools.plotmaker import plotmaker
+from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
@@ -475,6 +476,8 @@ def blip(paramsfile='params.ini'):
 
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, inj)
+    print("\n Making posterior skymap ...")
+    mapmaker(params, post_samples)
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":
