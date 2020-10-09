@@ -262,8 +262,7 @@ class LISA(LISAdata, likelihoods):
 
             # Power spectra of the SGWB
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
-            import pdb
-            pdb.set_trace()
+            
             # Spectrum of the SGWB signal convoluted with the detector response tensor.
             S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
 
@@ -289,7 +288,7 @@ class LISA(LISAdata, likelihoods):
 
 
         ## lets also plot psd residue.
-        rel_res_mean = (data_PSD3 - S3)/S3
+        rel_res_mean = (data_PSD3[:, None] - S3)/S3
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue')
         plt.xlabel('f in Hz')
@@ -314,7 +313,7 @@ class LISA(LISAdata, likelihoods):
         elif self.params['modeltype'] == 'sph_sgwb':
             Sx = C_noise[ii, jj, :] + Sgw*summ_response_mat[ii, jj, :, 0]
         else:
-            Sx = C_noise[ii, jj, :] + Sgw*self.response_mat[ii, jj, :, 0]
+            Sx = C_noise[ii, jj, :, None] + Sgw[:,None]*self.response_mat[ii, jj, :, 0]
 
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
