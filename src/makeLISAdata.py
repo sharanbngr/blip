@@ -757,8 +757,11 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## Take square root of powers
         sqrt_map = np.sqrt(DWD_FG_map)
         ## Generate blms of power (alms of sqrt(power))
-        DWD_FG_sph = hp.sphtfunc.map2alm(sqrt_map)
-        
+        DWD_FG_sph = hp.sphtfunc.map2alm(sqrt_map, lmax=self.blmax)
+
+        # Normalize        
+        DWD_FG_sph = DWD_FG_sph/DWD_FG_sph[0]
+
         return DWD_FG_sph
         
 
