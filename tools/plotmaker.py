@@ -187,7 +187,7 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.real(inj['blms'][idx]))
                     truevals.append(np.imag(inj['blms'][idx]))
 
-    if params['modeltype']=='dwd_fg':
+    elif params['modeltype']=='dwd_fg':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
