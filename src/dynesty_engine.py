@@ -39,11 +39,8 @@ class dynesty_engine():
                     if mval == 0:
                         parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                     else:
-                        #parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                        #parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-                        parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
-                        parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
-
+                        parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                        parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
 
             ## RM is line later.
             # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
@@ -241,14 +238,14 @@ class dynesty_engine():
                     blm_theta.append(6*theta[cnt] - 3)
                     cnt = cnt + 1
                 else:
-                    # prior on amplitude, phase
-                    # blm_theta.append(3* theta[cnt])
-                    # blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
 
                     # prior on real and imaginary parts
-                    blm_theta.append(6*theta[cnt] - 3)
-                    blm_theta.append(6*theta[cnt + 1] - 3)
+                    # blm_theta.append(6*theta[cnt] - 3)
+                    # blm_theta.append(6*theta[cnt + 1] - 3)
 
+                    ## prior on amplitude, phase
+                    blm_theta.append(3* theta[cnt])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
                     cnt = cnt + 2
 
         # rm these three lines later.
