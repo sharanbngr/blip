@@ -270,26 +270,24 @@ class LISA(LISAdata, likelihoods):
             # The total noise spectra is the sum of the instrumental + astrophysical
             S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
 
-            plt.loglog(self.fdata, S1_gw, label='gw required')
+            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='gw required')
 
 
-        plt.loglog(self.fdata, S3, label='required')
+        plt.loglog(self.fdata, np.mean(S3,axis=1), label='required')
         plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power Spectrum ')
         plt.legend()
-        plt.ylim([1e-44, 5e-40])
         plt.grid()
+        plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-
-
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
 
 
         ## lets also plot psd residue.
-        rel_res_mean = (data_PSD3[:, None] - S3)/S3
+        rel_res_mean = (data_PSD3 - np.mean(S3,axis=1))/np.mean(S3,axis=1)
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue')
         plt.xlabel('f in Hz')
@@ -298,7 +296,6 @@ class LISA(LISAdata, likelihoods):
         plt.legend()
         plt.grid()
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-
 
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
@@ -319,7 +316,7 @@ class LISA(LISAdata, likelihoods):
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
         plt.subplot(2, 1, 1)
-        plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
@@ -329,7 +326,7 @@ class LISA(LISAdata, likelihoods):
         plt.grid()
 
         plt.subplot(2, 1, 2)
-        plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
@@ -337,7 +334,6 @@ class LISA(LISAdata, likelihoods):
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.ylim([1e-44, 5e-40])
         plt.grid()
-
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()

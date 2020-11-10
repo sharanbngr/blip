@@ -540,19 +540,19 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     Omegamap_inj = Omega_1mHz * skymap_inj
 
                     hp.graticule()
-                    hp.mollview(Omegamap_inj, coord=['E'], title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
                     
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
                     
                     hp.graticule()
-                    hp.mollview(DWD_FG_map, coord=['E'], title='Simulated DWD Foreground skymap')
+                    hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
                     hp.graticule()
-                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=['E'], title='Simulated DWD Foreground alm map')
+                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
                     plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                     plt.close()
