@@ -228,15 +228,15 @@ class LISA(LISAdata, likelihoods):
 
                 summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
-                R1 = np.real(summ_response_mat[0, 0, :, 0])
-                R2 = np.real(summ_response_mat[1, 1, :, 0])
-                R3 = np.real(summ_response_mat[2, 2, :, 0])
+                R1 = np.real(summ_response_mat[0, 0, :, :])
+                R2 = np.real(summ_response_mat[1, 1, :, :])
+                R3 = np.real(summ_response_mat[2, 2, :, :])
 
             else:
                 # extra auto-power GW responses
-                R1 = np.real(self.response_mat[0, 0, :, 0])
-                R2 = np.real(self.response_mat[1, 1, :, 0])
-                R3 = np.real(self.response_mat[2, 2, :, 0])
+                R1 = np.real(self.response_mat[0, 0, :, :])
+                R2 = np.real(self.response_mat[1, 1, :, :])
+                R3 = np.real(self.response_mat[2, 2, :, :])
 
             # SGWB signal levels of the mldc data
             Omega0, alpha = 10**self.inj['ln_omega0'], self.inj['alpha']
@@ -256,20 +256,35 @@ class LISA(LISAdata, likelihoods):
             # The total noise spectra is the sum of the instrumental + astrophysical
             S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
 
-            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='gw required')
+            plt.close()
+            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+
+        # noise budget plot
+        plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
+        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
+        plt.ylim([1e-43, 1e-39])
+        plt.legend()
+        plt.xlabel('$f$ in Hz')
+        plt.ylabel('PSD 1/Hz ')
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
+        plt.close()
 
 
         plt.loglog(self.fdata, np.mean(S3,axis=1), label='required')
-        plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
-        plt.xlabel('f in Hz')
-        plt.ylabel('Power Spectrum ')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6)
+        plt.xlabel('$f$ in Hz')
+        plt.ylabel('PSD 1/Hz ')
         plt.legend()
-        plt.grid()
+        plt.grid(linestyle=':',linewidth=0.5 )
         plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
+
+
 
 
         ## lets also plot psd residue.
@@ -286,7 +301,7 @@ class LISA(LISAdata, likelihoods):
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
         plt.close()
-
+        
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
 
@@ -302,7 +317,7 @@ class LISA(LISAdata, likelihoods):
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
         plt.subplot(2, 1, 1)
-        plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
@@ -312,7 +327,7 @@ class LISA(LISAdata, likelihoods):
         plt.grid()
 
         plt.subplot(2, 1, 2)
-        plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
