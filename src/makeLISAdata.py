@@ -533,7 +533,7 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     ## response matrix summed over Ylms
                     summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
-                    # converts alm_inj into a healpix max to be plotted and saved
+                    # converts alm_inj into a healpix map to be plotted and saved
                     # Plot with twice the analysis nside for better resolution
                     skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
 
@@ -728,9 +728,10 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## the density distribution and filtering out resolveable SNR>80 binaries
         DWD_unresolved_powers = DWD_powers*(np.array(SSBc.distance) > 2)
         ## Transform to healpix basis
-        pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        ## resolution is 2x analysis resolution
+        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         ## Create skymap
-        DWD_FG_mapG = np.zeros(hp.nside2npix(self.params['nside']))
+        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
         ## Bin
         for i in range(DWD_FG_mapG.size):
             DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
