@@ -176,7 +176,6 @@ class LISA(LISAdata, likelihoods):
            raise ValueError('Unknown recovery model selected')
 
 
-
     def diag_spectra(self):
 
         '''
@@ -228,15 +227,15 @@ class LISA(LISAdata, likelihoods):
 
                 summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
-                R1 = np.real(summ_response_mat[0, 0, :, 0])
-                R2 = np.real(summ_response_mat[1, 1, :, 0])
-                R3 = np.real(summ_response_mat[2, 2, :, 0])
+                R1 = np.real(summ_response_mat[0, 0, :, :])
+                R2 = np.real(summ_response_mat[1, 1, :, :])
+                R3 = np.real(summ_response_mat[2, 2, :, :])
 
             else:
                 # extra auto-power GW responses
-                R1 = np.real(self.response_mat[0, 0, :, 0])
-                R2 = np.real(self.response_mat[1, 1, :, 0])
-                R3 = np.real(self.response_mat[2, 2, :, 0])
+                R1 = np.real(self.response_mat[0, 0, :, :])
+                R2 = np.real(self.response_mat[1, 1, :, :])
+                R3 = np.real(self.response_mat[2, 2, :, :])
 
             # SGWB signal levels of the mldc data
             Omega0, alpha = 10**self.inj['ln_omega0'], self.inj['alpha']
@@ -249,33 +248,46 @@ class LISA(LISAdata, likelihoods):
 
             # Power spectra of the SGWB
             Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
-
+            
             # Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw*R1, Sgw*R2, Sgw*R3
+            S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
 
             # The total noise spectra is the sum of the instrumental + astrophysical
-            S1, S2, S3 = S1 + S1_gw, S2 + S2_gw, S3 + S3_gw
+            S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
 
-            plt.loglog(self.fdata, S1_gw, label='gw required')
+            plt.close()
+            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
 
-
-        plt.loglog(self.fdata, S3, label='required')
-        plt.loglog(psdfreqs, data_PSD3,label='PSD of the data series', alpha=0.6)
-        plt.xlabel('f in Hz')
-        plt.ylabel('Power Spectrum ')
+        # noise budget plot
+        plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
+        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
+        plt.ylim([1e-43, 1e-39])
         plt.legend()
-        plt.ylim([1e-44, 5e-40])
-        plt.grid()
+        plt.xlabel('$f$ in Hz')
+        plt.ylabel('PSD 1/Hz ')
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
+        plt.close()
 
 
+        plt.loglog(self.fdata, np.mean(S3,axis=1), label='required')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6)
+        plt.xlabel('$f$ in Hz')
+        plt.ylabel('PSD 1/Hz ')
+        plt.legend()
+        plt.grid(linestyle=':',linewidth=0.5 )
+        plt.ylim([1e-44, 5e-40])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
 
 
+
+
         ## lets also plot psd residue.
-        rel_res_mean = (data_PSD3 - S3)/S3
+        rel_res_mean = (data_PSD3 - np.mean(S3,axis=1))/np.mean(S3,axis=1)
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue')
         plt.xlabel('f in Hz')
@@ -285,11 +297,10 @@ class LISA(LISAdata, likelihoods):
         plt.grid()
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
-
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
         plt.close()
-
+        
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
 
@@ -300,7 +311,7 @@ class LISA(LISAdata, likelihoods):
         elif self.params['modeltype'] == 'sph_sgwb':
             Sx = C_noise[ii, jj, :] + Sgw*summ_response_mat[ii, jj, :, 0]
         else:
-            Sx = C_noise[ii, jj, :] + Sgw*self.response_mat[ii, jj, :, 0]
+            Sx = C_noise[ii, jj, :, None] + Sgw[:,None]*self.response_mat[ii, jj, :, 0]
 
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
@@ -323,7 +334,6 @@ class LISA(LISAdata, likelihoods):
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.ylim([1e-44, 5e-40])
         plt.grid()
-
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
