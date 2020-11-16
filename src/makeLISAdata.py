@@ -477,13 +477,13 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     ## need to set up a few things before doing the spherical harmonic inj
 
                     ## extract alms
-                    alms_inj = self.blm_2_alm(self.inj['blms'])
+                    self.alms_inj = self.blm_2_alm(self.inj['blms'])
 
                     ## normalize
-                    alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+                    self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
 
                     ## extrct only the non-negative components
-                    alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+                    alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
 
                     Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
 
@@ -520,18 +520,18 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     ## convert to blms
                     DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
                     ## extract alms
-                    alms_inj = self.blm_2_alm(DWD_FG_sph)
+                    self.alms_inj = self.blm_2_alm(DWD_FG_sph)
 
                     ## normalize
-                    alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+                    self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
 
                     ## extrct only the non-negative components
-                    alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+                    alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
 
                     Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
 
                     ## response matrix summed over Ylms
-                    summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
+                    summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
 
                     # converts alm_inj into a healpix map to be plotted and saved
                     # Plot with twice the analysis nside for better resolution

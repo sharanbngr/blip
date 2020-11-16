@@ -201,7 +201,6 @@ class LISA(LISAdata, likelihoods):
         # ------------ Calculate PSD ------------------
 
         # Number of segmants
-
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
         # PSD from the FFTs
@@ -233,13 +232,9 @@ class LISA(LISAdata, likelihoods):
 
         if self.params['modeltype'] != 'noise_only':
 
-            if self.params['modeltype'] == 'sph_sgwb':
-                alms_inj = self.blm_2_alm(self.inj['blms'])
+            if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg':
 
-                # normalize
-                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
-
-                summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
                 R2 = np.real(summ_response_mat[1, 1, :, :])
