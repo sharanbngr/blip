@@ -32,6 +32,9 @@ class dynesty_engine():
             # add the basic parameters first
             parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
 
+            # list for imposing periodic boundary conditions on phase variables
+            periodic_bc = []        
+
             # add the blms
             for lval in range(1, params['lmax'] + 1):
                 for mval in range(lval + 1):
@@ -41,14 +44,17 @@ class dynesty_engine():
                     else:
                         parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
                         parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+                        
+                        # keep track of phase variable positions
+                        periodic_bc.append(len(parameters))
 
             ## RM is line later.
             # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
             # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
             npar = len(parameters)
-
-            engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+            import pdb; pdb.set_trace()
+            engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior, \
+                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst, periodic=periodic_bc)
 
         elif params['modeltype']=='noise_only':
 
