@@ -8,7 +8,9 @@ from src.sph_geometry import sph_geometry
 class geometry(sph_geometry):
 
     '''
-    Module containing geometry methods. The methods here include calculation of antenna patters for a single doppler channel, for the three michelson channels or for the AET TDI channels and calculation of noise power spectra for various channel combinations.
+    Module containing geometry methods. The methods here include calculation of antenna patters 
+    for a single doppler channel, for the three michelson channels or for the AET TDI channels 
+    and calculation of noise power spectra for various channel combinations.
     '''
 
     def __init__(self):
@@ -82,98 +84,9 @@ class geometry(sph_geometry):
         return rs1, rs2, rs3
 
 
-    def doppler_response(self, f0, theta, phi, tsegmid, tsegstart):
+    
 
-        '''
-        Calculate antenna pattern/ detector transfer functions for a GW originating in the direction of (theta, phi) for the u doppler channel of an orbiting LISA with satellite position vectors rs1, rs2, rs3. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array.
-
-
-        Parameters
-        -----------
-
-        f0   : float
-            A numpy array of scaled frequencies (see above for def)
-
-        phi theta  :  float
-            Sky position values.
-
-        tsegmid  :  array
-            A numpy array of the midpoints for each time integration segment.
-
-        rs1, rs2, rs3  :  array
-            Satellite position vectors.
-
-
-        Returns
-        ---------
-
-        Rplus, Rcross   :   float
-            Plus and cross antenna Patterns for the given sky direction for each time in midpoints.
-        '''
-        print('Calculating detector response functions...')
-
-        self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
-
-        ## Indices of midpoints array
-        timeindices = np.arange(len(tsegmid))
-
-        ## Define cos/sin(theta)
-        ct = np.cos(theta)
-        st = np.sqrt(1-ct**2)
-
-        ## Initlize arrays for the detector reponse
-        Rplus, Rcross = np.zeros((len(timeindices),f0.size), dtype=complex), np.zeros((len(timeindices),f0.size),dtype=complex)
-
-        for ti in timeindices:
-            ## Define x/y/z for each satellite at time given by timearray[ti]
-            x1 = rs1[0][ti]
-            y1 = rs1[1][ti]
-            z1 = rs1[2][ti]
-            x2 = rs2[0][ti]
-            y2 = rs2[1][ti]
-            z2 = rs2[2][ti]
-
-            ## Add if calculating v, w:
-            ## x3 = r3[0][ti]
-            ## y3 = r3[1][ti]
-            ## z3 = r3[2][ti]
-
-            ## Define vector u at time tsegmid[ti]
-            uvec = rs2[:,ti] - rs1[:,ti]
-            ## Calculate arm length for the u arm
-            Lu = np.sqrt(np.dot(uvec,uvec))
-            ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
-            udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
-
-            ## Calculate 1/2(u x u):eplus
-            Pcontract = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
-                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct- \
-                              ((z2-z1)/Lu)*st)**2)
-             ## Calculate 1/2(u x u):ecross
-            Ccontract = ((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * \
-                          (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct- \
-                           ((z2-z1)/Lu)*st))
-
-            # Calculate the detector response for each frequency
-            for ii in range(0, f0.size):
-                # Calculate GW transfer function for the michelson channels
-                gammaU = 1/2 * (np.sinc(f0[ii]*(1-udir)/np.pi)*np.exp(-1j*f0[ii]*(3+udir)) + \
-                                    np.sinc(f0[ii]*(1+udir)/np.pi)*np.exp(-1j*f0[ii]*(1+udir)))
-
-
-                ## Michelson Channel Antenna patterns for + pol: Rplus = 1/2(u x u)Gamma(udir, f):eplus
-
-                Rplus[ti][ii] = Pcontract*gammaU
-
-                ## Michelson Channel Antenna patterns for x pol: Rcross = 1/2(u x u)Gamma(udir, f):ecross
-
-                Rcross[ti][ii] = Ccontract*gammaU
-
-        return Rplus, Rcross
-
-
-
-    def michelson_response(self, f0, theta, phi, tsegmid, tsegstart):
+    def ps_michelson_response(self, f0, theta, phi, tsegmid, tsegstart):
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) at a given time for the three Michelson channels of an orbiting LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
@@ -203,8 +116,6 @@ class geometry(sph_geometry):
         '''
         print('Calculating detector response functions...')
 
-        self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
-
         ## Indices of midpoints array
         timeindices = np.arange(len(tsegmid))
 
@@ -212,32 +123,46 @@ class geometry(sph_geometry):
         ct = np.cos(theta)
         st = np.sqrt(1-ct**2)
 
+        # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
+        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
+
+        ## Calculate directional unit vector dot products
+        ## Dimensions of udir is time-segs x sky-pixels
+        udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],omegahat)
+        vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
+        wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
+
+        # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
+        Fplus_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :], (rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fplus_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fplus_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        # 1/2 u x u : ecross
+        Fcross_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fcross_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        Fcross_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+
+
+
+
         for ti in timeindices:
-            ## Define x/y/z for each satellite at time given by tsegmid[ti]
-            x1 = rs1[0][ti]
-            y1 = rs1[1][ti]
-            z1 = rs1[2][ti]
-            x2 = rs2[0][ti]
-            y2 = rs2[1][ti]
-            z2 = rs2[2][ti]
-            x3 = rs3[0][ti]
-            y3 = rs3[1][ti]
-            z3 = rs3[2][ti]
-
-            ## Define vector u at time timearray[ti]
-            uvec = rs2[:,ti] - rs1[:,ti]
-            vvec = rs3[:,ti] - rs1[:,ti]
-            wvec = rs3[:,ti] - rs2[:,ti]
-
-            ## Calculate arm lengths
-            Lu = np.sqrt(np.dot(uvec,uvec))
-            Lv = np.sqrt(np.dot(vvec,vvec))
-            Lw = np.sqrt(np.dot(wvec,wvec))
-
-            ## udir is just u-hat.omega, where u-hat is the u unit vector and omega is the unit vector in the sky direction of the GW signal
-            udir = ((x2-x1)/Lu)*np.cos(phi)*st + ((y2-y1)/Lu)*np.sin(phi)*st + ((z2-z1)/Lu)*ct
-            vdir = ((x3-x1)/Lv)*np.cos(phi)*st + ((y3-y1)/Lv)*np.sin(phi)*st + ((z3-z1)/Lv)*ct
-            wdir = ((x3-x2)/Lw)*np.cos(phi)*st + ((y3-y2)/Lw)*np.sin(phi)*st + ((z3-z2)/Lw)*ct
 
             ## Calculate 1/2(u x u):eplus
             Pcontract_u = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
@@ -311,12 +236,14 @@ class geometry(sph_geometry):
         return R1plus, R1cross, R2plus, R2cross, R3plus, R3cross
 
 
-    def aet_response(self, f0, theta, phi, tsegmid, tsegstart):
+    def ps_aet_response(self, f0, theta, phi, tsegmid, tsegstart):
 
 
 
         '''
-        Calculate Antenna pattern/ detector transfer functions for a GW originating in the direction of (theta, phi) for the A, E and T TDI channels of an orbiting LISA. Return the detector responses for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
+        Calculate Antenna pattern/ detector transfer functions for a GW originating in the direction of (theta, phi) 
+        for the A, E and T TDI channels of an orbiting LISA. Return the detector responses for + and x polarization. 
+        Note that f0 is (pi*L*f)/c and is input as an array
 
 
         Parameters

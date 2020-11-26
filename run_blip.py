@@ -61,7 +61,10 @@ class LISA(LISAdata, likelihoods):
         # Generate TDI isotropic signal
         if self.inj['doInj']:
 
-            h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
+            if self.inj['injtype']=='point_source':      
+                h1_gw, h2_gw, h3_gw, times = self.add_ps_data()
+            else:
+                h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
 
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
 
@@ -166,12 +169,21 @@ class LISA(LISAdata, likelihoods):
             self.add_astro_signal = self.isgwb_xyz_response
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.isgwb_mich_response
+
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.asgwb_mich_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
+        
+        elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.ps_mich_response
+        elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.ps_aet_response
+        elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.ps_xyz_response
+        
         else:
            raise ValueError('Unknown recovery model selected')
 
