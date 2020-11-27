@@ -46,13 +46,13 @@ class dynesty_engine():
                         parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
                         
                         # keep track of phase variable positions
-                        periodic_bc.append(len(parameters))
+                        periodic_bc.append(len(parameters) - 1)
 
             ## RM is line later.
             # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
             # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
             npar = len(parameters)
-            import pdb; pdb.set_trace()
+
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior, \
                     npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst, periodic=periodic_bc)
 
