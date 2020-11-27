@@ -30,7 +30,7 @@ def plotmaker(params, params2, parameters, inj):
     #post1 = np.loadtxt(params['out_dir'] + "/post_samples.txt")
     #post2 = np.loadtxt(params2['out_dir'] + "/post_samples.txt")
 
-    post1 = np.loadtxt("./12mnths/post_samples.txt")
+    post1 = np.loadtxt("./2mnths_4/post_samples.txt")
     post2 = np.loadtxt("./12mnths_2/post_samples.txt")
 
 
@@ -83,7 +83,7 @@ def plotmaker(params, params2, parameters, inj):
         truevals.append( inj['log_Na'])
         truevals.append( inj['alpha'] )
         truevals.append( inj['ln_omega0'] )
-        
+
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
     else:
@@ -98,8 +98,8 @@ def plotmaker(params, params2, parameters, inj):
 
     ## Make chainconsumer corner plots
     cc = ChainConsumer()
-    cc.add_chain(post1, parameters=parameters, name='$\Omega_0 = 10^{-7}$')
-    cc.add_chain(post2, parameters=parameters, name='$\Omega_0 = 2 \\times 10^{-7}$')
+    cc.add_chain(post1, parameters=parameters, name='$2$ months')
+    cc.add_chain(post2, parameters=parameters, name='$12$ months')
 
     cc.configure(smooth=3, kde=False, max_ticks=2, sigmas=np.array([1, 2]), label_font_size=20, tick_font_size=16, \
             summary=False, statistics="max_central", spacing=1, summary_area=0.95, cloud=False, num_cloud=5000, bins=1.2, \
@@ -148,7 +148,7 @@ def plotmaker(params, params2, parameters, inj):
         ax.set_title(label, {'fontsize':18}, loc='left')
     '''
     ## Save posterior
-    plt.tight_layout()
+    # plt.tight_layout()
     plt.savefig('corners.png', dpi=150)
     print("Posteriors plots printed in corners.png")
     plt.close()
