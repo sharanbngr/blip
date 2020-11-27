@@ -86,7 +86,7 @@ class geometry(sph_geometry):
 
     
 
-    def ps_michelson_response(self, f0, theta, phi, tsegmid, tsegstart):
+    def ps_mich_response(self, f0, theta, phi, tsegmid):
 
         '''
         Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) at a given time for the three Michelson channels of an orbiting LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
@@ -126,12 +126,17 @@ class geometry(sph_geometry):
         # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
         rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
 
+        # Create 2D array of (x,y,z) unit vectors for every sky direction.
+        omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
+
+
         ## Calculate directional unit vector dot products
         ## Dimensions of udir is time-segs x sky-pixels
         udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],omegahat)
         vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
         wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
 
+        import pdb; pdb.set_trace()
         # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
         Fplus_u = 0.5*np.einsum("ijk,ijl", \
                               np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :], (rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
@@ -157,9 +162,6 @@ class geometry(sph_geometry):
         Fcross_w = 0.5*np.einsum("ijk,ijl", \
                               np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
-
-
-
 
 
         for ti in timeindices:

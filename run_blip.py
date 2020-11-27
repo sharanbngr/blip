@@ -415,6 +415,9 @@ def blip(paramsfile='params.ini'):
             blms[ii] = complex(blm_vals[ii])
 
         inj['blms'] = blms
+    elif inj['injtype'] == 'point_source':
+        inj['theta'] = float(config.get("inj", "theta"))
+        inj['phi'] = float(config.get("inj", "phi"))
 
     # some run parameters
     params['out_dir']            = str(config.get("run_params", "out_dir"))

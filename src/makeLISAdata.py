@@ -541,7 +541,7 @@ class LISAdata(geometry, instrNoise):
         return h1, h2, h3, tarr
 
 
-   def add_ps_data(self, tbreak = 0.0):
+    def add_ps_data(self, tbreak = 0.0):
 
         cspeed = 3e8 #m/s
 
@@ -570,7 +570,7 @@ class LISAdata(geometry, instrNoise):
         f0 = frange/(2*fstar)
 
         ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-        response_mat = self.add_astro_signal(f0, tmids)
+        response_mat = self.add_astro_signal(f0, self.inj['theta'] , self.inj['phi'], tmids)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
@@ -591,39 +591,39 @@ class LISAdata(geometry, instrNoise):
         ## Loop over splice segments
         for ii in range(nsplice):
 
-                if ii == 0:
+            if ii == 0:
 
-                    ## need to set up a few things before doing the spherical harmonic inj
+                ## need to set up a few things before doing the spherical harmonic inj
 
-                    ## extract alms
-                    alms_inj = self.blm_2_alm(self.inj['blms'])
+                ## extract alms
+                alms_inj = self.blm_2_alm(self.inj['blms'])
 
-                    ## normalize
-                    alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+                ## normalize
+                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
 
-                    ## extrct only the non-negative components
-                    alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
+                ## extrct only the non-negative components
+                alms_non_neg = alms_inj[0:hp.Alm.getsize(self.almax)]
 
-                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+                Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
 
-                    ## response matrix summed over Ylms
-                    summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
+                ## response matrix summed over Ylms
+                summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
 
-                    # converts alm_inj into a healpix max to be plotted and saved
-                    # Plot with twice the analysis nside for better resolution
-                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+                # converts alm_inj into a healpix max to be plotted and saved
+                # Plot with twice the analysis nside for better resolution
+                skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
 
-                    Omegamap_inj = Omega_1mHz * skymap_inj
+                Omegamap_inj = Omega_1mHz * skymap_inj
 
-                    hp.graticule()
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                hp.graticule()
+                hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
 
-                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-                    plt.close()
+                plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                plt.close()
 
-                ## move frequency to be the zeroth-axis, then cholesky decomp
-                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+            ## move frequency to be the zeroth-axis, then cholesky decomp
+            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
 
             ## generate standard normal complex data frist
