@@ -85,50 +85,58 @@ class geometry(sph_geometry):
 
 
     
-
-    def ps_mich_response(self, f0, theta, phi, tsegmid):
-
+    def ps_mich_response(self, f0, theta_inj, phi_inj, tsegmid):
         '''
-        Calculate Antenna pattern/ detector transfer function for a GW originating in the direction of (theta, phi) at a given time for the three Michelson channels of an orbiting LISA. Return the detector response for + and x polarization. Note that f0 is (pi*L*f)/c and is input as an array
-
-
+        Calculate the Antenna pattern/detector transfer function for an isotropic SGWB using basic michelson channels.
+        Note that since this is the response to an isotropic background, the response function is integrated
+        over sky direction and averaged over polarozation. The angular integral is a linear and rectangular in the
+        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array.
         Parameters
         -----------
 
         f0   : float
             A numpy array of scaled frequencies (see above for def)
 
-        phi theta  : float
-            Sky position values.
+        tsegstart  :  float
+            A numpy array of segment start times
 
-        rs1, rs2, rs3  :  arrays
-            Satellite position vectors.
-
-        tsegmid  :  array
-            A numpy array of the midpoints for each time integration segment.
-
+        tsegmid  :  float
+            A numpy array of segment midpoints
 
         Returns
         ---------
 
-        R1plus, R1cross, R2plus, R2cross, R3plus, R3cross   :   arrays
-            Plus and cross antenna Patterns for the given sky direction for the three channels for each time in midpoints.
+        response_tess   :   float
+            4D array of covariance matrices for antenna patterns of the three channels, integrated over sky direction
+            and averaged over polarization, across all frequencies and times.
+
         '''
-        print('Calculating detector response functions...')
 
-        ## Indices of midpoints array
-        timeindices = np.arange(len(tsegmid))
+        npix = hp.nside2npix(self.params['nside'])
 
-        ## Define cos/sin(theta)
-        ct = np.cos(theta)
-        st = np.sqrt(1-ct**2)
+        inj_map = np.zeros(npix)
+                
+        # identify the pixel with the point source
+        ps_id = hp.ang2pix( self.params['nside'] , theta_inj, phi_inj)
+        inj_map[ps_id-1:ps_id+1] = 1
 
-        # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
-        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
+        # Array of pixel indices
+        pix_idx  = np.arange(npix)
+
+        # Angular coordinates of pixel indices
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
+
+        # Take cosine.
+        ctheta = np.cos(theta)
+
+        # Area of each pixel in sq.radians
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         # Create 2D array of (x,y,z) unit vectors for every sky direction.
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
 
+        # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
+        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
 
         ## Calculate directional unit vector dot products
         ## Dimensions of udir is time-segs x sky-pixels
@@ -136,7 +144,13 @@ class geometry(sph_geometry):
         vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
         wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
 
-        import pdb; pdb.set_trace()
+
+        ## NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations
+        ##             as opposed to the explicit forms we've previously used. '''
+
+        mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
+        nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
+
         # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
         Fplus_u = 0.5*np.einsum("ijk,ijl", \
                               np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :], (rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
@@ -164,78 +178,66 @@ class geometry(sph_geometry):
                               np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
 
 
-        for ti in timeindices:
 
-            ## Calculate 1/2(u x u):eplus
-            Pcontract_u = 1/2*((((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi))**2 - \
-                             (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)**2)
-            Pcontract_v = 1/2*((((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi))**2 - \
-                             (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)**2)
-            Pcontract_w = 1/2*((((x3-x2)/Lw)*np.sin(phi)-((y3-y2)/Lw)*np.cos(phi))**2 - \
-                             (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)**2)
+        # Initlize arrays for the detector reponse
+        R1 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
+        R2 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
+        R3 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
+        R12 = np.zeros((f0.size, tsegmid.size), dtype='complex')
+        R13 = np.zeros((f0.size, tsegmid.size), dtype='complex')
+        R23 = np.zeros((f0.size, tsegmid.size), dtype='complex')
 
-            ## Calculate 1/2(u x u):ecross
-            Ccontract_u = (((x2-x1)/Lu)*np.sin(phi)-((y2-y1)/Lu)*np.cos(phi)) * \
-                            (((x2-x1)/Lu)*np.cos(phi)*ct+((y2-y1)/Lu)*np.sin(phi)*ct-((z2-z1)/Lu)*st)
+        # Calculate the detector response for each frequency
+        for ii in range(0, f0.size):
 
-            Ccontract_v = (((x3-x1)/Lv)*np.sin(phi)-((y3-y1)/Lv)*np.cos(phi)) * \
-                            (((x3-x1)/Lv)*np.cos(phi)*ct+((y3-y1)/Lv)*np.sin(phi)*ct-((z3-z1)/Lv)*st)
+            # Calculate GW transfer function for the michelson channels
+            gammaU_plus    =    1/2 * (np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(3+udir)) + \
+                             np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(1+udir)))
 
-            Ccontract_w = (((x3-x2)/Lw)*np.sin(phi)-((x3-x2)/Lw)*np.cos(phi)) * \
-                            (((x3-x2)/Lw)*np.cos(phi)*ct+((y3-y2)/Lw)*np.sin(phi)*ct-((z3-z2)/Lw)*st)
+            gammaV_plus    =    1/2 * (np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(3+vdir)) + \
+                             np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(1+vdir)))
 
-
-            ## Calculate the detector response for each frequency
-            for ii in range(0, f0.size):
-
-                ## Calculate GW transfer function for the michelson channels
-                gammaU_p    =    1/2 * (np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(3 + udir)) + \
-                                        np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(1 + udir)))
-                gammaU_m    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
-                                        np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
-
-                gammaV_p    =    1/2 * (np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(3 + vdir)) + \
-                                        np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(1+vdir)))
-                gammaV_m    =    1/2 * (np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - vdir)) + \
-                                        np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - vdir)))
-
-                gammaW_p    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 + wdir)) + \
-                                        np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 + wdir)))
-                gammaW_m    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
-                                        np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
-                ## Michelson Channel Antenna patterns for + pol
-                ## Fplus_u = 1/2(u x u)Gamma(udir, f):eplus
-
-                Fplus_u_p   = Pcontract_u*gammaU_p
-                Fplus_u_m   = Pcontract_u*gammaU_m
-                Fplus_v_p   = Pcontract_v*gammaV_p
-                Fplus_v_m   = Pcontract_v*gammaV_m
-                Fplus_w_p   = Pcontract_w*gammaW_p
-                Fplus_w_m   = Pcontract_w*gammaW_m
-
-                ## Michelson Channel Antenna patterns for x pol
-                ## Fcross_u = 1/2(u x u)Gamma(udir, f):ecross
-                Fcross_u_p  = Ccontract_u*gammaU_p
-                Fcross_u_m  = Ccontract_u*gammaU_m
-                Fcross_v_p  = Ccontract_v*gammaV_p
-                Fcross_v_m  = Ccontract_v*gammaV_m
-                Fcross_w_p  = Ccontract_w*gammaW_p
-                Fcross_w_m  = Ccontract_w*gammaW_m
+            gammaW_plus    =    1/2 * (np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(3+wdir)) + \
+                             np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(1+wdir)))
 
 
-                ## First Michelson antenna patterns
-                ## Calculate Fplus
-                R1plus = (Fplus_u_p - Fplus_v_p)
-                R2plus = (Fplus_w_p - Fplus_u_m)
-                R3plus = (Fplus_v_m - Fplus_w_m)
+            # Calculate GW transfer function for the michelson channels
+            gammaU_minus    =    1/2 * (np.sinc((f0[ii])*(1 + udir)/np.pi)*np.exp(-1j*f0[ii]*(3 - udir)) + \
+                             np.sinc((f0[ii])*(1 - udir)/np.pi)*np.exp(-1j*f0[ii]*(1 - udir)))
 
-                ## Calculate Fcross
-                R1cross = (Fcross_u_p - Fcross_v_p)
-                R2cross = (Fcross_w_p - Fcross_u_m)
-                R3cross = (Fcross_v_m - Fcross_w_m)
+            gammaV_minus    =    1/2 * (np.sinc((f0[ii])*(1 + vdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - vdir)) + \
+                             np.sinc((f0[ii])*(1 - vdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - vdir)))
+
+            gammaW_minus    =    1/2 * (np.sinc((f0[ii])*(1 + wdir)/np.pi)*np.exp(-1j*f0[ii]*(3 - wdir)) + \
+                             np.sinc((f0[ii])*(1 - wdir)/np.pi)*np.exp(-1j*f0[ii]*(1 - wdir)))
 
 
-        return R1plus, R1cross, R2plus, R2cross, R3plus, R3cross
+            ## Michelson antenna patterns
+            ## Calculate Fplus
+            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) * inj_map[None, :]
+            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3)) * inj_map[None, :]
+            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3)) * inj_map[None, :]
+
+            ## Calculate Fcross
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) * inj_map[None, :]
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3)) * inj_map[None, :]
+            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3)) * inj_map[None, :]
+
+            ## Detector response summed over polarization and integrated over sky direction
+            ## The travel time phases for the which are relevent for the cross-channel are
+            ## accounted for in the Fplus and Fcross expressions above.
+            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )
+            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )
+            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )
+            R12[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)
+            R13[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)
+            R23[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)
+
+        response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
+
+        return response_mat
+   
+        
 
 
     def ps_aet_response(self, f0, theta, phi, tsegmid, tsegstart):

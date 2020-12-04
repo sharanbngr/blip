@@ -9,7 +9,7 @@ import pickle, argparse
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post):
+def mapmaker(params, post, inj):
 
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
@@ -64,9 +64,10 @@ def mapmaker(params, post):
     omega_map = omega_map/post.shape[0]
 
     hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-    hp.graticule()
+    hp.projscatter(inj['theta'], inj['phi'],color='r', marker='*' )
+    # hp.graticule()
     plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
-    print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
+    print('saving output skymap at ' +  params['out_dir'] + '/post_skymap.png')
     plt.close()
 
 
@@ -106,7 +107,9 @@ def mapmaker(params, post):
     Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside , verbose=False))**2
 
     hp.mollview(omega_map, title='median skymap of $\\Omega(f= 1mHz)$')
-    hp.graticule()
+    hp.projscatter(inj['theta'], inj['phi'], s=50, color='r', marker='*' )
+
+    # hp.graticule()
     plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
     print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
     plt.close()
@@ -140,30 +143,30 @@ def plotmaker(params,parameters, inj):
 
     ## if modeltype is sph, first call the mapmaker.
     if params['modeltype']=='sph_sgwb':
-        mapmaker(params, post)
+        mapmaker(params, post, inj)
 
 
     ## setup the truevals dict
     truevals = []
 
-    if params['modeltype']=='isgwb':
+    if inj['injtype']=='isgwb':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
         truevals.append( inj['alpha'] )
         truevals.append( inj['ln_omega0'] )
 
-    elif params['modeltype']=='noise_only':
+    elif inj['injtype']=='noise_only':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
 
-    elif params['modeltype'] =='isgwb_only':
+    elif inj['injtype'] =='isgwb_only':
 
         truevals.append( inj['alpha'] )
         truevals.append( inj['ln_omega0'] )
 
-    elif params['modeltype']=='sph_sgwb':
+    elif inj['injtype']=='sph_sgwb':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
@@ -182,11 +185,6 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
 
-    if len(truevals) > 0:
-        knowTrue = 1 ## Bit for whether we know the true vals or not
-    else:
-        knowTrue = 0
-
     npar = len(parameters)
 
     plotrange = [0.999]*npar
@@ -201,7 +199,7 @@ def plotmaker(params,parameters, inj):
             summary=False, statistics="max_central", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
     cc.configure_truth(color='g', ls='--', alpha=0.7)
 
-    if knowTrue:
+    if len(truevals) > 0:
         fig = cc.plotter.plot(figsize=(16, 16), truth=truevals)
     else:
         fig = cc.plotter.plot(figsize=(16, 16))
