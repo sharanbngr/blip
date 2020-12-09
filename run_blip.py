@@ -251,21 +251,37 @@ class LISA(LISAdata, likelihoods):
 
             # Hubble constant
             H0 = 2.2*10**(-18)
-
             # Calculate astrophysical power law noise
-            Omegaf = Omega0*(self.fdata/25)**alpha
+            if self.params['modeltype'] == 'dwd_fg' and self.inj['fg_spectrum'] == 'truncated':
+                ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+                fcutoff = self.inj['fcutoff']
+                fcut = (self.fdata < fcutoff)*self.fdata
+                Omegaf = Omega0*(fcut/25)**alpha
+                # Power spectra of the SGWB
+                Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                
+                # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+    
+                # The total noise spectra is the sum of the instrumental + astrophysical
+                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+                
+                plt.close()
+                plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
+            else:       
+                Omegaf = Omega0*(self.fdata/25)**alpha
 
-            # Power spectra of the SGWB
-            Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
-            
-            # Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
-
-            # The total noise spectra is the sum of the instrumental + astrophysical
-            S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
-
-            plt.close()
-            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                # Power spectra of the SGWB
+                Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                
+                # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+    
+                # The total noise spectra is the sum of the instrumental + astrophysical
+                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+    
+                plt.close()
+                plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
 
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
@@ -347,6 +363,8 @@ class LISA(LISAdata, likelihoods):
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
+        
+
 
 
 def blip(paramsfile='params.ini'):
@@ -403,6 +421,8 @@ def blip(paramsfile='params.ini'):
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
     inj['rh']          = float(config.get("inj", "rh"))
     inj['zh']          = float(config.get("inj", "zh"))
+    inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    inj['fcutoff']          = float(config.get("inj", "fcutoff"))
 
     if inj['injtype'] ==  'sph_sgwb':
         blm_vals = config.get("inj", "blms")

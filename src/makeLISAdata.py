@@ -448,7 +448,17 @@ class LISAdata(geometry, sph_geometry, instrNoise):
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
-        Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+        
+        if self.inj['injtype'] == 'dwd_fg':
+            if self.inj['fg_spectrum'] == 'truncated':
+                ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+                fcutoff = self.inj['fcutoff']
+                fcut = (frange < fcutoff)*frange
+                Omegaf = (10**self.inj['ln_omega0'])*(fcut/(self.params['fref']))**self.inj['alpha']
+            if self.inj['fg_spectrum'] == 'powerlaw':
+                Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+        else:
+            Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2

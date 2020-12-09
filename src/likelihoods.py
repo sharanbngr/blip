@@ -213,7 +213,16 @@ class likelihoods():
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
-        Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
+        ## Special case for a truncated power law galactic foreground
+        if self.params['modeltype'] == 'dwd_fg' and self.inj['fg_spectrum'] == 'truncated':
+            fcutoff = self.inj['fcutoff']
+            fcut = (self.fdata < fcutoff)
+            Omegaf = (10**log_omega0)*(self.fdata/(self.params['fref']))**alpha
+            ## add a negligible amount relative to the true Omegaf to avoid nan errors in log likelihood
+            Omegaf = Omegaf*fcut + (self.fdata >= fcutoff)*np.min(Omegaf[Omegaf!=0])*1e-10
+        
+        else:
+            Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
@@ -243,11 +252,11 @@ class likelihoods():
 
         ## take inverse and determinant
         inv_cov, det_cov = bespoke_inv(cov_mat)
+        
 
         logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
         loglike = np.real(logL)
-
         return loglike
 
 
