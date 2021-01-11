@@ -75,7 +75,7 @@ class dynesty_engine():
             npar = len(parameters)
 
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
 
         elif params['modeltype']=='noise_only':
 
