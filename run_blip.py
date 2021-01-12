@@ -43,6 +43,9 @@ class LISA(LISAdata, likelihoods):
         # Make some simple diagnostic plots to contrast spectra
         self.diag_spectra()
 
+        if self.params['modeltype'] != 'noise_only':
+            self.snr_calc()
+
     def makedata(self):
 
         '''
@@ -349,6 +352,81 @@ class LISA(LISAdata, likelihoods):
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
+
+
+    def snr_calc(self):
+
+        '''
+        Calculate the *theoretical* SNR of a signal in a single channel
+        '''
+
+        # Number of segmants
+
+        Nperseg=int(self.params['fs']*self.params['seglen'])
+
+        # "Cut" to desired frequencies
+        idx = np.logical_and(self.fdata >=  self.params['fmin'] , self.fdata <=  self.params['fmax'])
+        psdfreqs = self.fdata[idx]
+
+        #Charactersitic frequency
+        fstar = 3e8/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = self.fdata/(2*fstar)
+
+        # The last two elements are the position and the acceleration noise levels.
+        Np, Na = 10**self.inj['log_Np'], 10**self.inj['log_Na']
+
+        # Modelled Noise PSD
+        C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+
+        # Extract noise auto-power
+        S1 = C_noise[0, 0, :]
+
+        if self.params['modeltype'] == 'sph_sgwb':
+            alms_inj = self.blm_2_alm(self.inj['blms'])
+
+            # normalize
+            alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+            summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+
+            # extra auto-power GW responses
+            R1 = np.real(summ_response_mat[0, 0, :, 0])
+
+        else:
+            # extra auto-power GW responses
+            R1 = np.real(self.response_mat[0, 0, :, 0])
+
+
+        # SGWB signal levels of the mldc data
+        Omega0, alpha = 10**self.inj['ln_omega0'], self.inj['alpha']
+
+        # Hubble constant
+        H0 = 2.2*10**(-18)
+
+        # Calculate astrophysical power law noise
+        Omegaf = Omega0*(self.fdata/25)**alpha
+
+
+        # Power spectra of the SGWB
+        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+        
+        # Spectrum of the SGWB signal convoluted with the detector response tensor.
+        S1_gw = Sgw[:, None]*R1
+
+        delf = self.fdata[1] - self.fdata[0]
+
+        single_channel_snr = np.sqrt( delf * np.sum(S1_gw/Sgw) )
+
+        print('The single channel SNR is ' + str(single_channel_snr))
+
+        file = open( self.params['out_dir'] + '/snr.txt' , 'w' )
+        file.write( 'The single channel SNR is ' + str(single_channel_snr) )
+        file.close()
+
+        return 
+
 
 
 def blip(paramsfile='params.ini'):
