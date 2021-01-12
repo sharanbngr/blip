@@ -64,7 +64,11 @@ def mapmaker(params, post, inj):
     omega_map = omega_map/post.shape[0]
 
     hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-    hp.projscatter(inj['theta'], inj['phi'],color='r', marker='*' )
+    
+    if inj['injtype']=='point_source':
+        # if it is a point source injection add the injected position
+        hp.projscatter(inj['theta'], inj['phi'],color='r', marker='*' )
+
     # hp.graticule()
     plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
     print('saving output skymap at ' +  params['out_dir'] + '/post_skymap.png')
@@ -107,7 +111,10 @@ def mapmaker(params, post, inj):
     Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside , verbose=False))**2
 
     hp.mollview(omega_map, title='median skymap of $\\Omega(f= 1mHz)$')
-    hp.projscatter(inj['theta'], inj['phi'], s=50, color='r', marker='*' )
+
+    if inj['injtype']=='point_source':
+        # if it is a point source injection add the injected position
+        hp.projscatter(inj['theta'], inj['phi'],color='r', marker='*' )
 
     # hp.graticule()
     plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)

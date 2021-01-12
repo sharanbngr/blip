@@ -380,7 +380,7 @@ class LISA(LISAdata, likelihoods):
         # Modelled Noise PSD
         C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
-        # Extract noise auto-power
+        # Extract noise auto-power. This is stationary, so it has no time dependence
         S1 = C_noise[0, 0, :]
 
         if self.params['modeltype'] == 'sph_sgwb':
@@ -392,11 +392,11 @@ class LISA(LISAdata, likelihoods):
             summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
 
             # extra auto-power GW responses
-            R1 = np.real(summ_response_mat[0, 0, :, 0])
+            R1 = np.real(summ_response_mat[0, 0, :, :])
 
         else:
             # extra auto-power GW responses
-            R1 = np.real(self.response_mat[0, 0, :, 0])
+            R1 = np.real(self.response_mat[0, 0, :, :])
 
 
         # SGWB signal levels of the mldc data
@@ -417,7 +417,7 @@ class LISA(LISAdata, likelihoods):
 
         delf = self.fdata[1] - self.fdata[0]
 
-        single_channel_snr = np.sqrt( delf * np.sum(S1_gw/Sgw) )
+        single_channel_snr = np.sqrt( self.params['seglen'] * delf * np.sum(S1_gw/S1[:, None] ) )
 
         print('The single channel SNR is ' + str(single_channel_snr))
 
