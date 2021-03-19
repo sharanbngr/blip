@@ -204,7 +204,7 @@ def plotmaker(params,parameters, inj):
     ## Make chainconsumer corner plots
     cc = ChainConsumer()
     cc.add_chain(post, parameters=parameters)
-    cc.configure(smooth=False, kde=False, max_ticks=3, sigmas=np.array([1, 2]), label_font_size=20, tick_font_size=20, \
+    cc.configure(smooth=False, kde=False, max_ticks=2, sigmas=np.array([1, 2]), label_font_size=18, tick_font_size=18, \
             summary=False, statistics="max_central", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
     cc.configure_truth(color='g', ls='--', alpha=0.7)
 
