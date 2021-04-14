@@ -351,7 +351,7 @@ class LISAdata(geometry, instrNoise):
         return tarr, h1_noi, h2_noi, h3_noi
 
 
-    def gen_noise_cov_mat(self):
+    def gen_noise_cov(self):
 
         '''
         Generate interferometric (time-domain) noise, using a frequency domain covariance
@@ -365,12 +365,13 @@ class LISAdata(geometry, instrNoise):
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
         fstar = 3e8/(2*np.pi*self.armlength)
-        f0 = frange/(2*fstar)
-
         N = int(self.params['fs']*self.params['dur'])
 
         frange = np.fft.rfftfreq(N, 1.0/self.params['fs'])[1:]
+        frange = frange[frange <= self.params['fmax']]
+        frange = frange[frange >= self.params['fmin']]
 
+        f0 = frange/(2*fstar)
 
         #Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
@@ -378,6 +379,10 @@ class LISAdata(geometry, instrNoise):
 
         ## Cholesky decomposition to get the "sigma" matrix
         L_cholesky = np.sqrt(self.params['fs'] * N/4.0) *  np.linalg.cholesky(np.moveaxis(C_xyz, -1, 0))
+
+        #for ii in range(C_xyz.shape[-1]):
+        #    np.linalg.cholesky(C_xyz[:, :, ii])
+        #    print(str(ii) + '/' + str(C_xyz.shape[-1]))
 
         ## generate standard normal complex data frist
         z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
@@ -700,15 +705,17 @@ class LISAdata(geometry, instrNoise):
 
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
-        # Apply band pass filter
         '''
-        order = 16
-        zz, pp, kk = sg.butter(order, [0.5*self.params['fmin']/(self.params['fs']/2), 0.4*self.params['fs']/(self.params['fs']/2)], btype='bandpass', output='zpk')
-        sos = sg.zpk2sos(zz, pp, kk)
+        # Apply a cascading low pass filter
+        b, a = sg.butter(2, 0.4*self.params['fs']/(self.params['fs']/2),\
+                btype='lowpass', output='ba')
+        #sos = sg.zpk2sos(zz, pp, kk)
 
-        h1 = sg.sosfiltfilt(sos, h1)
-        h2 = sg.sosfiltfilt(sos, h2)
-        h3 = sg.sosfiltfilt(sos, h3)
+        for ii in range(8):
+            print('low pass filtering ...')
+            h1 = sg.filtfilt(b, a, h1)
+            h2 = sg.filtfilt(b, a, h2)
+            h3 = sg.filtfilt(b, a, h3)
         '''
 
         fftfreqs = np.fft.rfftfreq(Nperseg, 1.0/self.params['fs'])

@@ -9,7 +9,7 @@ class dynesty_engine():
     Class for interfacing with dynesty sampler. This method also contains the
     priors definition for all models written to work with the dynesty sampler.
     '''
-    
+
 
     @classmethod
     def define_engine(cls, lisaobj, params, nlive, randst):
@@ -32,6 +32,9 @@ class dynesty_engine():
             # add the basic parameters first
             parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
 
+            # list for imposing periodic boundary conditions on phase variables
+            periodic_bc = []        
+
             # add the blms
             for lval in range(1, params['lmax'] + 1):
                 for mval in range(lval + 1):
@@ -41,14 +44,17 @@ class dynesty_engine():
                     else:
                         parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
                         parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+                        
+                        # keep track of phase variable positions
+                        periodic_bc.append(len(parameters) - 1)
 
             ## RM is line later.
             # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
             # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
             npar = len(parameters)
 
-            engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+            engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior, \
+                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst, periodic=periodic_bc)
 
         elif params['modeltype']=='noise_only':
 
@@ -158,7 +164,7 @@ class dynesty_engine():
         log_omega0  = -10*log_omega0 - 4
         log_Np      = -5*log_Np - 39
         log_Na      = -5*log_Na - 46
-        
+
         return (log_Np, log_Na, alpha, log_omega0)
 
     @staticmethod
@@ -188,19 +194,34 @@ class dynesty_engine():
         alpha = 8*theta[2] - 4
         log_omega0  = -6*theta[3] - 5
 
+        # Calculate lmax from the size of theta blm arrays. The shape is
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
+        # an independent parameter
+        lmax = np.sqrt( theta[4:].size + 1 ) - 1
+
+        if lmax.is_integer():
+            lmax = int(lmax)
+        else:
+            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+
         # The rest of the priors define the blm parameter space
         blm_theta = []
 
         ## counter for the rest of theta
         cnt = 4
 
-        for lval in range(1, self.params['lmax'] + 1):
+        for lval in range(1, lmax + 1):
             for mval in range(lval + 1):
 
                 if mval == 0:
                     blm_theta.append(6*theta[cnt] - 3)
                     cnt = cnt + 1
                 else:
+
+                    # prior on real and imaginary parts
+                    # blm_theta.append(6*theta[cnt] - 3)
+                    # blm_theta.append(6*theta[cnt + 1] - 3)
+
                     ## prior on amplitude, phase
                     blm_theta.append(3* theta[cnt])
                     blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
