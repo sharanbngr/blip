@@ -39,7 +39,7 @@ For Windows, source it by
 
 7) You can change the parameters and the signal model in params.ini
 
-To run do `python run_blip.py params.ini`
+To run do `python run_blip.py params.ini` in `runblip/main/` directory
 
 Posterior plots are automatically made in the output directory specified in params.ini
 
