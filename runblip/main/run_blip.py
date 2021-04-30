@@ -1,6 +1,11 @@
 import pickle
 import numpy as np
-import sys, configparser, subprocess
+import sys, configparser, subprocess, os
+
+currentdir = os.path.dirname(os.path.realpath(__file__))
+parentdir = os.path.dirname(currentdir)
+sys.path.append(parentdir)
+
 from src.makeLISAdata import LISAdata
 from src.likelihoods import likelihoods
 from tools.plotmaker import plotmaker
@@ -8,6 +13,8 @@ import matplotlib.pyplot as plt
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
+
+
 
 class LISA(LISAdata, likelihoods):
 

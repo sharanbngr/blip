@@ -1,0 +1,3 @@
+[console_scripts]
+blip = runblip.blip:main
+

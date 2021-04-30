@@ -1,0 +1,94 @@
+11744* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11745* sudo python3 setup.py sdist bdist_wheel
+11746* twine upload dist/* --verbose
+11747* pip3 install --upgrade blip-alpha
+11748* blip
+11749* blip -h
+11750* cd Documents/
+11751* ls
+11752* cd rndm
+11753* ls
+11754* cd ..
+11755* ~
+11756* cd Downloads
+11757* cd test
+11758* ls
+11759* mkdir 011_test
+11760* cd 011_test
+11761* ls
+11762* blip -h
+11763* blip -i
+11764* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11765* sudo python3 setup.py sdist bdist_wheel
+11766* twine upload dist/* --verbose
+11767* pip3 install --upgrade blip-alpha
+11768* blip -i
+11769* ls
+11770* blip -h
+11771* vim params.ini
+11772* blip -x
+11773* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11774* sudo python3 setup.py sdist bdist_wheel
+11775* twine upload dist/* --verbose
+11776* ls
+11777* pip3 install --upgrade blip-alpha
+11778* blip -h
+11779* blip -i
+11780* blip -x
+11781* ./runblip/blip.py
+11782* ./runblip/blip.py -h
+11783* ./runblip/blip.py -x
+11784* clear
+11785* cd /home/tommy/.local/lib/python3.8/site-packages/blip_alpha-0.0.10.dist-info\n
+11786* cd /home/tommy/.local/lib/python3.8/site-packages/blip_alpha-0.0.13.dist-info\n
+11787* ls
+11788* cd ..
+11789* cd ~
+11790* cd .local/bin/
+11791* ls
+11792* vim blip
+11793* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11794* sudo python3 setup.py sdist bdist_wheel
+11795* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11796* sudo python3 setup.py sdist bdist_wheel
+11797* twine upload dist/* --verbose
+11798* pip3 install --upgrade blip-alpha
+11799* blip -h
+11800* ls
+11801* cd Downloads/test/011_test
+11802* blip -h
+11803* blip -i
+11804* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11805* sudo python3 setup.py sdist bdist_wheel
+11806* twine upload dist/* --verbose
+11807* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11808* sudo python3 setup.py sdist bdist_wheel
+11809* twine upload dist/* --verbose
+11810* pip3 install --upgrade blip-alpha
+11811* blip -h
+11812* blip -i
+11813* blip -x
+11814* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11815* sudo python3 setup.py sdist bdist_wheel
+11816* twine upload dist/* --verbose
+11817* pip3 install --upgrade blip-alpha
+11818* blip -i
+11819* blip -x
+11820* ./runblip/blip.py -h
+11821* ./runblip/blip.py -x
+11822* clear
+11823* ls
+11824* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11825* sudo python3 setup.py sdist bdist_wheel
+11826* twine upload dist/* --verbose
+11827* pip3 install --upgrade blip-alpha
+11828* blip -i
+11829* blip -h
+11830* blip -x
+11831* python3
+11832* sudo rm -rf dist/ build/ blip_alpha.egg-info/
+11833* sudo python3 setup.py sdist bdist_wheel
+11834* twine upload dist/* --verbose
+11835* pip3 install --upgrade blip-alpha
+11836* blip -i
+11837* blip -x
