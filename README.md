@@ -1,4 +1,4 @@
-#  BLIP: Bayesian LISA Pipeline (pip installable package)
+#  BLIP: Bayesian LISA Pipeline
 
 ## PIP installation
 1) Run `pip install blip-gw`
