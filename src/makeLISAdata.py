@@ -449,7 +449,8 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
-        if self.inj['injtype'] == 'dwd_fg':
+        ## added or statement for dwd_lmc -SMR
+        if self.inj['injtype'] == 'dwd_fg' or 'dwd_lmc':
             if self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = self.inj['fcutoff']
@@ -570,6 +571,59 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
                 
+            ## adding elif statement for dwd_lmc. Copied dwd_fg from above -SMR
+            elif self.inj['injtype'] == 'dwd_lmc':
+
+                if ii == 0:
+
+                    ## need to set up a few things before doing the spherical harmonic inj
+                    
+                    ## generate skymap
+                    DWD_FG_map, log_DWD_FG_map = self.generate_lmc(self.inj['rh'], self.inj['zh'])
+                    ## convert to blms
+                    DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
+                    ## extract alms
+                    self.alms_inj = self.blm_2_alm(DWD_FG_sph)
+
+                    ## normalize
+                    self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+
+                    ## extrct only the non-negative components
+                    alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+
+                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+
+                    ## response matrix summed over Ylms
+                    summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+
+                    # converts alm_inj into a healpix map to be plotted and saved
+                    # Plot with twice the analysis nside for better resolution
+                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+
+                    Omegamap_inj = Omega_1mHz * skymap_inj
+
+                    hp.graticule()
+                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    
+                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                    plt.close()
+                    
+                    hp.graticule()
+                    hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+                    plt.close()
+                    hp.graticule()
+                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                    plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+                    plt.close()
+
+                ## move frequency to be the zeroth-axis, then cholesky decomp
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+                
+
             ## generate standard normal complex data frist
             z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
 
@@ -924,5 +978,69 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         np.savez(self.params['out_dir'] + '/' +self.params['input_spectrum'], r1=r1, r2=r2, r3=r3, fdata=fdata)
 
         return r1, r2, r3, fdata, tsegstart, tsegmid
+
+
+## adding new code below -SMR
+## copied generate_galactic_foreground code from above
+    def generate_lmc(self, rh=0.1, zh=0.1):
+        '''
+        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
+        rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
+        Thin disk has rh=2.9kpc, zh=0.3kpc; Thick disk has rh=3.31kpc, zh=0.9kpc. Defaults to thin disk. 
+        The distribution is azimuthally symmetric in the galactocentric frame.
+        Returns
+        ---------
+        DWD_FG_map : float
+            Healpy GW power skymap of the DWD galactic foreground.
+        log_DWD_FG_map : float
+            Healpy log GW power skymap. For plotting purposes.
+        
+        '''
+        ## set grid density
+        grid_fill = 200
+        ## create grid *in cartesian coordinates*
+        ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
+        ## distances in kpc
+        gal_rad = 20
+        xs = np.linspace(-gal_rad,gal_rad,grid_fill)
+        ys = np.linspace(-gal_rad,gal_rad,grid_fill)
+        zs = np.linspace(-5,5,grid_fill)
+        x, y, z = np.meshgrid(xs,ys,zs)
+        r = np.sqrt(x**2 + y**2)
+        ## Calculate density distribution
+        rho_c = 1 # some fiducial central density (?? not sure what to use for this)
+        r_cut = 2.1 #kpc
+        r0 = 0.075 #kpc
+        alpha = 1.8
+        q = 0.5
+        disk_density = rho_c*np.exp(-r/rh)*np.exp(-np.abs(z)/zh) 
+        bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
+        DWD_density = disk_density + bulge_density
+        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
+        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
+        SSBc = gc.transform_to(cc.Galactic)
+        ## Calculate GW power
+        #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
+        DWD_powers = DWD_density*(np.array(SSBc.distance))**-2
+        ## Filter nearby grid points (cut out 2kpc sphere)
+        ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
+        ## the density distribution and filtering out resolveable SNR>80 binaries
+        DWD_unresolved_powers = DWD_powers*(np.array(SSBc.distance) > 2)
+        ## Transform to healpix basis
+        ## resolution is 2x analysis resolution
+        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        ## Create skymap
+        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ## Bin
+        for i in range(DWD_FG_mapG.size):
+            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        ## create logarithmic skymap for plotting purposes
+        log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+        ## Transform into the ecliptic
+        rGE = hp.rotator.Rotator(coord=['G','E'])
+        DWD_FG_map = rGE.rotate_map_pixel(DWD_FG_mapG)
+        log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
+        
+        return DWD_FG_map, log_DWD_FG_map
 
 

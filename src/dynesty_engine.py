@@ -76,6 +76,35 @@ class dynesty_engine():
 
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
                     npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
+        
+        ##copied from above to make dwd_lmc version -SMR
+        elif params['modeltype']=='dwd_lmc':
+
+            print("Doing a spherical harmonic stochastic analysis ...")
+
+            # add the basic parameters first
+            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+
+            # add the blms
+            for lval in range(1, params['lmax'] + 1):
+                for mval in range(lval + 1):
+
+                    if mval == 0:
+                        parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+                    else:
+                        #parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                        #parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+                        parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
+                        parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
+
+
+            ## RM is line later.
+            # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
+            # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
+            npar = len(parameters)
+
+            engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
+                    npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
 
         elif params['modeltype']=='noise_only':
 

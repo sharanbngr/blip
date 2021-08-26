@@ -159,6 +159,14 @@ class LISA(LISAdata, likelihoods):
             self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
+        ## import pdb; pdb.set_trace()
+        ## adding copy of above for dwd_lmc -SMR
+        elif self.params['modeltype']=='dwd_lmc' and self.params['tdi_lev']=='michelson':
+            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_lmc' and self.params['tdi_lev']=='xyz':
+            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_lmc' and self.params['tdi_lev']=='aet':
+            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
         elif self.params['modeltype'] == 'noise_only':
             print('Noise only model chosen ...')
@@ -185,6 +193,13 @@ class LISA(LISAdata, likelihoods):
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.asgwb_xyz_response
+        ## copy of above for dwd_lmc -SMR
+        elif self.inj['injtype']=='dwd_lmc' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.asgwb_mich_response
+        elif self.inj['injtype']=='dwd_lmc' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.asgwb_aet_response
+        elif self.inj['injtype']=='dwd_lmc' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
         else:
            raise ValueError('Unknown recovery model selected')
@@ -231,8 +246,8 @@ class LISA(LISAdata, likelihoods):
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
 
         if self.params['modeltype'] != 'noise_only':
-
-            if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg':
+            ## modified below line to include dwd_lmc -SMR 
+            if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_lmc':
 
                 summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
@@ -252,7 +267,8 @@ class LISA(LISAdata, likelihoods):
             # Hubble constant
             H0 = 2.2*10**(-18)
             # Calculate astrophysical power law noise
-            if self.params['modeltype'] == 'dwd_fg' and self.inj['fg_spectrum'] == 'truncated':
+            # added or statement for dwd_lmc -SMR
+            if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_lmc') and self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = self.inj['fcutoff']
                 fcut = (self.fdata < fcutoff)*self.fdata

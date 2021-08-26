@@ -214,7 +214,8 @@ class likelihoods():
         ## Signal PSD
         H0 = 2.2*10**(-18)
         ## Special case for a truncated power law galactic foreground
-        if self.params['modeltype'] == 'dwd_fg' and self.inj['fg_spectrum'] == 'truncated':
+        ## added lmc and or statement -SMR
+        if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_lmc') and self.inj['fg_spectrum'] == 'truncated':
             fcutoff = self.inj['fcutoff']
             fcut = (self.fdata < fcutoff)
             Omegaf = (10**log_omega0)*(self.fdata/(self.params['fref']))**alpha
