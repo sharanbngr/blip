@@ -9,7 +9,7 @@ import pickle, argparse
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post):
+def mapmaker(params, post, coord='E'):
 
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
@@ -62,8 +62,10 @@ def mapmaker(params, post):
         omega_map = omega_map + Omega_1mHz * prob_map
 
     omega_map = omega_map/post.shape[0]
-
-    hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    if coord=='E':
+        hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    elif coord=='G':
+        hp.mollview(omega_map, coord=['E',coord],title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
     hp.graticule()
     plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
     print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')

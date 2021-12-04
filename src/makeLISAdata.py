@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import healpy as hp
 from astropy import units as u
 from astropy import coordinates as cc
+from astropy.coordinates import SkyCoord
 from math import pi
 import os
 
@@ -996,6 +997,120 @@ class LISAdata(geometry, sph_geometry, instrNoise):
             Healpy log GW power skymap. For plotting purposes.
         
         '''
+        ## ===== ipynb compute_density function ========================================
+        ## all below is only for galaxy model creation
+            ## set grid density
+        grid_fill = 200
+
+        ## inputed values
+        RA = 80.21496
+        DEC = -69.37772
+        DIST = 50
+        RAD = 2.1462
+        NUM = 2169264 
+
+        num_DWDs = NUM
+
+        # lmc radius:
+        lr = RAD*u.kpc
+        
+        # inputed coordinates give the position of the center of the LMC in ICRS coordinates:
+        lmc_icrs = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, distance=DIST*u.kpc)
+
+        # transform to galactocentric coordinates:
+        lmc_galcen = lmc_icrs.transform_to(cc.Galactocentric)
+        
+        # convert to cartesian coordinates with the origin at the galactic center
+        x_lmc = lmc_galcen.cartesian.x
+        y_lmc = lmc_galcen.cartesian.y
+        z_lmc = lmc_galcen.cartesian.z
+        
+        ## create grid *in cartesian coordinates*
+        ## distances in kpc
+        gal_rad = 20
+        xs = np.linspace(x_lmc-lr,x_lmc+lr,grid_fill)
+        ys = np.linspace(y_lmc-lr,y_lmc+lr,grid_fill)
+        zs = np.linspace(z_lmc-lr,z_lmc+lr,grid_fill)
+        x, y, z = np.meshgrid(xs,ys,zs)
+        
+        DWD_density = num_DWDs / (0.524*200**3)
+        # 0.524 is the filling factor of a sphere in a cube
+        # this gives us the number density for points only within the sphere of the lmc, instead of the entire cube
+    
+        ## creating a sphere_filter 3D array, with 1s in a sphere and 0s otherwise
+        # r = distance from any point to the center of the lmc
+        r = np.sqrt((x-x_lmc)**2+(y-y_lmc)**2+(z-z_lmc)**2)
+        
+        # set any points within the lmc radius to 1, any points outside to 0
+        sphere_filter = np.zeros((grid_fill,grid_fill,grid_fill))
+        for i in range(grid_fill):
+            for j in range(grid_fill):
+                for k in range(grid_fill):
+                    sphere_filter[i,j,k] = 1 if (r[i,j,k]<lr) else 0
+        ## ** this is probably a computationally expensive way to do this, but it works
+
+        ## =============================================================================
+        
+        ## ===== ipynb next block ======================================================
+        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
+        gc = cc.Galactocentric(x=x,y=y,z=z)
+        SSBc = gc.transform_to(cc.Galactic)
+        ## =============================================================================
+       
+        ## Calculate GW power
+        #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
+        ## density will be total power divided by the points that we're simulating
+        ## assuming all grid points will contribute an equal amount of power
+        DWD_powers = sphere_filter*DWD_density*(np.array(SSBc.distance))**-2
+        ## Filter nearby grid points (cut out 2kpc sphere)
+        ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
+        ## the density distribution and filtering out resolveable SNR>80 binaries
+        DWD_unresolved_powers = sphere_filter*DWD_powers*(np.array(SSBc.distance) > 2)
+        ## will need to generate DWD_unresolved_powers for lmc
+        
+
+        ## Transform to healpix basis
+        ## resolution is 2x analysis resolution
+        ## setting resolution, taking coordinates from before and transforming to longlat
+        ## replace np.array ... with lmc coordinates
+        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        
+
+        ## Create skymap
+        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ## Bin
+        for i in range(DWD_FG_mapG.size):
+            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        ## create logarithmic skymap for plotting purposes
+        log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+        
+
+        ## below isn't in the jupyter notebook?
+        ## Transform into the ecliptic
+        rGE = hp.rotator.Rotator(coord=['G','E'])
+        DWD_FG_map = rGE.rotate_map_pixel(DWD_FG_mapG)
+        log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
+        
+        ## returning healpix skymaps
+        return DWD_FG_map, log_DWD_FG_map
+
+
+    def old_generate_lmc(self, rh=0.1, zh=0.1):
+        '''
+        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
+        rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
+        Thin disk has rh=2.9kpc, zh=0.3kpc; Thick disk has rh=3.31kpc, zh=0.9kpc. Defaults to thin disk. 
+        The distribution is azimuthally symmetric in the galactocentric frame.
+        Returns
+        ---------
+        DWD_FG_map : float
+            Healpy GW power skymap of the DWD galactic foreground.
+        log_DWD_FG_map : float
+            Healpy log GW power skymap. For plotting purposes.
+        
+        '''
+        ## ===== ipynb compute_density function ========================================
+        ## all below is only for galaxy model creation
         ## set grid density
         grid_fill = 200
         ## create grid *in cartesian coordinates*
@@ -1007,6 +1122,8 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         zs = np.linspace(-5,5,grid_fill)
         x, y, z = np.meshgrid(xs,ys,zs)
         r = np.sqrt(x**2 + y**2)
+        
+        ## all of below is unnecessary
         ## Calculate density distribution
         rho_c = 1 # some fiducial central density (?? not sure what to use for this)
         r_cut = 2.1 #kpc
@@ -1016,19 +1133,33 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         disk_density = rho_c*np.exp(-r/rh)*np.exp(-np.abs(z)/zh) 
         bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
         DWD_density = disk_density + bulge_density
+        ## =============================================================================
+        
+        ## ===== ipynb next block ======================================================
         ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
         gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
         SSBc = gc.transform_to(cc.Galactic)
+        ## =============================================================================
+       
         ## Calculate GW power
         #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
+        ## density will be total power divided by the points that we're simulating
+        ## assuming all grid points will contribute an equal amount of power
         DWD_powers = DWD_density*(np.array(SSBc.distance))**-2
         ## Filter nearby grid points (cut out 2kpc sphere)
         ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
         ## the density distribution and filtering out resolveable SNR>80 binaries
         DWD_unresolved_powers = DWD_powers*(np.array(SSBc.distance) > 2)
+        ## will need to generate DWD_unresolved_powers for lmc
+        
+
         ## Transform to healpix basis
         ## resolution is 2x analysis resolution
+        ## setting resolution, taking coordinates from before and transforming to longlat
+        ## replace np.array ... with lmc coordinates
         pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        
+
         ## Create skymap
         DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
         ## Bin
@@ -1036,11 +1167,15 @@ class LISAdata(geometry, sph_geometry, instrNoise):
             DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         ## create logarithmic skymap for plotting purposes
         log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+        
+
+        ## below isn't in the jupyter notebook?
         ## Transform into the ecliptic
         rGE = hp.rotator.Rotator(coord=['G','E'])
         DWD_FG_map = rGE.rotate_map_pixel(DWD_FG_mapG)
         log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
         
+        ## returning healpix skymaps
         return DWD_FG_map, log_DWD_FG_map
 
 
