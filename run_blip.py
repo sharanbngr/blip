@@ -422,7 +422,9 @@ def blip(paramsfile='params.ini'):
     inj['rh']          = float(config.get("inj", "rh"))
     inj['zh']          = float(config.get("inj", "zh"))
     inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
-    inj['fcutoff']          = float(config.get("inj", "fcutoff"))
+    inj['fcutoff']     = float(config.get("inj", "fcutoff"))
+    inj['popfile']     = str(config.get("inj","popfile"))
+    inj['SNRcut']      = float(config.get("inj","SNRcut"))
 
     if inj['injtype'] ==  'sph_sgwb':
         blm_vals = config.get("inj", "blms")
