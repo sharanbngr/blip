@@ -160,12 +160,12 @@ class LISA(LISAdata, likelihoods):
         elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
         ## import pdb; pdb.set_trace()
-        ## adding copy of above for dwd_lmc -SMR
-        elif self.params['modeltype']=='dwd_lmc' and self.params['tdi_lev']=='michelson':
+        ## adding copy of above for dwd_sdg -SMR
+        elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='michelson':
             self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='dwd_lmc' and self.params['tdi_lev']=='xyz':
+        elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='xyz':
             self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='dwd_lmc' and self.params['tdi_lev']=='aet':
+        elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
         elif self.params['modeltype'] == 'noise_only':
@@ -194,12 +194,12 @@ class LISA(LISAdata, likelihoods):
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
-        ## copy of above for dwd_lmc -SMR
-        elif self.inj['injtype']=='dwd_lmc' and self.params['tdi_lev']=='michelson':
+        ## copy of above for dwd_sdg -SMR
+        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.asgwb_mich_response
-        elif self.inj['injtype']=='dwd_lmc' and self.params['tdi_lev']=='aet':
+        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.asgwb_aet_response
-        elif self.inj['injtype']=='dwd_lmc' and self.params['tdi_lev']=='xyz':
+        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
         else:
            raise ValueError('Unknown recovery model selected')
@@ -246,8 +246,8 @@ class LISA(LISAdata, likelihoods):
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
 
         if self.params['modeltype'] != 'noise_only':
-            ## modified below line to include dwd_lmc -SMR 
-            if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_lmc':
+            ## modified below line to include dwd_sdg -SMR 
+            if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
 
                 summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
@@ -267,8 +267,8 @@ class LISA(LISAdata, likelihoods):
             # Hubble constant
             H0 = 2.2*10**(-18)
             # Calculate astrophysical power law noise
-            # added or statement for dwd_lmc -SMR
-            if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_lmc') and self.inj['fg_spectrum'] == 'truncated':
+            # added or statement for dwd_sdg -SMR
+            if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = self.inj['fcutoff']
                 fcut = (self.fdata < fcutoff)*self.fdata
@@ -426,6 +426,7 @@ def blip(paramsfile='params.ini'):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart"))
     params['sampler'] = str(config.get("params", "sampler"))
+    params['projection'] = str(config.get("params", "projection"))
 
 
     # Injection Dict
@@ -439,6 +440,14 @@ def blip(paramsfile='params.ini'):
     inj['zh']          = float(config.get("inj", "zh"))
     inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
     inj['fcutoff']          = float(config.get("inj", "fcutoff"))
+
+    # new sdg injection parameters:
+    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
+    inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
+    inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
+    inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
+    inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
+
 
     if inj['injtype'] ==  'sph_sgwb':
         blm_vals = config.get("inj", "blms")
@@ -519,7 +528,7 @@ def blip(paramsfile='params.ini'):
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, inj)
     print("\n Making posterior skymap ...")
-    mapmaker(params, post_samples)
+    mapmaker(params, post_samples, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":

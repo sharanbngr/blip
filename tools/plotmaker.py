@@ -9,7 +9,7 @@ import pickle, argparse
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post, coord='E'):
+def mapmaker(params, post, coord='E', saveto=None):
 
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
@@ -62,13 +62,27 @@ def mapmaker(params, post, coord='E'):
         omega_map = omega_map + Omega_1mHz * prob_map
 
     omega_map = omega_map/post.shape[0]
+
+    # setting coord back to E, if parameter isn't specified
+    if coord is None:
+        coord = 'E'
+    # generating skymap, switches to specified projection if not 'E'
     if coord=='E':
-        hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-    elif coord=='G':
-        hp.mollview(omega_map, coord=['E',coord],title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+        hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    else:
+        hp.mollview(omega_map, coord=['E',coord], title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+   
+    # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+
     hp.graticule()
-    plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
-    print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
+    
+    if saveto is not None:
+        plt.savefig(saveto + '/post_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  saveto + '/post_skymap.png')
+
+    else:
+        plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
     plt.close()
 
 
@@ -107,10 +121,23 @@ def mapmaker(params, post, coord='E'):
 
     Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside , verbose=False))**2
 
-    hp.mollview(omega_map, title='median skymap of $\\Omega(f= 1mHz)$')
+    if coord=='E':
+        hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$')
+    else:
+        hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$')
+    
+    
     hp.graticule()
-    plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-    print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+    if saveto is not None:
+        plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  saveto + '/post_median_skymap.png')
+
+    else:
+        plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+        
+   ## plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+   ## print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
     plt.close()
 
 
@@ -142,7 +169,10 @@ def plotmaker(params,parameters, inj):
 
     ## if modeltype is sph, first call the mapmaker.
     if params['modeltype']=='sph_sgwb':
-        mapmaker(params, post)
+        if 'healpy_proj' in params.keys():
+            mapmaker(params,post,coord=self.params['healpy_proj'])
+        else:
+            mapmaker(params, post)
 
 
     ## setup the truevals dict

@@ -77,8 +77,8 @@ class dynesty_engine():
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
                     npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
         
-        ##copied from above to make dwd_lmc version -SMR
-        elif params['modeltype']=='dwd_lmc':
+        ##copied from above to make dwd_sdg version -SMR
+        elif params['modeltype']=='dwd_sdg':
 
             print("Doing a spherical harmonic stochastic analysis ...")
 

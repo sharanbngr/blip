@@ -450,8 +450,8 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
-        ## added or statement for dwd_lmc -SMR
-        if self.inj['injtype'] == 'dwd_fg' or 'dwd_lmc':
+        ## added or statement for dwd_sdg -SMR
+        if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
             if self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = self.inj['fcutoff']
@@ -474,6 +474,15 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## the window for splicing
         splice_win = np.sin(np.pi * t_arr/N)
 
+        # deals with projection parameter to use in the hp.mollview functions below
+        if self.params['projection'] is None:
+            coord = 'E'
+        elif self.params['projection']=='G' or self.params['projection']=='C':
+            coord = ['E',self.params['projection']]
+        elif self.params['projection']=='E':
+            coord = self.params['projection']
+        else:  
+            raise TypeError('Invalid specification of projection, projection can be E, G, or C')
 
         ## Loop over splice segments
         for ii in range(nsplice):
@@ -509,7 +518,7 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     Omegamap_inj = Omega_1mHz * skymap_inj
 
                     hp.graticule()
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
 
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
@@ -552,19 +561,19 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     Omegamap_inj = Omega_1mHz * skymap_inj
 
                     hp.graticule()
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
                     
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
                     
                     hp.graticule()
-                    hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                    hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
                     hp.graticule()
-                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map')
                     plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                     plt.close()
@@ -572,15 +581,15 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
                 
-            ## adding elif statement for dwd_lmc. Copied dwd_fg from above -SMR
-            elif self.inj['injtype'] == 'dwd_lmc':
+            ## adding elif statement for dwd_sdg. Copied dwd_fg from above -SMR
+            elif self.inj['injtype'] == 'dwd_sdg':
 
                 if ii == 0:
 
                     ## need to set up a few things before doing the spherical harmonic inj
                     
                     ## generate skymap
-                    DWD_FG_map, log_DWD_FG_map = self.generate_lmc(self.inj['rh'], self.inj['zh'])
+                    DWD_FG_map, log_DWD_FG_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
                     ## convert to blms
                     DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
                     ## extract alms
@@ -604,19 +613,19 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                     Omegamap_inj = Omega_1mHz * skymap_inj
 
                     hp.graticule()
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
                     
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
                     
                     hp.graticule()
-                    hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                    hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
                     hp.graticule()
-                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map')
                     plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                     plt.close()
@@ -983,8 +992,9 @@ class LISAdata(geometry, sph_geometry, instrNoise):
 
 ## adding new code below -SMR
 ## copied generate_galactic_foreground code from above
-    def generate_lmc(self, rh=0.1, zh=0.1):
+    def generate_sdg(self, RA=80.21496, DEC=-69.37772, DIST=50, RAD=2.1462, NUM=2169264):
         '''
+        Should redo this text:
         Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
         rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
         Thin disk has rh=2.9kpc, zh=0.3kpc; Thick disk has rh=3.31kpc, zh=0.9kpc. Defaults to thin disk. 
@@ -1002,51 +1012,41 @@ class LISAdata(geometry, sph_geometry, instrNoise):
             ## set grid density
         grid_fill = 200
 
-        ## inputed values
-        RA = 80.21496
-        DEC = -69.37772
-        DIST = 50
-        RAD = 2.1462
-        NUM = 2169264 
-
-        num_DWDs = NUM
-
-        # lmc radius:
-        lr = RAD*u.kpc
+        # sdg radius: (default is the LMC)
+        sdg_r = RAD*u.kpc
         
-        # inputed coordinates give the position of the center of the LMC in ICRS coordinates:
-        lmc_icrs = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, distance=DIST*u.kpc)
+        # default coordinates give the position of the center of the LMC in ICRS coordinates:
+        sdg_icrs = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, distance=DIST*u.kpc)
 
         # transform to galactocentric coordinates:
-        lmc_galcen = lmc_icrs.transform_to(cc.Galactocentric)
+        sdg_galcen = sdg_icrs.transform_to(cc.Galactocentric)
         
         # convert to cartesian coordinates with the origin at the galactic center
-        x_lmc = lmc_galcen.cartesian.x
-        y_lmc = lmc_galcen.cartesian.y
-        z_lmc = lmc_galcen.cartesian.z
+        x_sdg = sdg_galcen.cartesian.x
+        y_sdg = sdg_galcen.cartesian.y
+        z_sdg = sdg_galcen.cartesian.z
         
         ## create grid *in cartesian coordinates*
         ## distances in kpc
-        gal_rad = 20
-        xs = np.linspace(x_lmc-lr,x_lmc+lr,grid_fill)
-        ys = np.linspace(y_lmc-lr,y_lmc+lr,grid_fill)
-        zs = np.linspace(z_lmc-lr,z_lmc+lr,grid_fill)
+        xs = np.linspace(x_sdg-sdg_r,x_sdg+sdg_r,grid_fill)
+        ys = np.linspace(y_sdg-sdg_r,y_sdg+sdg_r,grid_fill)
+        zs = np.linspace(z_sdg-sdg_r,z_sdg+sdg_r,grid_fill)
         x, y, z = np.meshgrid(xs,ys,zs)
         
-        DWD_density = num_DWDs / (0.524*200**3)
+        DWD_density = NUM / (0.524*200**3)
         # 0.524 is the filling factor of a sphere in a cube
-        # this gives us the number density for points only within the sphere of the lmc, instead of the entire cube
+        # this gives us the number density for points only within the sphere of the sdg, instead of the entire cube
     
         ## creating a sphere_filter 3D array, with 1s in a sphere and 0s otherwise
-        # r = distance from any point to the center of the lmc
-        r = np.sqrt((x-x_lmc)**2+(y-y_lmc)**2+(z-z_lmc)**2)
+        # r = distance from any point to the center of the sdg
+        r = np.sqrt((x-x_sdg)**2+(y-y_sdg)**2+(z-z_sdg)**2)
         
-        # set any points within the lmc radius to 1, any points outside to 0
+        # set any points within the sdg radius to 1, any points outside to 0
         sphere_filter = np.zeros((grid_fill,grid_fill,grid_fill))
         for i in range(grid_fill):
             for j in range(grid_fill):
                 for k in range(grid_fill):
-                    sphere_filter[i,j,k] = 1 if (r[i,j,k]<lr) else 0
+                    sphere_filter[i,j,k] = 1 if (r[i,j,k]<sdg_r) else 0
         ## ** this is probably a computationally expensive way to do this, but it works
 
         ## =============================================================================
@@ -1066,21 +1066,24 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
         ## the density distribution and filtering out resolveable SNR>80 binaries
         DWD_unresolved_powers = sphere_filter*DWD_powers*(np.array(SSBc.distance) > 2)
-        ## will need to generate DWD_unresolved_powers for lmc
+        ## will need to generate DWD_unresolved_powers for sdg
         
 
         ## Transform to healpix basis
         ## resolution is 2x analysis resolution
         ## setting resolution, taking coordinates from before and transforming to longlat
-        ## replace np.array ... with lmc coordinates
+        ## replace np.array ... with sdg coordinates
         pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         
 
         ## Create skymap
         DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
         ## Bin
-        for i in range(DWD_FG_mapG.size):
-            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+        ## old, slow way:
+        # for i in range(DWD_FG_mapG.size):
+        #     DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        
         ## create logarithmic skymap for plotting purposes
         log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
         
