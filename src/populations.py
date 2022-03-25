@@ -50,10 +50,10 @@ class populations():
         ## load
         dwds = pd.read_csv(popfile,sep=sep,**read_csv_kwargs)
         ## unit conversions and assignments as needed
-        fs = dwds[coldict['f']].to_numpy()*unitdict['f'].to(u.Hz).value
+        fs = (dwds[coldict['f']].to_numpy()*unitdict['f']).to(u.Hz).value
         hs = dwds[coldict['h']].to_numpy()
-        lats = dwds[coldict['lat']].to_numpy()*unitdict['lat'].to(u.deg).value
-        longs = dwds[coldict['long']].to_numpy()*unitdict['long'].to(u.deg).value
+        lats = (dwds[coldict['lat']].to_numpy()*unitdict['lat']).to(u.deg).value
+        longs = (dwds[coldict['long']].to_numpy()*unitdict['long']).to(u.deg).value
         
         return fs, hs, lats, longs
         
@@ -96,82 +96,69 @@ class populations():
         SNRs = self.get_binary_psd(hs,t_obs)/(4*noise_PSD)
         return SNRs
     
-    def filter_by_snr(self,fs,hs,SNRs,SNR_cut=7,get_type='unresolved'):
+    def filter_by_snr(self,data,SNRs,SNR_cut=7,get_type='unresolved'):
         '''
         Function to filter DWD data by SNR. Can return either unresolved (SNR < SNR_cut) or resolved (SNR > SNR_cut) binaries.
         
         Arguments:
-            fs (1D array of floats) : Binary frequencies. Assumed monochromatic.
-            hs (1D array of floats) : Binary strains.
-            SNRs (1D array of floats) : Binary SNRs.
+            data (1D array of floats) : Binary population data of your choice, corresponding to the given SNRs
+            SNRs (1D array of floats) : SNR value for each system corresponding to data
             SNR_cut (float) : Value of SNR that delineates resolved and unresolved binaries. Default is SNR = 7.
             get_type (str) : Whether to return the resolved or unresolved binaries. Default is unresolved.
         
         Returns:
-            fs_filt, hs_filt : Filtered arrays of frequencies and strains.
+            data_filt : Filtered arrays of frequencies and strains.
         '''
         if get_type=='unresolved':
-            return fs[SNRs<SNR_cut],hs[SNRs<SNR_cut]
+            return data[SNRs<SNR_cut]
         elif get_type=='resolved':
-            return fs[SNRs>=SNR_cut],hs[SNRs>=SNR_cut]
+            return data[SNRs>=SNR_cut]
         else:
             print("Invalid specification of get_type; can be 'resolved' or 'unresolved'.")
             raise
 
     # This function should be incorporated in future, but I need to think a little carefully about how to integrate it first.
-#    def pop2spec(fs,hs,t_obs,fmin=5e-5,fmax=1e-1,output='foreground'):
-#        '''
-#        Function to calculate the foreground spectrum arising from a population catalogue of unresolved DWD binaries.
-#        
-#        Arguments:
-#            fs (1D array of floats) : Binary frequencies. Assumed monochromatic.
-#            hs (1D array of floats) : Binary strains.
-#            t_obs (astropy Quantity, time units) : Observation time.
-#            plot (bool) : Whether to also produce a plot of the foreground spectrum. Default True.
-#            saveto (str) : If specified, the location to which the plot will be saved. Default None (won't save).
-#            fmin, fmax (float) : Minimum and maximum frequencies of the calculated and plotted PSD.
-#            output (str) : Can be 'foreground' or 'all'. Which sets of PSDs to return.
-#                           If 'foreground', only the foreground PSD and frequencies will be returned.
-#                           If 'all', total PSD and detector PSD will also be returned.
-#        
-#        Returns:
-#            (if output=='foreground'):
-#            fg_PSD_fullspec (array of floats) : Resulting PSD of unresolved binary background/foreground
-#            fs_all (array of floats) : Frequencies at which PSD is evaluated.
-#            (additionally, if output=='all'):
-#            det_PSD (array of floats) : Detector PSD evaluated at fs_all
-#            PSD_tot (array of floats) : Total PSD (detector noise + foreground)
-#        '''
-#        ## set bin to delta_f = 1/T_obs
-#        bin_width = (1/t_obs).to(u.Hz)
-#        ## get unresolved system PSDs
-#        PSDs_unres = t_obs*hs**2
-#        ## bin and sum
-#        edges = np.arange(fs_unres.min().value,fs_unres.max().value+bin_width.value,bin_width.value)
-#        fg_PSD, bins = np.histogram(fs_unres.value,bins=edges,weights=PSDs_unres)
-#        mids = bins[:-1]+bin_width.value
-#        ## get total PSD
-#        fs_low = np.arange(fmin,mids[0]-bin_width.value,bin_width.value)
-#        fs_high = np.arange(mids[-1]+bin_width.value,fmax,bin_width.value)
-#        fs_all = np.append(np.append(fs_low,mids),fs_high)
-#        PSD_tot = np.append(np.append(lw.psd.lisa_psd(fs_low*u.Hz,t_obs=t_obs,confusion_noise=None),
-#                                      lw.psd.lisa_psd(mids*u.Hz,t_obs=t_obs,confusion_noise=None)+fg_PSD),
-#                            lw.psd.lisa_psd(fs_high*u.Hz,t_obs=t_obs,confusion_noise=None))
-#        ## extend foreground PSD to match with fs_all (filling in zeros where there is no foreground contribution)
-#        fg_PSD_fullspec = np.append(np.append(np.zeros(len(fs_low)),fg_PSD.value),np.zeros(len(fs_high)))/u.Hz
-#        ## get detector PSD
-#        det_PSD = lw.psd.lisa_psd(fs_all*u.Hz,t_obs=t_obs,confusion_noise=None)
-#        
-#        if output=='foreground':
-#            return fg_PSD_fullspec, fs_all
-#        elif output=='all':
-#            return fg_PSD_fullspec, fs_all, det_PSD, PSD_tot
-#        else:
-#            print("Invalid specification of output. Can be 'foreground' or 'all'.")
-    
-    def skymap_from_pop(self,lats,longs,PSDs,nside):
+    def gen_summed_spectrum(self,fs,hs,frange,t_obs):
         '''
-        Function to get a skymap from a catalogue of binaries. 
+        Function to calculate the foreground spectrum arising from a set of monochromatic strains and associated frequencies.
+        
+        Arguments:
+            fs (1D array of floats) : Binary frequencies. Assumed monochromatic.
+            hs (1D array of floats) : Binary strains.
+            t_obs (astropy Quantity, time units) : Observation time.
+            frange (1D array of floats) : Frequencies at which to calculate binned PSD
+        
+        Returns:
+            fg_PSD_binned (array of floats) : Resulting PSD of unresolved binary background/foreground for all f in frange
+        '''
+        ## set bin to delta_f = 1/T_obs
+        bin_width = (1/t_obs).to(u.Hz)
+        ## get unresolved system PSDs
+        PSDs_unres = self.get_binary_psd(hs,t_obs)
+        ## bin and sum
+        edges = np.arange(fs.min(),fs.max()+bin_width.value,bin_width.value)
+        fg_PSD, bins = np.histogram(fs,bins=edges,weights=PSDs_unres)
+        mids = bins[:-1]+bin_width.value/2
+        ## integrate to get total power
+        power_before = np.sum(fg_PSD*bin_width)
+        new_bin_width = frange[1]-frange[0]
+        bins = np.append(frange-new_bin_width/2,frange[-1]+new_bin_width/2)
+        fg_PSD_binned, edges = np.histogram(mids,bins=bins,weights=fg_PSD)
+        ## normalize to conserve power
+        power_after = np.sum(fg_PSD_binned*new_bin_width*u.Hz)
+        fg_PSD_binned = (power_before/power_after)*fg_PSD_binned
+        ## safety check: conservation of total power just in case things go sideways for some reason
+        if power_before != np.sum(fg_PSD_binned*new_bin_width*u.Hz):
+            print("Warning: Power is not being conserved in the spectrum rebinning process.")
+            diff = (power_before - np.sum(fg_PSD_binned*new_bin_width*u.Hz))
+            frac_diff = (diff/power_before).value
+            print("Difference (pre-binning - post-binning) is {} (fractional difference of {:e})".format(diff,frac_diff))
+        
+        return fg_PSD_binned
+    
+    def gen_summed_map(self,lats,longs,PSDs,nside):
+        '''
+        Function to get a skymap from a collection of binary sky coordinates and (monochromatic) PSDs.
         Note that this function will process all binaries given to it; SNR filtering must be done beforehand.
         
         Arguments:
@@ -194,4 +181,45 @@ class populations():
         logskymap = np.log10(skymap)
         return skymap, logskymap
     
+    def pop2spec(self,popfile,frange,t_obs,SNR_cut=7,**read_csv_kwargs):
+        '''
+        Function to calculate the foreground spectrum arising from a population catalogue of unresolved DWD binaries.
+        
+        Arguments:
+            popfile (str)     : '/path/to/binary/population/data/file.csv'
+            frange (1D array of floats) : Frequencies at which to calculate binned PSD
+            t_obs (astropy Quantity, time units) : Observation time.
+        Returns:
+            fg_PSD (array of floats) : Resulting PSD of unresolved binary background/foreground for all f in frange
+        '''
+        fs, hs, lats, longs = self.load_population(popfile,**read_csv_kwargs)
+        snrs = self.get_snr(fs*u.Hz,hs,t_obs)
+        fs_unres, hs_unres = self.filter_by_snr(fs,snrs,SNR_cut=SNR_cut), self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)
+        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs).value
+        return fg_PSD
     
+    def pop2map(self,popfile,nside,t_obs,SNR_cut=7,**read_csv_kwargs):
+        '''
+        Function to get a skymap from a catalogue of binaries.
+        
+        Arguments:
+            lats, longs (arrays of floats) : Latitudes and longitudes of catalogue binaries. 
+                                             IMPORTANT: Must be given in ecliptic coordinates and units of degrees!
+            PSDs (array of floats) : Corresponding catalogue binary PSDs (assumed monochromatic)
+            t_obs (astropy Quantity, time units) : Observation time.
+            nside (int) : Healpix nside to use for skymap. Must be power of 2 < 2**32.
+            
+        Returns:
+            skymap (array of floats) : Healpix skymap of GW power on the sky
+            logskymap (array of floats) : Healpix skymap of log GW power on the sky
+        '''
+        fs, hs, lats, longs = self.load_population(popfile,**read_csv_kwargs)
+        snrs = self.get_snr(fs*u.Hz,hs,t_obs)
+        lats_unres, longs_unres = self.filter_by_snr(lats,snrs,SNR_cut=SNR_cut), self.filter_by_snr(longs,snrs,SNR_cut=SNR_cut)
+        hs_unres = self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)
+        psds = self.get_binary_psd(hs_unres,t_obs)
+        skymap, logskymap = self.gen_summed_map(lats_unres,longs_unres,psds,nside)
+        return skymap, logskymap
+        
+        
+        
