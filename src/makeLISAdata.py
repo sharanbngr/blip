@@ -467,7 +467,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                          highfilt*Omega_cut*(frange/fcutoff)**self.inj['alpha2']
             elif self.inj['fg_spectrum'] == 'population':
                 print("Constructing foreground spectrum from DWD population...")
-                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])
+                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])*2 ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
             else:
                 raise TypeError('Unknown foreground model chosen. Supported models: powerlaw, broken_powerlaw, truncated, population.')
             # Spectrum of the SGWB from Omegaf (population version goes directly to the spectrum from binary strains and frequencies)
@@ -849,7 +849,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         DWD_FG_sph = hp.sphtfunc.map2alm(sqrt_map, lmax=self.blmax)
 
         # Normalize        
-        DWD_FG_sph = DWD_FG_sph/DWD_FG_sph[0]
+        DWD_FG_sph = DWD_FG_sph/(DWD_FG_sph[0] * np.sqrt(4*np.pi))
 
         return DWD_FG_sph
         

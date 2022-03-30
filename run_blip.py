@@ -453,6 +453,7 @@ def blip(paramsfile='params.ini'):
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
     params['spectrum_model'] = str(config.get("params", "spectrum_model"))
+    params['truncation_alpha'] = float(config.get("params", "truncation_alpha"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))

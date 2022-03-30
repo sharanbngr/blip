@@ -295,6 +295,8 @@ class likelihoods():
         # unpack priors, depends on spectrum model, defaults to standard power law
         if self.params['spectrum_model'] == 'broken_powerlaw':
             log_Np, log_Na, alpha, log_omega0, log_fcutoff, alpha_2  = theta[0],theta[1], theta[2], theta[3], theta[4], theta[5]
+        elif self.params['spectrum_model'] == 'truncated_powerlaw':
+            log_Np, log_Na, alpha, log_omega0, log_fcutoff  = theta[0],theta[1], theta[2], theta[3], theta[4]
         else:
             log_Np, log_Na, alpha, log_omega0  = theta[0],theta[1], theta[2], theta[3]
             
@@ -322,6 +324,15 @@ class likelihoods():
             Omega_cut = (10**log_omega0)*((10**log_fcutoff)/(self.params['fref']))**alpha
             Omegaf = lowfilt*(10**log_omega0)*(self.fdata/(self.params['fref']))**alpha + \
                      highfilt*Omega_cut*(self.fdata/(10**log_fcutoff))**alpha_2
+        ## truncated power law model. This is just a broken power law, but alpha2 is fixed (not a parameter)
+        ## this is so we can use a very steep second slope (which we can't really measure anyway) to induce a sudden drop in the fg psd.
+        elif self.params['spectrum_model'] == 'truncated_powerlaw':
+            alpha_2 = self.params['truncation_alpha']
+            lowfilt = (self.fdata < (10**log_fcutoff))
+            highfilt = np.invert(lowfilt)
+            Omega_cut = (10**log_omega0)*((10**log_fcutoff)/(self.params['fref']))**alpha
+            Omegaf = lowfilt*(10**log_omega0)*(self.fdata/(self.params['fref']))**alpha + \
+                     highfilt*Omega_cut*(self.fdata/(10**log_fcutoff))**alpha_2
         ## defaults to power law
         else:
             Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
@@ -332,6 +343,8 @@ class likelihoods():
         ## broken powerlaw theta has more elements before the blms
         if self.params['spectrum_model'] == 'broken_powerlaw':
             blm_theta = theta[6:]
+        elif self.params['spectrum_model'] == 'truncated_powerlaw':
+            blm_theta = theta[5:]
         else:
             blm_theta  = theta[4:]
 
