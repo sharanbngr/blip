@@ -255,7 +255,7 @@ class LISA(LISAdata, likelihoods):
             # Calculate astrophysical power law noise
             if self.params['modeltype'] == 'dwd_fg':
                 if self.inj['fg_spectrum'] == 'powerlaw':
-                    Omegaf = Omega0*(self.fdata/25)**alpha
+                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
     
                     # Power spectra of the SGWB
                     Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
@@ -269,7 +269,7 @@ class LISA(LISAdata, likelihoods):
                     plt.close()
                     plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
                 elif self.inj['fg_spectrum'] == 'broken_powerlaw':
-                    Omegaf = Omega0*(self.fdata/25)**alpha
+                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
                     
                     fcutoff = 10**self.inj['log_fcut']
                     lowfilt = (self.fdata < fcutoff)
@@ -293,7 +293,7 @@ class LISA(LISAdata, likelihoods):
                     ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                     fcutoff = 10**self.inj['log_fcut']
                     fcut = (self.fdata < fcutoff)*self.fdata
-                    Omegaf = Omega0*(fcut/25)**alpha
+                    Omegaf = Omega0*(fcut/self.params['fref'])**alpha
                     # Power spectra of the SGWB
                     Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
                     
@@ -307,7 +307,7 @@ class LISA(LISAdata, likelihoods):
                     plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
                 elif self.inj['fg_spectrum'] == 'population':
                     # Power spectra of the specified DWD population
-                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])/(4*self.fdata) ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])/4#/(4*self.fdata) ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
                     # Spectrum of the SGWB signal convoluted with the detector response tensor.
                     S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
         
@@ -315,9 +315,10 @@ class LISA(LISAdata, likelihoods):
                     S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
         
                     plt.close()
-                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                    plt.loglog(self.fdata, np.mean(S3_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                    plt.loglog(self.fdata, np.mean(S3,axis=1), label='Simulated Total spectrum', lw=0.75)
             else:       
-                Omegaf = Omega0*(self.fdata/25)**alpha
+                Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
 
                 # Power spectra of the SGWB
                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
@@ -334,7 +335,7 @@ class LISA(LISAdata, likelihoods):
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
-        plt.ylim([1e-43, 1e-39])
+#        plt.ylim([1e-43, 1e-39])
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')

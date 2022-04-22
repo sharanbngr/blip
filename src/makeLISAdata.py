@@ -12,6 +12,8 @@ from astropy import coordinates as cc
 from math import pi
 import os
 
+import legwork as lw
+
 class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
     '''
@@ -465,9 +467,38 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                 Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
                 Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha'] + \
                          highfilt*Omega_cut*(frange/fcutoff)**self.inj['alpha2']
+                
+                plt.figure()
+                det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None)
+                plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+                plt.plot(frange,Omegaf*(3/(4*frange**3))*(H0/np.pi)**2 ,color='slategray',alpha=0.5,label='Foreground')
+                plt.legend(loc='upper right')
+                plt.xscale('log')
+                plt.yscale('log')
+#                plt.ylim(1e-43,1e-31)
+                # plt.xlim(1e-4,1e-2)
+                plt.xlabel('Frquency [Hz]')
+                plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+                plt.savefig(self.params['out_dir'] + 'fg_bpl_test.png', dpi=150)
+                plt.close()
             elif self.inj['fg_spectrum'] == 'population':
                 print("Constructing foreground spectrum from DWD population...")
-                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])*2 ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
+                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])/4 ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
+                
+                plt.figure()
+                det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None)
+                plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+                plt.plot(frange,Sgw,color='slategray',alpha=0.5,label='Foreground')
+                plt.legend(loc='upper right')
+                plt.xscale('log')
+                plt.yscale('log')
+#                plt.ylim(1e-43,1e-31)
+                # plt.xlim(1e-4,1e-2)
+                plt.xlabel('Frquency [Hz]')
+                plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+                plt.savefig(self.params['out_dir'] + 'fg_test.png', dpi=150)
+                plt.close()
+                
             else:
                 raise TypeError('Unknown foreground model chosen. Supported models: powerlaw, broken_powerlaw, truncated, population.')
             # Spectrum of the SGWB from Omegaf (population version goes directly to the spectrum from binary strains and frequencies)
@@ -655,6 +686,23 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             htilda2  = np.concatenate([ [0], z_scale[:, 1]])
             htilda3  = np.concatenate([ [0], z_scale[:, 2]])
 
+            plt.figure()
+            det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None)
+            plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+            plt.plot(frange,np.abs(htilda1[1:]*np.conjugate(htilda1[1:])),color='slategray',alpha=0.5,label='Foreground')
+            plt.plot(frange,det_PSD.value + np.abs(htilda1[1:]*np.conjugate(htilda1[1:])),color='teal',alpha=0.5,label='Foreground + PSD')
+#            plt.plot(frange,np.sqrt(self.params['dur'])*np.abs(htilda1[1:]*np.conjugate(htilda1[1:])),
+#                     color='mediumorchid',alpha=0.5,label='Foreground x sqrt(t_obs)')
+            plt.legend(loc='upper right')
+            plt.xscale('log')
+            plt.yscale('log')
+    #        plt.ylim(1e-43,1e-31)
+            # plt.xlim(1e-4,1e-2)
+            plt.xlabel('Frquency [Hz]')
+            plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+            plt.savefig(self.params['out_dir'] + 'fg_test_inMLD_htilda.png', dpi=150)
+            plt.close()
+            np.savetxt(self.params['out_dir'] + 'fg_test_htilde.txt', [frange,np.abs(htilda1[1:]*np.conjugate(htilda1[1:]))])
 
             if ii == 0:
                 # Take inverse fft to get time series data

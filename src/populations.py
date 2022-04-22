@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import healpy as hp
 from astropy import units as u
 from astropy import coordinates as cc
+from scipy.signal import medfilt
 
 class populations():
 
@@ -117,7 +118,6 @@ class populations():
             print("Invalid specification of get_type; can be 'resolved' or 'unresolved'.")
             raise
 
-    # This function should be incorporated in future, but I need to think a little carefully about how to integrate it first.
     def gen_summed_spectrum(self,fs,hs,frange,t_obs):
         '''
         Function to calculate the foreground spectrum arising from a set of monochromatic strains and associated frequencies.
@@ -132,29 +132,81 @@ class populations():
             fg_PSD_binned (array of floats) : Resulting PSD of unresolved binary background/foreground for all f in frange
         '''
         ## set bin to delta_f = 1/T_obs
-        bin_width = (1/t_obs).to(u.Hz)
+        min_bin_width = (1/t_obs).to(u.Hz)
+        
         ## get unresolved system PSDs
         PSDs_unres = self.get_binary_psd(hs,t_obs)
         ## bin and sum
-        edges = np.arange(fs.min(),fs.max()+bin_width.value,bin_width.value)
+        edges = np.arange(fs.min()-min_bin_width.value/2,fs.max()+min_bin_width.value/2,min_bin_width.value)
         fg_PSD, bins = np.histogram(fs,bins=edges,weights=PSDs_unres)
-        mids = bins[:-1]+bin_width.value/2
-        ## integrate to get total power
-        power_before = np.sum(fg_PSD*bin_width)
-        new_bin_width = frange[1]-frange[0]
-        bins = np.append(frange-new_bin_width/2,frange[-1]+new_bin_width/2)
+        mids = bins[:-1]+min_bin_width.value/2
+        
+        plt.figure()
+        det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=t_obs*u.s,confusion_noise=None)
+        plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+        plt.plot(mids,fg_PSD,color='slategray',alpha=0.5,label='Foreground')
+        plt.legend(loc='upper right')
+        plt.xscale('log')
+        plt.yscale('log')
+        # plt.ylim(1e-43,1e-31)
+        # plt.xlim(1e-4,1e-2)
+        plt.xlabel('Frquency [Hz]')
+        plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+        plt.savefig(self.params['out_dir'] + 'fg_test_inpop_prebin.png', dpi=150)
+        plt.close()
+    
+        runmed_before = medfilt(fg_PSD,kernel_size=11)
+    
+        # integrate to get total power
+        power_before = np.sum(fg_PSD*min_bin_width)
+#        new_bin_width = frange[1]-frange[0]
+#        bins = np.append(frange-new_bin_width/2,frange[-1]+new_bin_width/2)
+        
+#        power_before = np.sum(PSDs_unres)#*fs)
+        
+        log_frange = np.log10(frange)
+        log_bin_width = log_frange[1]-log_frange[0]
+        bins = 10**np.append(log_frange-log_bin_width/2,log_frange[-1]+log_bin_width/2)
+        
+                
+        if np.any((bins[1:]-bins[:-1])*u.Hz<min_bin_width):
+            print("Warning: frequency resolution exceeds the maximum allowed by t_obs.")
+        
+        
+        
+#        fg_PSD_binned, edges = np.histogram(fs,bins=bins,weights=PSDs_unres)
         fg_PSD_binned, edges = np.histogram(mids,bins=bins,weights=fg_PSD)
         ## normalize to conserve power
-        power_after = np.sum(fg_PSD_binned*new_bin_width*u.Hz)
+#        bin_mids = bins[1:] - bins[:-1]
+        bin_widths = bins[1:] - bins[:-1]
+        power_after = np.sum(fg_PSD_binned*bin_widths*u.Hz)
         fg_PSD_binned = (power_before/power_after)*fg_PSD_binned
+        
+        runmed_binned = medfilt(fg_PSD_binned,kernel_size=11)
+        
+        plt.figure()
+        det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=t_obs*u.s,confusion_noise=None)
+        plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+        plt.plot(frange,fg_PSD_binned,color='slategray',alpha=0.5,label='Foreground')
+        plt.plot(frange,runmed_binned,color='teal',alpha=0.5,label='FG Running Median')
+        plt.legend(loc='upper right')
+        plt.xscale('log')
+        plt.yscale('log')
+#        plt.ylim(1e-43,1e-31)
+        # plt.xlim(1e-4,1e-2)
+        plt.xlabel('Frquency [Hz]')
+        plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+        plt.savefig(self.params['out_dir'] + 'fg_test_inpop_postbin.png', dpi=150)
+        plt.close()
+        np.savetxt(self.params['out_dir'] + 'fg_test_inpop_postbin_runmed.txt', [frange,runmed_binned])
         ## safety check: conservation of total power just in case things go sideways for some reason
-        if power_before != np.sum(fg_PSD_binned*new_bin_width*u.Hz):
+        if power_before != np.sum(fg_PSD_binned*bin_widths*u.Hz):
             print("Warning: Power is not being conserved in the spectrum rebinning process.")
-            diff = (power_before - np.sum(fg_PSD_binned*new_bin_width*u.Hz))
+            diff = (power_before.value - np.sum(fg_PSD_binned*bin_widths*u.Hz).value)
             frac_diff = (diff/power_before).value
             print("Difference (pre-binning - post-binning) is {} (fractional difference of {:e})".format(diff,frac_diff))
-        
-        return fg_PSD_binned
+        return runmed_binned/frange *u.Hz*u.s
+        #return fg_PSD_binned
     
     def gen_summed_map(self,lats,longs,PSDs,nside):
         '''
