@@ -479,7 +479,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                 # plt.xlim(1e-4,1e-2)
                 plt.xlabel('Frquency [Hz]')
                 plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-                plt.savefig(self.params['out_dir'] + 'fg_bpl_test.png', dpi=150)
+                plt.savefig(self.params['out_dir'] + '/fg_bpl_test.png', dpi=150)
                 plt.close()
             elif self.inj['fg_spectrum'] == 'population':
                 print("Constructing foreground spectrum from DWD population...")
@@ -496,7 +496,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                 # plt.xlim(1e-4,1e-2)
                 plt.xlabel('Frquency [Hz]')
                 plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-                plt.savefig(self.params['out_dir'] + 'fg_test.png', dpi=150)
+                plt.savefig(self.params['out_dir'] + '/fg_test.png', dpi=150)
                 plt.close()
                 
             else:

@@ -152,7 +152,7 @@ class populations():
         # plt.xlim(1e-4,1e-2)
         plt.xlabel('Frquency [Hz]')
         plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-        plt.savefig(self.params['out_dir'] + 'fg_test_inpop_prebin.png', dpi=150)
+        plt.savefig(self.params['out_dir'] + '/fg_test_inpop_prebin.png', dpi=150)
         plt.close()
     
         runmed_before = medfilt(fg_PSD,kernel_size=11)
@@ -196,9 +196,9 @@ class populations():
         # plt.xlim(1e-4,1e-2)
         plt.xlabel('Frquency [Hz]')
         plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-        plt.savefig(self.params['out_dir'] + 'fg_test_inpop_postbin.png', dpi=150)
+        plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin.png', dpi=150)
         plt.close()
-        np.savetxt(self.params['out_dir'] + 'fg_test_inpop_postbin_runmed.txt', [frange,runmed_binned])
+        np.savetxt(self.params['out_dir'] + '/fg_test_inpop_postbin_runmed.txt', [frange,runmed_binned])
         ## safety check: conservation of total power just in case things go sideways for some reason
         if power_before != np.sum(fg_PSD_binned*bin_widths*u.Hz):
             print("Warning: Power is not being conserved in the spectrum rebinning process.")
