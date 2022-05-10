@@ -87,7 +87,7 @@ class LISA(LISAdata, likelihoods):
         cspeed = 3e8
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
-
+        
     def read_mldc_data(self):
         '''
         Just a wrapper function to use the methods the LISAdata class to
@@ -307,7 +307,7 @@ class LISA(LISAdata, likelihoods):
                     plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
                 elif self.inj['fg_spectrum'] == 'population':
                     # Power spectra of the specified DWD population
-                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])/4#/(4*self.fdata) ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
                     # Spectrum of the SGWB signal convoluted with the detector response tensor.
                     S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
         
@@ -315,8 +315,8 @@ class LISA(LISAdata, likelihoods):
                     S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
         
                     plt.close()
-                    plt.loglog(self.fdata, np.mean(S3_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
-                    plt.loglog(self.fdata, np.mean(S3,axis=1), label='Simulated Total spectrum', lw=0.75)
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                    plt.loglog(self.fdata, np.mean(S1,axis=1), label='Simulated Total spectrum', lw=0.75)
             else:       
                 Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
 
@@ -533,9 +533,12 @@ def blip(paramsfile='params.ini'):
     if params['sampler'] == 'dynesty':
 
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, randst)
+        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst)
+        import time
+        t1 = time.time()
         post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
-
+        t2= time.time()
+        print("Elapsed time to converge: {} s".format(t2-t1))
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)

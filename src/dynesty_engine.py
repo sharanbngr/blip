@@ -1,6 +1,7 @@
 import numpy as np
 from dynesty import NestedSampler
 from dynesty.utils import resample_equal
+from multiprocessing import Pool
 
 
 class dynesty_engine():
@@ -12,9 +13,15 @@ class dynesty_engine():
 
 
     @classmethod
-    def define_engine(cls, lisaobj, params, nlive, randst):
+    def define_engine(cls, lisaobj, params, nlive, nthread, randst):
 
-
+        # create multiprocessing pool
+        if nthread > 1:
+            pool = Pool(nthread)
+            pool_size = nthread
+        else:
+            pool = None
+            pool_size = None
         # create the nested sampler objects
         if params['modeltype']=='isgwb':
 
@@ -23,7 +30,7 @@ class dynesty_engine():
             npar = len(parameters)
 
             engine = NestedSampler(lisaobj.isgwb_log_likelihood, cls.isgwb_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
 
         elif params['modeltype']=='sph_sgwb':
 
@@ -48,7 +55,7 @@ class dynesty_engine():
             npar = len(parameters)
 
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
         elif params['modeltype']=='dwd_fg':
 
             print("Doing a spherical harmonic stochastic analysis ...")
@@ -80,13 +87,13 @@ class dynesty_engine():
             npar = len(parameters)
             if params['spectrum_model'] == 'broken_powerlaw':
                 engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior_bpl,\
-                    npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
             elif params['spectrum_model'] == 'truncated_powerlaw':
                 engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior_tpl,\
-                    npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
             else:
                 engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
-                    npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
 
         elif params['modeltype']=='noise_only':
 
@@ -95,7 +102,7 @@ class dynesty_engine():
             npar = len(parameters)
 
             engine = NestedSampler(lisaobj.instr_log_likelihood,  cls.instr_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
 
         elif params['modeltype'] =='isgwb_only':
 
@@ -104,7 +111,7 @@ class dynesty_engine():
             npar = len(parameters)
 
             engine = NestedSampler(lisaobj.isgwb_only_log_likelihood, cls.isgwb_only_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, rstate = randst)
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
 
         else:
             raise ValueError('Unknown recovery model selected')
