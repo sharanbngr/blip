@@ -693,7 +693,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None,approximate_R=True)
             Np, Na = 10**self.inj['log_Np'], 10**self.inj['log_Na']
             C_noise = self.instr_noise_spectrum(frange,f0, Np, Na)
-            det_PSD_blip = C_noise[2, 2, :]
+            det_PSD_blip = C_noise[2, 2, :]/frange
             plt.plot(frange,det_PSD,color='black',label='LW Detector PSD')
             plt.plot(frange,det_PSD_blip,color='black',ls='--',label='BLIP Detector PSD')
             plt.plot(frange,2*np.abs(htilda1[1:]*np.conjugate(htilda1[1:])),color='slategray',alpha=0.5,label='Foreground')
