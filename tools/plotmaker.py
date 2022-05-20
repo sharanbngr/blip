@@ -10,10 +10,8 @@ import logging
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post):
-    
-    ## deal with healpy bug that spams INFO messages
-    logging.getLogger("healpy").setLevel(logging.ERROR)
+def mapmaker(params, post, coord='E', saveto=None):
+
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
 
@@ -59,17 +57,33 @@ def mapmaker(params, post):
 
         norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
 
-        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2 # , verbose=False))**2
+        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside , verbose=False))**2
 
         ## add to the omega map
         omega_map = omega_map + Omega_1mHz * prob_map
 
     omega_map = omega_map/post.shape[0]
 
-    hp.mollview(omega_map, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    # setting coord back to E, if parameter isn't specified
+    if coord is None:
+        coord = 'E'
+    # generating skymap, switches to specified projection if not 'E'
+    if coord=='E':
+        hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    else:
+        hp.mollview(omega_map, coord=['E',coord], title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+   
+    # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+
     hp.graticule()
-    plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
-    print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
+    
+    if saveto is not None:
+        plt.savefig(saveto + '/post_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  saveto + '/post_skymap.png')
+
+    else:
+        plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
     plt.close()
 
 
@@ -106,13 +120,31 @@ def mapmaker(params, post):
 
     norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
 
-    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2 # , verbose=False))**2
+    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside , verbose=False))**2
 
-    hp.mollview(Omega_median_map, title='median skymap of $\\Omega(f= 1mHz)$')
+    if coord=='E':
+        hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$')
+    else:
+        hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$')
+    
+    
     hp.graticule()
-    plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-    print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+    if saveto is not None:
+        plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  saveto + '/post_median_skymap.png')
+
+    else:
+        plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+        print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+        
+   ## plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+   ## print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
     plt.close()
+
+
+
+
+
 
     return
 
@@ -157,9 +189,8 @@ def fitmaker(params,parameters,inj):
         alpha = post[:,3]
     
     
-    return
-
-
+    return  
+  
 def plotmaker(params,parameters, inj):
 
     '''
@@ -182,7 +213,10 @@ def plotmaker(params,parameters, inj):
 
     ## if modeltype is sph, first call the mapmaker.
     if params['modeltype']=='sph_sgwb':
-        mapmaker(params, post)
+        if 'healpy_proj' in params.keys():
+            mapmaker(params,post,coord=self.params['healpy_proj'])
+        else:
+            mapmaker(params, post)
 
 
     ## setup the truevals dict
@@ -225,16 +259,12 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.angle(inj['blms'][idx]))
 
     elif params['modeltype']=='dwd_fg':
-        if inj['fg_type']=='population':
-            truevals = {r'$\log_{10} (Np)$':inj['log_Np'], r'$\log_{10} (Na)$':inj['log_Na']}
-        else:
-            truevals.append(inj['log_Np'])
-            truevals.append( inj['log_Na'])
-            truevals.append( inj['alpha'] )
-            truevals.append( inj['ln_omega0'] )
-            if params['spectrum_model']=='broken_powerlaw':
-                truevals.append(inj['log_fcut'])
-                truevals.append(inj['alpha2'])
+
+        truevals.append(inj['log_Np'])
+        truevals.append( inj['log_Na'])
+        truevals.append( inj['alpha'] )
+        truevals.append( inj['ln_omega0'] )
+        
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
     else:
@@ -309,7 +339,6 @@ if __name__ == '__main__':
 
     # Add arguments
     parser.add_argument('rundir', metavar='rundir', type=str, help='The path to the run directory')
-    parser.add_argument('--maps', action="store_true", help='Whether to also make skymaps')
 
     # execute parser
     args = parser.parse_args()
@@ -323,6 +352,3 @@ if __name__ == '__main__':
     parameters = pickle.load(paramfile)
 
     plotmaker(params, parameters, inj)
-    if args.maps:
-        post = np.loadtxt(args.rundir+'/post_samples.txt',delimiter=' ')
-        mapmaker(params, post)
