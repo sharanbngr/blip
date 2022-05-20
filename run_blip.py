@@ -6,6 +6,7 @@ from src.likelihoods import likelihoods
 from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
+from astropy import units as u
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -86,7 +87,7 @@ class LISA(LISAdata, likelihoods):
         cspeed = 3e8
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
-
+        
     def read_mldc_data(self):
         '''
         Just a wrapper function to use the methods the LISAdata class to
@@ -267,25 +268,86 @@ class LISA(LISAdata, likelihoods):
             # Hubble constant
             H0 = 2.2*10**(-18)
             # Calculate astrophysical power law noise
-            # added or statement for dwd_sdg -SMR
-            if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.inj['fg_spectrum'] == 'truncated':
-                ## frequency cutoff based on Fig 1. of Breivik et al (2020)
-                fcutoff = self.inj['fcutoff']
-                fcut = (self.fdata < fcutoff)*self.fdata
-                Omegaf = Omega0*(fcut/25)**alpha
-                # Power spectra of the SGWB
-                Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+
+            if self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
+                if self.inj['fg_spectrum'] == 'powerlaw':
+                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
+
+#             # added or statement for dwd_sdg -SMR
+#             if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.inj['fg_spectrum'] == 'truncated':
+#                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+#                 fcutoff = self.inj['fcutoff']
+#                 fcut = (self.fdata < fcutoff)*self.fdata
+#                 Omegaf = Omega0*(fcut/25)**alpha
+#                 # Power spectra of the SGWB
+#                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
                 
-                # Spectrum of the SGWB signal convoluted with the detector response tensor.
-                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+#                 # Spectrum of the SGWB signal convoluted with the detector response tensor.
+#                 S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+
     
-                # The total noise spectra is the sum of the instrumental + astrophysical
-                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
-                
-                plt.close()
-                plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
+                    # Power spectra of the SGWB
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                    
+                    # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+        
+                    plt.close()
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                elif self.inj['fg_spectrum'] == 'broken_powerlaw':
+                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
+                    
+                    fcutoff = 10**self.inj['log_fcut']
+                    lowfilt = (self.fdata < fcutoff)
+                    highfilt = np.invert(lowfilt)
+                    Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
+                    Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(self.fdata/(self.params['fref']))**self.inj['alpha'] + \
+                             highfilt*Omega_cut*(self.fdata/fcutoff)**self.inj['alpha2']
+        
+                    # Power spectra of the SGWB
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                    
+                    # Spectrum of the SGWB signal convolved with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+        
+                    plt.close()
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                elif self.inj['fg_spectrum'] == 'truncated':
+                    ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+                    fcutoff = 10**self.inj['log_fcut']
+                    fcut = (self.fdata < fcutoff)*self.fdata
+                    Omegaf = Omega0*(fcut/self.params['fref'])**alpha
+                    # Power spectra of the SGWB
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                    
+                    # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+                    
+                    plt.close()
+                    plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
+                elif self.inj['fg_spectrum'] == 'population':
+                    # Power spectra of the specified DWD population
+                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+        
+                    plt.close()
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                    plt.loglog(self.fdata, np.mean(S1,axis=1), label='Simulated Total spectrum', lw=0.75)
             else:       
-                Omegaf = Omega0*(self.fdata/25)**alpha
+                Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
 
                 # Power spectra of the SGWB
                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
@@ -302,7 +364,7 @@ class LISA(LISAdata, likelihoods):
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
-        plt.ylim([1e-43, 1e-39])
+#        plt.ylim([1e-43, 1e-39])
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
@@ -318,7 +380,7 @@ class LISA(LISAdata, likelihoods):
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-        plt.ylim([1e-44, 5e-40])
+#        plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
@@ -420,6 +482,8 @@ def blip(paramsfile='params.ini'):
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
+    params['spectrum_model'] = str(config.get("params", "spectrum_model"))
+    params['truncation_alpha'] = float(config.get("params", "truncation_alpha"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))
@@ -436,10 +500,19 @@ def blip(paramsfile='params.ini'):
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
+    inj['fg_type']     = str(config.get("inj", "fg_type"))
     inj['rh']          = float(config.get("inj", "rh"))
     inj['zh']          = float(config.get("inj", "zh"))
     inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
-    inj['fcutoff']          = float(config.get("inj", "fcutoff"))
+    inj['log_fcut']     = float(config.get("inj", "log_fcut"))
+    inj['alpha2']      = float(config.get("inj", "alpha2"))
+    inj['popfile']     = str(config.get("inj","popfile"))
+    inj['SNRcut']      = float(config.get("inj","SNRcut"))
+    
+    if inj['fg_type'] == 'population':
+        colnames = str(config.get("inj","columns"))
+        colnames = colnames.split(',')
+        inj['columns'] = colnames
 
     # new sdg injection parameters:
     inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
@@ -498,9 +571,12 @@ def blip(paramsfile='params.ini'):
     if params['sampler'] == 'dynesty':
 
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, randst)
+        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst)
+        import time
+        t1 = time.time()
         post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
-
+        t2= time.time()
+        print("Elapsed time to converge: {} s".format(t2-t1))
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)

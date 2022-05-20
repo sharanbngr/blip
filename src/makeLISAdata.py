@@ -3,6 +3,7 @@ import scipy.signal as sg
 from src.instrNoise import instrNoise
 from src.geometry import geometry
 from src.sph_geometry import sph_geometry
+from src.populations import populations
 from scipy.interpolate import interp1d as intrp
 import matplotlib.pyplot as plt
 import healpy as hp
@@ -11,8 +12,9 @@ from astropy import coordinates as cc
 from astropy.coordinates import SkyCoord
 from math import pi
 import os
+import legwork as lw
 
-class LISAdata(geometry, sph_geometry, instrNoise):
+class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation
@@ -450,20 +452,80 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
-        ## added or statement for dwd_sdg -SMR
-        if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
+         if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
             if self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
-                fcutoff = self.inj['fcutoff']
+                fcutoff = 10**self.inj['log_fcut']
                 fcut = (frange < fcutoff)*frange
                 Omegaf = (10**self.inj['ln_omega0'])*(fcut/(self.params['fref']))**self.inj['alpha']
-            if self.inj['fg_spectrum'] == 'powerlaw':
+            elif self.inj['fg_spectrum'] == 'powerlaw':
                 Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+            elif self.inj['fg_spectrum'] == 'broken_powerlaw':
+                fcutoff = 10**self.inj['log_fcut']
+                lowfilt = (frange < fcutoff)
+                highfilt = np.invert(lowfilt)
+                Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
+                Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha'] + \
+                         highfilt*Omega_cut*(frange/fcutoff)**self.inj['alpha2']
+                
+#                 plt.figure()
+#                 det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None)
+#                 plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+#                 plt.plot(frange,Omegaf*(3/(4*frange**3))*(H0/np.pi)**2 ,color='slategray',alpha=0.5,label='Foreground')
+#                 plt.legend(loc='upper right')
+#                 plt.xscale('log')
+#                 plt.yscale('log')
+# #                plt.ylim(1e-43,1e-31)
+#                 # plt.xlim(1e-4,1e-2)
+#                 plt.xlabel('Frquency [Hz]')
+#                 plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+#                 plt.savefig(self.params['out_dir'] + '/fg_bpl_test.png', dpi=150)
+#                 plt.close()
+            elif self.inj['fg_spectrum'] == 'population':
+                print("Constructing foreground spectrum from DWD population...")
+                ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
+                ## additional factor of 2 b/c S_GW = 2 * S_A
+                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])*4 
+                
+#                 plt.figure()
+#                 det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None,approximate_R=True)
+#                 response_lw = lw.psd.approximate_response_function(frange,fstar=1e-3)
+#                 plt.plot(frange,det_PSD,color='black',label='Detector PSD')
+#                 plt.plot(frange,response_lw*Sgw,color='slategray',alpha=0.5,label='Foreground')
+#                 plt.legend(loc='upper right')
+#                 plt.xscale('log')
+#                 plt.yscale('log')
+# #                plt.ylim(1e-43,1e-31)
+#                 # plt.xlim(1e-4,1e-2)
+#                 plt.xlabel('Frquency [Hz]')
+#                 plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+#                 plt.savefig(self.params['out_dir'] + '/fg_test.png', dpi=150)
+#                 plt.close()
+                
+            else:
+                raise TypeError('Unknown foreground model chosen. Supported models: powerlaw, broken_powerlaw, truncated, population.')
+            # Spectrum of the SGWB from Omegaf (population version goes directly to the spectrum from binary strains and frequencies)
+            if self.inj['fg_spectrum'] != 'population':
+                Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2    
         else:
             Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+            # Spectrum of the SGWB
+            Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
+        
+#         ## added or statement for dwd_sdg -SMR
+#         if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
+#             if self.inj['fg_spectrum'] == 'truncated':
+#                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+#                 fcutoff = self.inj['fcutoff']
+#                 fcut = (frange < fcutoff)*frange
+#                 Omegaf = (10**self.inj['ln_omega0'])*(fcut/(self.params['fref']))**self.inj['alpha']
+#             if self.inj['fg_spectrum'] == 'powerlaw':
+#                 Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+#         else:
+#             Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
 
-        # Spectrum of the SGWB
-        Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
+#         # Spectrum of the SGWB
+#         Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2
 
         ## the spectrum of the frequecy domain gaussian for ifft
         norms = np.sqrt(self.params['fs']*Sgw*N)/2
@@ -529,58 +591,166 @@ class LISAdata(geometry, sph_geometry, instrNoise):
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
-
             elif self.inj['injtype'] == 'dwd_fg':
-
-                if ii == 0:
-
-                    ## need to set up a few things before doing the spherical harmonic inj
-                    
-                    ## generate skymap
-                    DWD_FG_map, log_DWD_FG_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
-                    ## convert to blms
-                    DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
-                    ## extract alms
-                    self.alms_inj = self.blm_2_alm(DWD_FG_sph)
-
-                    ## normalize
-                    self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
-
-                    ## extrct only the non-negative components
-                    alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
-
-                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
-
-                    ## response matrix summed over Ylms
-                    summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
-
-                    # converts alm_inj into a healpix map to be plotted and saved
-                    # Plot with twice the analysis nside for better resolution
-                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
-
-                    Omegamap_inj = Omega_1mHz * skymap_inj
-
-                    hp.graticule()
-                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
-                    
-                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-                    plt.close()
-                    
-                    hp.graticule()
-                    hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
-                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
-                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
-                    plt.close()
-                    hp.graticule()
-                    hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map')
-                    plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
-                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
-                    plt.close()
-
-                ## move frequency to be the zeroth-axis, then cholesky decomp
-                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
                 
+                ## for the toy model foreground
+                if self.inj['fg_type'] == 'breivik2020':
+
+                    if ii == 0:
+    
+                        ## need to set up a few things before doing the spherical harmonic inj
+                        
+                        ## generate skymap
+                        DWD_FG_map, log_DWD_FG_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
+                        ## convert to blms
+                        DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
+                        ## extract alms
+                        self.alms_inj = self.blm_2_alm(DWD_FG_sph)
+    
+                        ## normalize
+                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+    
+                        ## extrct only the non-negative components
+                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+    
+                        Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+    
+                        ## response matrix summed over Ylms
+                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+    
+                        # converts alm_inj into a healpix map to be plotted and saved
+                        # Plot with twice the analysis nside for better resolution
+                        skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+    
+                        Omegamap_inj = Omega_1mHz * skymap_inj
+    
+                        hp.graticule()
+                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        
+                        plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                        print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                        plt.close()
+                        
+                        hp.graticule()
+                        hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+                        plt.close()
+                        hp.graticule()
+                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+                        plt.close()
+    
+                    ## move frequency to be the zeroth-axis, then cholesky decomp
+                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+                    
+                elif self.inj['fg_type'] == 'population':
+                    if ii == 0:
+    
+                        ## need to set up a few things before doing the spherical harmonic inj
+                        
+                        ## generate skymap
+                        print("Constructing foreground skymap from DWD population...")
+                        DWD_FG_map, log_DWD_FG_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,names=self.inj['columns'])
+                        ## convert to blms
+                        DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
+                        ## extract alms
+                        self.alms_inj = self.blm_2_alm(DWD_FG_sph)
+    
+                        ## normalize
+                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+    
+                        ## extrct only the non-negative components
+                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+    
+#                        Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+    
+                        ## response matrix summed over Ylms
+                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+    
+                        # converts alm_inj into a healpix map to be plotted and saved
+                        # Plot with twice the analysis nside for better resolution
+                        skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+    
+#                        Omegamap_inj = Omega_1mHz * skymap_inj
+    
+                        hp.graticule()
+                        hp.mollview(skymap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        
+                        plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                        print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                        plt.close()
+                        
+                        hp.graticule()
+                        hp.mollview(DWD_FG_map, title='Population-derived DWD Foreground skymap')
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+                        plt.close()
+                        hp.graticule()
+                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Population-derived DWD Foreground alm map')
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+                        plt.close()
+    
+                    ## move frequency to be the zeroth-axis, then cholesky decomp
+                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+                    
+                else:
+                    raise TypeError("Unknown foreground injection type ('fg_type'). Can be 'breivik2020' or 'population'.")
+#             elif self.inj['injtype'] == 'dwd_fg':
+
+#                 if ii == 0:
+
+#                     ## need to set up a few things before doing the spherical harmonic inj
+                    
+#                     ## generate skymap
+#                     DWD_FG_map, log_DWD_FG_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
+#                     ## convert to blms
+#                     DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
+#                     ## extract alms
+#                     self.alms_inj = self.blm_2_alm(DWD_FG_sph)
+
+#                     ## normalize
+#                     self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+
+#                     ## extrct only the non-negative components
+#                     alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+
+#                     Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+
+#                     ## response matrix summed over Ylms
+#                     summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+
+#                     # converts alm_inj into a healpix map to be plotted and saved
+#                     # Plot with twice the analysis nside for better resolution
+#                     skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+
+#                     Omegamap_inj = Omega_1mHz * skymap_inj
+
+#                     hp.graticule()
+#                     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    
+#                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+#                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+#                     plt.close()
+                    
+#                     hp.graticule()
+#                     hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
+#                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+#                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+#                     plt.close()
+#                     hp.graticule()
+#                     hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map')
+#                     plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+#                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+#                     plt.close()
+
+#                 ## move frequency to be the zeroth-axis, then cholesky decomp
+#                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+            
+
+            
             ## adding elif statement for dwd_sdg. Copied dwd_fg from above -SMR
             elif self.inj['injtype'] == 'dwd_sdg':
 
@@ -1180,5 +1350,3 @@ class LISAdata(geometry, sph_geometry, instrNoise):
         
         ## returning healpix skymaps
         return DWD_FG_map, log_DWD_FG_map
-
-
