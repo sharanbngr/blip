@@ -515,11 +515,11 @@ def blip(paramsfile='params.ini'):
         inj['columns'] = colnames
 
     # new sdg injection parameters:
-    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
-    inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
-    inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
-    inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
-    inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
+#    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
+#    inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
+#    inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
+#    inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
+#    inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
 
 
     if inj['injtype'] ==  'sph_sgwb':

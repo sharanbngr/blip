@@ -452,7 +452,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
-         if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
+        if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
             if self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = 10**self.inj['log_fcut']
@@ -962,7 +962,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
         DWD_density = disk_density + bulge_density
         ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
-        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
+#        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
+        gc = cc.SkyCoord(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc, frame='galactocentric')
         SSBc = gc.transform_to(cc.Galactic)
         ## Calculate GW power
         #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
@@ -975,10 +976,11 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## resolution is 2x analysis resolution
         pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         ## Create skymap
-        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+#        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
         ## Bin
-        for i in range(DWD_FG_mapG.size):
-            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+#        for i in range(DWD_FG_mapG.size):
+#            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         ## create logarithmic skymap for plotting purposes
         log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
         ## Transform into the ecliptic
