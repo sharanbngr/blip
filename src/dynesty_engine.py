@@ -1,7 +1,7 @@
 import numpy as np
 from dynesty import NestedSampler
 from dynesty.utils import resample_equal
-from multiprocessing import Pool
+#from multiprocessing import Pool
 
 
 class dynesty_engine():
@@ -13,13 +13,15 @@ class dynesty_engine():
 
 
     @classmethod
-    def define_engine(cls, lisaobj, params, nlive, nthread, randst):
+    def define_engine(cls, lisaobj, params, nlive, nthread, randst, pool=None):
 
         # create multiprocessing pool
         if nthread > 1:
-            pool = Pool(nthread)
+#            pool = pool
             pool_size = nthread
         else:
+            if pool is not None:
+                print("Warning: Nthread=1 but pool has been defined. This shouldn't happen...")
             pool = None
             pool_size = None
         # create the nested sampler objects

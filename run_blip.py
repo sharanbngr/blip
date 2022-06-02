@@ -7,6 +7,7 @@ from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 from astropy import units as u
+from multiprocessing import Pool
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -569,14 +570,21 @@ def blip(paramsfile='params.ini'):
     lisa =  LISA(params, inj)
 
     if params['sampler'] == 'dynesty':
-
+        # multiprocessing
+        if nthread > 1:
+            pool = Pool(nthread)
+        else:
+            pool = None
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst)
+        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool)
         import time
         t1 = time.time()
         post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
         t2= time.time()
         print("Elapsed time to converge: {} s".format(t2-t1))
+        if nthread > 1:
+            pool.close()
+            pool.join()
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)

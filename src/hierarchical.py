@@ -209,7 +209,7 @@ class postprocess(LISAdata):
     def breivik2020_mapmaker(self,rh,zh):
         '''
         This is a streamlined version of makeLISAdata.generate_galactic_foreground(), sacrificing compactness for speed.
-        Requires initialization via breivik2020_grid(), above.
+        Requires initialization via init_breivik2020_grid(), above.
         
         Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
         rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
@@ -366,6 +366,8 @@ class postprocess(LISAdata):
                 pos, prob, state = sampler.run_mcmc(pos,Nsamples)
                 dur = time.time() - start
                 print('Time elapsed for sampling: {:0.2f} s.'.format(dur))
+                pool.close()
+                pool.join()
         else:
             sampler = emcee.EnsembleSampler(Nwalkers,Ndim,logprob,args=additional_args)
             ## burn-in
