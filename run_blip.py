@@ -7,7 +7,8 @@ from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 from astropy import units as u
-from multiprocessing import Pool
+#from multiprocessing import Pool
+import dill
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -446,7 +447,7 @@ class LISA(LISAdata, likelihoods):
 
 
 
-def blip(paramsfile='params.ini'):
+def blip(paramsfile='params.ini',resume=False):
     '''
     The main workhorse of the bayesian pipeline.
 
@@ -544,11 +545,14 @@ def blip(paramsfile='params.ini'):
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
-#    # checkpointing (dynesty only for now)
-#    params['checkpoint']            = int(config.get("run_params", "checkpoint"))
-#    params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
-#    # restarting from a previously checkpointed run
-#    params['restart']               = int(config.get("run_params", "restart"))
+    # checkpointing (dynesty only for now)
+    # the current checkpointing implementation is not ideal, but it is functional
+    # due to the code structure, saving/reloading all state variables and data would be extremely difficult to implement
+    # so we instead just make sure the random seed is set, forego making directories and so on, and re-generate our data
+    # the remade data is identical, so we can then load our sampler state and continue where we left off
+    params['checkpoint']            = int(config.get("run_params", "checkpoint"))
+    params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
+
 
 
     # Fix random seed
@@ -557,17 +561,20 @@ def blip(paramsfile='params.ini'):
         seed = params['seed']
         randst = setrs(seed)
     else:
+        if params['checkpoint']:
+            raise TypeError("Checkpointing without a fixed seed is not supported. Set 'FixSeed' to true and specify 'seed'.")
+        if resume:
+            raise TypeError("Resuming from a checkpoint requires re-generation of data, so the random seed MUST be fixed.")
         randst = None
 
 
-#    if not params['restart']:
-    # Make directories, copy stuff
-
-    # Make output folder
-    subprocess.call(["mkdir", "-p", params['out_dir']])
-
-    # Copy the params file to outdir, to keep track of the parameters of each run.
-    subprocess.call(["cp", paramsfile, params['out_dir']])
+    if not resume:
+        # Make directories, copy stuff
+        # Make output folder
+        subprocess.call(["mkdir", "-p", params['out_dir']])
+    
+        # Copy the params file to outdir, to keep track of the parameters of each run.
+        subprocess.call(["cp", paramsfile, params['out_dir']])
 
 
     # Initialize lisa class
@@ -589,7 +596,6 @@ def blip(paramsfile='params.ini'):
         if nthread > 1:
             engine.pool.close()
             engine.pool.join()
-        import pdb; pdb.set_trace()
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)
@@ -623,6 +629,9 @@ def blip(paramsfile='params.ini'):
 if __name__ == "__main__":
 
     if len(sys.argv) != 2:
-        raise ValueError('Provide (only) the params file as an argument')
+        if sys.argv[2] == 'resume':
+            blip(sys.argv[1],resume=True)
+        else:
+            raise ValueError('Provide (only) the params file as an argument')
     else:
         blip(sys.argv[1])
