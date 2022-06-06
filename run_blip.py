@@ -589,7 +589,6 @@ def blip(paramsfile='params.ini'):
         if nthread > 1:
             engine.pool.close()
             engine.pool.join()
-        import pdb; pdb.set_trace()
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)
