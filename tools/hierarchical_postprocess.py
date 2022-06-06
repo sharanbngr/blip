@@ -1,7 +1,8 @@
+import sys, os
+sys.path.append(os.getcwd()) ## this lets python find src
 import numpy as np
 import matplotlib
 #matplotlib.use('Agg')
-
 import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 #import healpy as hp
@@ -35,7 +36,7 @@ if __name__ == '__main__':
     inj = pickle.load(paramfile)
     parameters = pickle.load(paramfile)
     ## initualize the postprocessing class
-    postprocessor = postprocess(params,inj,parameters)
+    postprocessor = postprocess(args.rundir,params,inj,parameters)
     ## run the sampler
     sampler = postprocessor.hierarchical_sampler(model=args.model,Nwalkers=args.Nwalkers,Nsamples=args.Nsamples,Nburn=args.Nburn,rng=args.seed,Nthread=args.Nthread)
     ## plot
@@ -45,9 +46,11 @@ if __name__ == '__main__':
     if args.model=='breivik2020':
         npar=2
         post_parameters = ['$r_h$','$z_h$']
-        if inj['fg_type'] == 'breivik2020':
-            knowTrue = True
-            truevals = [inj['rh'],inj['zh']]
+        ## deal with older config files and assign true values if known
+        if 'fg_type' in inj.keys():
+            if inj['fg_type'] == 'breivik2020':
+                knowTrue = True
+                truevals = [inj['rh'],inj['zh']]
     else:
         raise TypeError("Unknown model. Currently supported models: 'breivik2020'.")
     cc = ChainConsumer()

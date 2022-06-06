@@ -24,7 +24,8 @@ from multiprocessing import Pool
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 class postprocess(LISAdata):
-    def __init__(self,params,inj,parameters):
+    def __init__(self,rundir,params,inj,parameters):
+        self.rundir = rundir
         self.params = params
         self.inj = inj
         self.parameters = parameters
@@ -182,14 +183,40 @@ class postprocess(LISAdata):
         
         return mv_dist
 
-    def init_breivik2020_grid(self,grid_fill=100):
+    def init_breivik2020_grid(self,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8):
+        '''
+        Function to initialize a grid on which to generate simple parameterized density models of the galactic DWD distribution.
+        
+        Arguments:
+            grid_spec (str)     :   Determines the nature of grid_res (below). Can be 'interval' or 'npoints'. 
+                                    If 'interval', grid_res is the dx=dy=dz grid interval in kpc.
+                                    If 'npoints', grid_res is the number of number of points along x and y.
+                                    (Note that the number of points along z will be scaled to keep dx=dy=dz if gal_rad and gal_height are different.)
+            grid_res (float)    :   Grid resolution as defined above. If grid_spec='npoints', type must be int.
+            gal_rad (float)     :   Max galactic radius of the grid in kpc. Grid will be definded on -gal_rad <= x,y <= +gal_rad.
+            gal_height (float)  :   Max galactic height of the grid in kpc. Grid will be definded on -gal_height <= z <= +gal_height.
+            
+        '''
         ## create grid *in cartesian coordinates*
         ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
+        ## set to 4x max default radial/vertical scale height, respectively (corresponds to "edge" density ~1/10 of central density)
         ## distances in kpc
-        gal_rad = 20
-        xs = np.linspace(-gal_rad,gal_rad,grid_fill)
-        ys = np.linspace(-gal_rad,gal_rad,grid_fill)
-        zs = np.linspace(-5,5,grid_fill)
+        if grid_spec=='interval':
+            resolution = grid_res
+            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
+            xs = np.arange(-gal_rad,gal_rad,resolution)
+            ys = np.arange(-gal_rad,gal_rad,resolution)
+            zs = np.arange(-gal_height,gal_height,resolution)
+        elif grid_spec=='npoints':
+            if type(grid_res) is not int:
+                raise TypeError("If grid_spec is 'npoints', grid_res must be an integer.")
+            resolution = gal_rad*2 / grid_res
+            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
+            xs = np.linspace(-gal_rad,gal_rad,grid_res)
+            ys = np.linspace(-gal_rad,gal_rad,grid_res)
+            zs = np.arange(-gal_height,gal_height,resolution)
+        
+        ## generate meshgrid
         x, y, z = np.meshgrid(xs,ys,zs)
         self.z = z
         self.r = np.sqrt(x**2 + y**2)
@@ -242,7 +269,7 @@ class postprocess(LISAdata):
         return DWD_FG_map
         
     
-    def breivik2020_log_prior(self,theta,bounds=np.array([[2,4],[0,2]])):
+    def breivik2020_log_prior(self,theta,bounds=np.array([[2,4],[0.05,2]])):
         '''
         Prior for the breivik2020 model. Uniform on user-specified bounds in kpc.
         Default bounds are reasonable for the Milky Way.
@@ -334,7 +361,7 @@ class postprocess(LISAdata):
         if model == 'breivik2020':
             print("Post-processing with spatial model: Breivik+ (2020). Loading posterior samples and parameterizing...")
             ## load posterior samples and process
-            post = np.loadtxt(self.params['out_dir'] + "/post_samples.txt")
+            post = np.loadtxt(self.rundir + "/post_samples.txt")
             post_dist = self.post2dist(post)
             ## Ndim is 2 {rh,zh}
             Ndim = 2

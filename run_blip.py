@@ -544,7 +544,11 @@ def blip(paramsfile='params.ini'):
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
-
+#    # checkpointing (dynesty only for now)
+#    params['checkpoint']            = int(config.get("run_params", "checkpoint"))
+#    params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
+#    # restarting from a previously checkpointed run
+#    params['restart']               = int(config.get("run_params", "restart"))
 
 
     # Fix random seed
@@ -556,7 +560,7 @@ def blip(paramsfile='params.ini'):
         randst = None
 
 
-
+#    if not params['restart']:
     # Make directories, copy stuff
 
     # Make output folder
@@ -571,20 +575,21 @@ def blip(paramsfile='params.ini'):
 
     if params['sampler'] == 'dynesty':
         # multiprocessing
-        if nthread > 1:
-            pool = Pool(nthread)
-        else:
-            pool = None
+#        if nthread > 1:
+#            pool = Pool(nthread)
+#        else:
+#            pool = None
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool)
+        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst)#, pool=pool)
         import time
         t1 = time.time()
         post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
         t2= time.time()
         print("Elapsed time to converge: {} s".format(t2-t1))
         if nthread > 1:
-            pool.close()
-            pool.join()
+            engine.pool.close()
+            engine.pool.join()
+        import pdb; pdb.set_trace()
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)
