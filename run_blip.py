@@ -7,8 +7,8 @@ from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 from astropy import units as u
-#from multiprocessing import Pool
-import dill
+from multiprocessing import Pool
+import time
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -575,24 +575,32 @@ def blip(paramsfile='params.ini',resume=False):
     
         # Copy the params file to outdir, to keep track of the parameters of each run.
         subprocess.call(["cp", paramsfile, params['out_dir']])
-
+    else:
+        print("Resuming a previous analysis. Regenerating data...")
 
     # Initialize lisa class
     lisa =  LISA(params, inj)
 
     if params['sampler'] == 'dynesty':
         # multiprocessing
-#        if nthread > 1:
-#            pool = Pool(nthread)
-#        else:
-#            pool = None
+        if nthread > 1:
+            pool = Pool(nthread)
+        else:
+            pool = None
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst)#, pool=pool)
-        import time
-        t1 = time.time()
-        post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
-        t2= time.time()
-        print("Elapsed time to converge: {} s".format(t2-t1))
+        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool, resume=resume)     
+        ## run sampler
+        if params['checkpoint']:
+            checkpoint_file = params['out_dir']+'/checkpoint.pickle'
+            t1 = time.time()
+            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,params['checkpoint_interval'],checkpoint_file)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        else:
+            t1 = time.time()
+            post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
         if nthread > 1:
             engine.pool.close()
             engine.pool.join()
@@ -615,15 +623,16 @@ def blip(paramsfile='params.ini',resume=False):
 
 
     # Save parameters as a pickle
-    outfile = open(params['out_dir'] + '/config.pickle', 'wb')
-    pickle.dump(params, outfile)
-    pickle.dump(inj, outfile)
-    pickle.dump(parameters, outfile)
+    with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+        pickle.dump(params, outfile)
+        pickle.dump(inj, outfile)
+        pickle.dump(parameters, outfile)
 
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, inj)
-    print("\n Making posterior skymap ...")
-    mapmaker(params, post_samples, coord=params['projection'])
+    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
+        print("\n Making posterior skymap ...")
+        mapmaker(params, post_samples, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":
