@@ -546,10 +546,6 @@ def blip(paramsfile='params.ini',resume=False):
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
     # checkpointing (dynesty only for now)
-    # the current checkpointing implementation is not ideal, but it is functional
-    # due to the code structure, saving/reloading all state variables and data would be extremely difficult to implement
-    # so we instead just make sure the random seed is set, forego making directories and so on, and re-generate our data
-    # the remade data is identical, so we can then load our sampler state and continue where we left off
     params['checkpoint']            = int(config.get("run_params", "checkpoint"))
     params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
 
@@ -575,25 +571,43 @@ def blip(paramsfile='params.ini',resume=False):
     
         # Copy the params file to outdir, to keep track of the parameters of each run.
         subprocess.call(["cp", paramsfile, params['out_dir']])
+        
+        # Initialize lisa class
+        lisa =  LISA(params, inj)
     else:
         print("Resuming a previous analysis. Regenerating data...")
 
-    # Initialize lisa class
-    lisa =  LISA(params, inj)
-
     if params['sampler'] == 'dynesty':
-        # multiprocessing
-        if nthread > 1:
-            pool = Pool(nthread)
+        # Create engine
+        if not resume:
+            # multiprocessing
+            if nthread > 1:
+                pool = Pool(nthread)
+            else:
+                pool = None
+            engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool)    
         else:
             pool = None
-        # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool, resume=resume)     
+            if nthread > 1:
+                print("Warning: Nthread > 1, but multiprocessing is not supported when resuming a run. Pool set to None.")
+                ## To anyone reading this and wondering why:
+                ## The pickle calls used by Python's multiprocessing fail when trying to run the sampler after saving/reloading it.
+                ## This is because pickling the sampler maps all its attributes to their full paths;
+                ## e.g., dynesty_engine.isgwb_prior is named as src.dynesty_engine.dynesty_engine.isgwb_prior
+                ## BUT the object itself is still e.g. <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>
+                ## so we get an error like
+                ## _pickle.PicklingError: Can't pickle <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>: \
+                ##                        it's not the same object as src.dynesty_engine.dynesty_engine.isgwb_prior
+                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
+                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
+                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
+                
+            engine, parameters = dynesty_engine.load_engine(params,randst,pool)
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
             t1 = time.time()
-            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,params['checkpoint_interval'],checkpoint_file)
+            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,parameters,params['checkpoint_interval'],checkpoint_file)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:
