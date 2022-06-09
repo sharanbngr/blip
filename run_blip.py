@@ -492,7 +492,6 @@ def blip(paramsfile='params.ini',resume=False):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart"))
     params['sampler'] = str(config.get("params", "sampler"))
-    params['projection'] = str(config.get("params", "projection"))
 
 
     # Injection Dict
@@ -540,6 +539,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['out_dir']            = str(config.get("run_params", "out_dir"))
     params['doPreProc']          = int(config.get("run_params", "doPreProc"))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
+    params['projection'] = str(config.get("run_params", "projection"))
     params['FixSeed']            = str(config.get("run_params", "FixSeed"))
     params['seed']               = int(config.get("run_params", "seed"))
     verbose            = int(config.get("run_params", "verbose"))
