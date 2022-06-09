@@ -615,8 +615,9 @@ def blip(paramsfile='params.ini'):
 
     print("\n Making posterior Plots ...")
     plotmaker(params, parameters, inj)
-    print("\n Making posterior skymap ...")
-    mapmaker(params, post_samples, coord=params['projection'])
+    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
+        print("\n Making posterior skymap ...")
+        mapmaker(params, post_samples, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":
