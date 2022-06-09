@@ -10,8 +10,16 @@ import logging
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post, coord='E', saveto=None):
-
+def mapmaker(params, post, parameters,coord='E', saveto=None):
+    
+    if type(parameters) is dict:
+        blm_start = len(parameters['noise']) + len(parameters['signal'])
+    elif type(parameters) is list:
+        print("Warning: using a depreciated parameter format. Number of non-b_lm parameters is unknown, defaulting to n=4.")
+        blm_start = 4
+    else:
+        raise TypeError("parameters argument is not dict or list.")
+    
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
 
@@ -33,7 +41,7 @@ def mapmaker(params, post, coord='E', saveto=None):
         Omega_1mHz = (10**(sample[3])) * (1e-3/25)**(sample[2])
 
         ## blms.
-        blms = np.append([1], sample[4:])
+        blms = np.append([1], sample[blm_start:])
 
         ## Complex array of blm values for both +ve m values
         blm_vals = np.zeros(blm_size, dtype='complex')
@@ -57,7 +65,7 @@ def mapmaker(params, post, coord='E', saveto=None):
 
         norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
 
-        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside , verbose=False))**2
+        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
 
         ## add to the omega map
         omega_map = omega_map + Omega_1mHz * prob_map
@@ -67,6 +75,11 @@ def mapmaker(params, post, coord='E', saveto=None):
     # setting coord back to E, if parameter isn't specified
     if coord is None:
         coord = 'E'
+    
+    ## HEALpy is really, REALLY noisy sometimes. This stops that.
+    logger = logging.getLogger()
+    logger.setLevel(logging.ERROR)
+    
     # generating skymap, switches to specified projection if not 'E'
     if coord=='E':
         hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
@@ -77,13 +90,16 @@ def mapmaker(params, post, coord='E', saveto=None):
 
     hp.graticule()
     
+    ## switch logging level back to normal so we get our own status updates
+    logger.setLevel(logging.INFO)
+    
     if saveto is not None:
         plt.savefig(saveto + '/post_skymap.png', dpi=150)
-        print('saving injected skymap at ' +  saveto + '/post_skymap.png')
+        logger.info('Saving posterior skymap at ' +  saveto + '/post_skymap.png')
 
     else:
         plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
-        print('saving injected skymap at ' +  params['out_dir'] + '/post_skymap.png')
+        logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/post_skymap.png')
     plt.close()
 
 
@@ -120,31 +136,30 @@ def mapmaker(params, post, coord='E', saveto=None):
 
     norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
 
-    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside , verbose=False))**2
-
+    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
+    
+    ## HEALpy is really, REALLY noisy sometimes. This stops that.
+    logger.setLevel(logging.ERROR)
+    
     if coord=='E':
         hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$')
     else:
         hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$')
     
-    
     hp.graticule()
+    
+    ## switch logging level back to normal so we get our own status updates
+    logger.setLevel(logging.INFO)
+    
     if saveto is not None:
         plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
-        print('saving injected skymap at ' +  saveto + '/post_median_skymap.png')
+        logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
 
     else:
         plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-        print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
-        
-   ## plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-   ## print('saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+        logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+
     plt.close()
-
-
-
-
-
 
     return
 
@@ -202,21 +217,28 @@ def plotmaker(params,parameters, inj):
     params : dictionary
         Dictionary of config params
 
-    parameters: string
-        Array or list of strings with names of the parameters
+    parameters: string or dict
+        Dictionary or list of strings with names of the parameters
 
     npar : int
         Dimensionality of the parameter space
     '''
 
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
-
+    ## adding this for compatibility with previous runs
+    ## should eventually be depreciated
+    if type(parameters) is dict:
+        all_parameters = parameters['all']
+    elif type(parameters) is list:
+        all_parameters = parameters
+    else:
+        raise TypeError("parameters argument is not dict or list.")
     ## if modeltype is sph, first call the mapmaker.
-    if params['modeltype']=='sph_sgwb':
+    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
         if 'healpy_proj' in params.keys():
-            mapmaker(params,post,coord=params['healpy_proj'])
+            mapmaker(params,post,parameters,coord=params['healpy_proj'])
         else:
-            mapmaker(params, post)
+            mapmaker(params, post,parameters)
 
 
     ## setup the truevals dict
@@ -270,7 +292,7 @@ def plotmaker(params,parameters, inj):
     else:
         knowTrue = 0
 
-    npar = len(parameters)
+    npar = len(all_parameters)
 
     plotrange = [0.999]*npar
 
@@ -279,7 +301,7 @@ def plotmaker(params,parameters, inj):
 
     ## Make chainconsumer corner plots
     cc = ChainConsumer()
-    cc.add_chain(post, parameters=parameters)
+    cc.add_chain(post, parameters=all_parameters)
     cc.configure(smooth=False, kde=False, max_ticks=2, sigmas=np.array([1, 2]), label_font_size=18, tick_font_size=18, \
             summary=False, statistics="max_central", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
     cc.configure_truth(color='g', ls='--', alpha=0.7)
@@ -298,7 +320,7 @@ def plotmaker(params,parameters, inj):
         ax = axes[ii, ii]
 
         # get the right summary for the parameter ii
-        sum_ax = sum_data[parameters[ii]]
+        sum_ax = sum_data[all_parameters[ii]]
         err =  [sum_ax[2] - sum_ax[1], sum_ax[1]- sum_ax[0]]
 
         if np.abs(sum_ax[1]) <= 1e-3:
@@ -320,7 +342,7 @@ def plotmaker(params,parameters, inj):
         else:
             err[1] = '{0:.2f}'.format(err[1])
 
-        label =  parameters[ii][:-1] + ' = ' + mean_form + '^{+' + err[0] + '}_{-' + err[1] + '}$'
+        label =  all_parameters[ii][:-1] + ' = ' + mean_form + '^{+' + err[0] + '}_{-' + err[1] + '}$'
 
         ax.set_title(label, {'fontsize':18}, loc='left')
 
@@ -343,12 +365,10 @@ if __name__ == '__main__':
     # execute parser
     args = parser.parse_args()
 
-
-    paramfile = open(args.rundir + '/config.pickle', 'rb')
-
-    ## things are loaded from the pickle file in the same order they are put in
-    params = pickle.load(paramfile)
-    inj = pickle.load(paramfile)
-    parameters = pickle.load(paramfile)
-
+    with open(args.rundir + '/config.pickle', 'rb') as paramfile:
+        ## things are loaded from the pickle file in the same order they are put in
+        params = pickle.load(paramfile)
+        inj = pickle.load(paramfile)
+        parameters = pickle.load(paramfile)
+    
     plotmaker(params, parameters, inj)

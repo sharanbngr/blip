@@ -501,16 +501,19 @@ def blip(paramsfile='params.ini',resume=False):
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
-    inj['fg_type']     = str(config.get("inj", "fg_type"))
-    inj['rh']          = float(config.get("inj", "rh"))
-    inj['zh']          = float(config.get("inj", "zh"))
-    inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    
     inj['log_fcut']     = float(config.get("inj", "log_fcut"))
     inj['alpha2']      = float(config.get("inj", "alpha2"))
-    inj['popfile']     = str(config.get("inj","popfile"))
-    inj['SNRcut']      = float(config.get("inj","SNRcut"))
     
-    if inj['fg_type'] == 'population':
+    
+    inj['fg_type']     = str(config.get("inj", "fg_type"))
+    inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    if inj['fg_type'] == 'breivik2020':
+        inj['rh']          = float(config.get("inj", "rh"))
+        inj['zh']          = float(config.get("inj", "zh"))
+    if inj['fg_type'] == 'population' or inj['fg_spectrum'] == 'population':
+        inj['popfile']     = str(config.get("inj","popfile"))
+        inj['SNRcut']      = float(config.get("inj","SNRcut"))
         colnames = str(config.get("inj","columns"))
         colnames = colnames.split(',')
         inj['columns'] = colnames
@@ -548,8 +551,6 @@ def blip(paramsfile='params.ini',resume=False):
     # checkpointing (dynesty only for now)
     params['checkpoint']            = int(config.get("run_params", "checkpoint"))
     params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
-
-
 
     # Fix random seed
     if params['FixSeed']:
@@ -642,11 +643,11 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(inj, outfile)
         pickle.dump(parameters, outfile)
 
-    print("\n Making posterior Plots ...")
+    print("\nMaking posterior Plots ...")
     plotmaker(params, parameters, inj)
-    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
-        print("\n Making posterior skymap ...")
-        mapmaker(params, post_samples, coord=params['projection'])
+#    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
+#        print("\nMaking posterior skymap ...")
+#        mapmaker(params, post_samples, parameters, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":

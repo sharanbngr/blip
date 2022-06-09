@@ -28,8 +28,11 @@ class dynesty_engine():
         if params['modeltype']=='isgwb':
 
             print("Doing an isotropic stochastic analysis...")
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-            npar = len(parameters)
+            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            all_parameters = noise_parameters + signal_parameters
+            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':[],'all':all_parameters}
+            npar = len(all_parameters)
             engine = NestedSampler(lisaobj.isgwb_log_likelihood, cls.isgwb_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
 
@@ -38,22 +41,22 @@ class dynesty_engine():
             print("Doing a spherical harmonic stochastic analysis ...")
 
             # add the basic parameters first
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-
+            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            blm_parameters = []
             # add the blms
             for lval in range(1, params['lmax'] + 1):
                 for mval in range(lval + 1):
 
                     if mval == 0:
-                        parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                     else:
-                        parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                        parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
 
-            ## RM is line later.
-            # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
-            # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
-            npar = len(parameters)
+            all_parameters = noise_parameters + signal_parameters + blm_parameters
+            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
+            npar = len(all_parameters)
 
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
@@ -62,30 +65,30 @@ class dynesty_engine():
             print("Doing a spherical harmonic stochastic analysis ...")
 
             # add the basic parameters first
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-            
-            ## add additional parameters if broken powerlaw model
+            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            blm_parameters = []
+            ## add additional parameters
             if params['spectrum_model'] == 'broken_powerlaw':
-                parameters.extend([r'$\log_{10} (f_{cutoff})$',r'$\alpha_2$'])
+                signal_parameters.extend([r'$\log_{10} (f_{cutoff})$',r'$\alpha_2$'])
             elif params['spectrum_model'] == 'truncated_powerlaw':
-                parameters.extend([r'$\log_{10} (f_{cutoff})$'])
+                signal_parameters.extend([r'$\log_{10} (f_{cutoff})$'])
             # add the blms
             for lval in range(1, params['lmax'] + 1):
                 for mval in range(lval + 1):
 
                     if mval == 0:
-                        parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                     else:
                         #parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
                         #parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-                        parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
-                        parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
+                        blm_parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
+                        blm_parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
 
 
-            ## RM is line later.
-            # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
-            # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
-            npar = len(parameters)
+            all_parameters = noise_parameters + signal_parameters + blm_parameters
+            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
+            npar = len(all_parameters)
 
             if params['spectrum_model'] == 'broken_powerlaw':
                 engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior_bpl,\
@@ -103,25 +106,26 @@ class dynesty_engine():
             print("Doing a spherical harmonic stochastic analysis ...")
 
             # add the basic parameters first
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$', r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            blm_parameters = []
 
             # add the blms
             for lval in range(1, params['lmax'] + 1):
                 for mval in range(lval + 1):
 
                     if mval == 0:
-                        parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
                     else:
                         #parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
                         #parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-                        parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
-                        parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
+                        blm_parameters.append(r'$\Re(b_{' + str(lval) + str(mval) + '})$' )
+                        blm_parameters.append(r'$\Im(b_{' + str(lval) + str(mval) + '})$' )
 
 
-            ## RM is line later.
-            # parameters.append(r'$|b_{' + str(1) + str(1) + '}|$' )
-            # parameters.append(r'$\phi_{' + str(1) + str(1) + '}$' )
-            npar = len(parameters)
+            all_parameters = noise_parameters + signal_parameters + blm_parameters
+            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
+            npar = len(all_parameters)
 
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
                     npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
@@ -130,8 +134,9 @@ class dynesty_engine():
         elif params['modeltype']=='noise_only':
 
             print("Doing an instrumental noise only analysis ...")
-            parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-            npar = len(parameters)
+            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            parameters = {'noise':noise_parameters,'signal':[],'blm':[],'all':noise_parameters}
+            npar = len(noise_parameters)
 
             engine = NestedSampler(lisaobj.instr_log_likelihood,  cls.instr_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
@@ -139,8 +144,9 @@ class dynesty_engine():
         elif params['modeltype'] =='isgwb_only':
 
             print("Doing an isgwb signal only analysis ...")
-            parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-            npar = len(parameters)
+            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            parameters = {'noise':[],'signal':signal_parameters,'blm':[],'all':signal_parameters}
+            npar = len(signal_parameters)
 
             engine = NestedSampler(lisaobj.isgwb_only_log_likelihood, cls.isgwb_only_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
