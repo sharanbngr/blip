@@ -214,7 +214,7 @@ def plotmaker(params,parameters, inj):
     ## if modeltype is sph, first call the mapmaker.
     if params['modeltype']=='sph_sgwb':
         if 'healpy_proj' in params.keys():
-            mapmaker(params,post,coord=self.params['healpy_proj'])
+            mapmaker(params,post,coord=params['healpy_proj'])
         else:
             mapmaker(params, post)
 
