@@ -452,7 +452,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
-         if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
+        if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
             if self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = 10**self.inj['log_fcut']
