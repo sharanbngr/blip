@@ -7,6 +7,8 @@ from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 from astropy import units as u
+from multiprocessing import Pool
+import time
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -445,7 +447,7 @@ class LISA(LISAdata, likelihoods):
 
 
 
-def blip(paramsfile='params.ini'):
+def blip(paramsfile='params.ini',resume=False):
     '''
     The main workhorse of the bayesian pipeline.
 
@@ -490,7 +492,6 @@ def blip(paramsfile='params.ini'):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart"))
     params['sampler'] = str(config.get("params", "sampler"))
-    params['projection'] = str(config.get("params", "projection"))
 
 
     # Injection Dict
@@ -500,26 +501,35 @@ def blip(paramsfile='params.ini'):
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
-    inj['fg_type']     = str(config.get("inj", "fg_type"))
-    inj['rh']          = float(config.get("inj", "rh"))
-    inj['zh']          = float(config.get("inj", "zh"))
-    inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    
     inj['log_fcut']     = float(config.get("inj", "log_fcut"))
     inj['alpha2']      = float(config.get("inj", "alpha2"))
-    inj['popfile']     = str(config.get("inj","popfile"))
-    inj['SNRcut']      = float(config.get("inj","SNRcut"))
     
-    if inj['fg_type'] == 'population':
+    
+    inj['fg_type']     = str(config.get("inj", "fg_type"))
+    inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    if inj['fg_type'] == 'breivik2020':
+        inj['rh']          = float(config.get("inj", "rh"))
+        inj['zh']          = float(config.get("inj", "zh"))
+    if inj['fg_type'] == 'population' or inj['fg_spectrum'] == 'population':
+        inj['popfile']     = str(config.get("inj","popfile"))
+        inj['SNRcut']      = float(config.get("inj","SNRcut"))
         colnames = str(config.get("inj","columns"))
         colnames = colnames.split(',')
         inj['columns'] = colnames
+        delimiter = str(config.get("inj","delimiter"))
+        if delimiter == 'space':
+            delimiter = ' '
+        elif delimiter == 'tab':
+            delimiter = '\t'
+        inj['delimiter'] = delimiter
 
     # new sdg injection parameters:
-    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
-    inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
-    inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
-    inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
-    inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
+#    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
+#    inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
+#    inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
+#    inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
+#    inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
 
 
     if inj['injtype'] ==  'sph_sgwb':
@@ -538,13 +548,15 @@ def blip(paramsfile='params.ini'):
     params['out_dir']            = str(config.get("run_params", "out_dir"))
     params['doPreProc']          = int(config.get("run_params", "doPreProc"))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
+    params['projection'] = str(config.get("run_params", "projection"))
     params['FixSeed']            = str(config.get("run_params", "FixSeed"))
     params['seed']               = int(config.get("run_params", "seed"))
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
-
-
+    # checkpointing (dynesty only for now)
+    params['checkpoint']            = int(config.get("run_params", "checkpoint"))
+    params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
 
     # Fix random seed
     if params['FixSeed']:
@@ -552,31 +564,67 @@ def blip(paramsfile='params.ini'):
         seed = params['seed']
         randst = setrs(seed)
     else:
+        if params['checkpoint']:
+            raise TypeError("Checkpointing without a fixed seed is not supported. Set 'FixSeed' to true and specify 'seed'.")
+        if resume:
+            raise TypeError("Resuming from a checkpoint requires re-generation of data, so the random seed MUST be fixed.")
         randst = None
 
 
-
-    # Make directories, copy stuff
-
-    # Make output folder
-    subprocess.call(["mkdir", "-p", params['out_dir']])
-
-    # Copy the params file to outdir, to keep track of the parameters of each run.
-    subprocess.call(["cp", paramsfile, params['out_dir']])
-
-
-    # Initialize lisa class
-    lisa =  LISA(params, inj)
+    if not resume:
+        # Make directories, copy stuff
+        # Make output folder
+        subprocess.call(["mkdir", "-p", params['out_dir']])
+    
+        # Copy the params file to outdir, to keep track of the parameters of each run.
+        subprocess.call(["cp", paramsfile, params['out_dir']])
+        
+        # Initialize lisa class
+        lisa =  LISA(params, inj)
+    else:
+        print("Resuming a previous analysis. Regenerating data...")
 
     if params['sampler'] == 'dynesty':
-
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst)
-        import time
-        t1 = time.time()
-        post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
-        t2= time.time()
-        print("Elapsed time to converge: {} s".format(t2-t1))
+        if not resume:
+            # multiprocessing
+            if nthread > 1:
+                pool = Pool(nthread)
+            else:
+                pool = None
+            engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool)    
+        else:
+            pool = None
+            if nthread > 1:
+                print("Warning: Nthread > 1, but multiprocessing is not supported when resuming a run. Pool set to None.")
+                ## To anyone reading this and wondering why:
+                ## The pickle calls used by Python's multiprocessing fail when trying to run the sampler after saving/reloading it.
+                ## This is because pickling the sampler maps all its attributes to their full paths;
+                ## e.g., dynesty_engine.isgwb_prior is named as src.dynesty_engine.dynesty_engine.isgwb_prior
+                ## BUT the object itself is still e.g. <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>
+                ## so we get an error like
+                ## _pickle.PicklingError: Can't pickle <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>: \
+                ##                        it's not the same object as src.dynesty_engine.dynesty_engine.isgwb_prior
+                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
+                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
+                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
+                
+            engine, parameters = dynesty_engine.load_engine(params,randst,pool)
+        ## run sampler
+        if params['checkpoint']:
+            checkpoint_file = params['out_dir']+'/checkpoint.pickle'
+            t1 = time.time()
+            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,parameters,params['checkpoint_interval'],checkpoint_file)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        else:
+            t1 = time.time()
+            post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        if nthread > 1:
+            engine.pool.close()
+            engine.pool.join()
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)
@@ -596,20 +644,24 @@ def blip(paramsfile='params.ini'):
 
 
     # Save parameters as a pickle
-    outfile = open(params['out_dir'] + '/config.pickle', 'wb')
-    pickle.dump(params, outfile)
-    pickle.dump(inj, outfile)
-    pickle.dump(parameters, outfile)
+    with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+        pickle.dump(params, outfile)
+        pickle.dump(inj, outfile)
+        pickle.dump(parameters, outfile)
 
-    print("\n Making posterior Plots ...")
+    print("\nMaking posterior Plots ...")
     plotmaker(params, parameters, inj)
-    print("\n Making posterior skymap ...")
-    mapmaker(params, post_samples, coord=params['projection'])
+#    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
+#        print("\nMaking posterior skymap ...")
+#        mapmaker(params, post_samples, parameters, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":
 
     if len(sys.argv) != 2:
-        raise ValueError('Provide (only) the params file as an argument')
+        if sys.argv[2] == 'resume':
+            blip(sys.argv[1],resume=True)
+        else:
+            raise ValueError('Provide (only) the params file as an argument')
     else:
         blip(sys.argv[1])
