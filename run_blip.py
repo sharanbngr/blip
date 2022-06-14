@@ -517,6 +517,12 @@ def blip(paramsfile='params.ini',resume=False):
         colnames = str(config.get("inj","columns"))
         colnames = colnames.split(',')
         inj['columns'] = colnames
+        delimiter = str(config.get("inj","delimiter"))
+        if delimiter == 'space':
+            delimiter = ' '
+        elif delimiter == 'tab':
+            delimiter = '\t'
+        inj['delimiter'] = delimiter
 
     # new sdg injection parameters:
 #    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))

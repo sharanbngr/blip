@@ -22,7 +22,7 @@ class populations():
         self.params = params
         self.inj = inj
     
-    def load_population(self,popfile,coldict={'f':'f','h':'h','lat':'lat','long':'long'},unitdict={'f':u.Hz,'lat':u.rad,'long':u.rad},
+    def load_population(self,popfile,fmin,fmax,coldict={'f':'f','h':'h','lat':'lat','long':'long'},unitdict={'f':u.Hz,'lat':u.rad,'long':u.rad},
                         sep=' ',**read_csv_kwargs):
         # Would also be good to have an option for giving binary parameters and computing the strain here?
         '''
@@ -31,6 +31,8 @@ class populations():
         
         Arguments:
             popfile (str)     : '/path/to/binary/population/data/file.csv'
+            fmin (float)      : Minimum analysis frequency
+            fmax (float)      : Maximum analysis frequency
             coldict (dict)    : Dictionary explaining which columns correspond to which quantities (allows for users to specify different column names)
             unitdict (dict)   : Dictionary specifying units of each column.
             sep (str)         : File delimiter. Overwritten if sep or delimiter is specified in **read_csv_kwargs. Default is ' '.
@@ -55,8 +57,13 @@ class populations():
         hs = dwds[coldict['h']].to_numpy()
         lats = (dwds[coldict['lat']].to_numpy()*unitdict['lat']).to(u.deg).value
         longs = (dwds[coldict['long']].to_numpy()*unitdict['long']).to(u.deg).value
-        
-        return fs, hs, lats, longs
+        ## filter to frequency band
+        f_filter = (fs >= fmin) & (fs <= fmax)
+        fs_filt = fs[f_filter]
+        hs_filt = hs[f_filter]
+        lats_filt = lats[f_filter]
+        longs_filt = longs[f_filter]
+        return fs_filt, hs_filt, lats_filt, longs_filt
         
         
     
@@ -388,7 +395,7 @@ class populations():
         Returns:
             fg_PSD (array of floats) : Resulting PSD of unresolved binary background/foreground for all f in frange
         '''
-        fs, hs, lats, longs = self.load_population(popfile,**read_csv_kwargs)
+        fs, hs, lats, longs = self.load_population(popfile,frange.min(),frange.max(),**read_csv_kwargs)
         ## note, for now we are fixing t_obs=4yr for the purpose of determining which systems are unresolved!!
         snrs = self.get_snr(fs*u.Hz,hs,(4*u.yr).to(u.s))
         fs_unres, hs_unres = self.filter_by_snr(fs,snrs,SNR_cut=SNR_cut), self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)
@@ -412,7 +419,7 @@ class populations():
         fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs).value
         return fg_PSD
     
-    def pop2map(self,popfile,nside,t_obs,SNR_cut=7,**read_csv_kwargs):
+    def pop2map(self,popfile,nside,t_obs,fmin,fmax,SNR_cut=7,**read_csv_kwargs):
         '''
         Function to get a skymap from a catalogue of binaries.
         
@@ -427,7 +434,7 @@ class populations():
             skymap (array of floats) : Healpix skymap of GW power on the sky
             logskymap (array of floats) : Healpix skymap of log GW power on the sky
         '''
-        fs, hs, lats, longs = self.load_population(popfile,**read_csv_kwargs)
+        fs, hs, lats, longs = self.load_population(popfile,fmin,fmax,**read_csv_kwargs)
         snrs = self.get_snr(fs*u.Hz,hs,t_obs)
         lats_unres, longs_unres = self.filter_by_snr(lats,snrs,SNR_cut=SNR_cut), self.filter_by_snr(longs,snrs,SNR_cut=SNR_cut)
         hs_unres = self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)

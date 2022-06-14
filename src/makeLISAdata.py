@@ -485,7 +485,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                 print("Constructing foreground spectrum from DWD population...")
                 ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
                 ## additional factor of 2 b/c S_GW = 2 * S_A
-                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])*4 
+                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 
                 
 #                 plt.figure()
 #                 det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None,approximate_R=True)
@@ -654,7 +654,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         
                         ## generate skymap
                         print("Constructing foreground skymap from DWD population...")
-                        DWD_FG_map, log_DWD_FG_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,names=self.inj['columns'])
+                        DWD_FG_map, log_DWD_FG_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,
+                                                                  self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
                         ## convert to blms
                         DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
                         ## extract alms
