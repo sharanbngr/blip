@@ -452,7 +452,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
-         if self.inj['injtype'] == 'dwd_fg' or 'dwd_sdg':
+        if self.inj['injtype'] == 'dwd_fg' or self.inj['injtype'] == 'dwd_sdg':
             if self.inj['fg_spectrum'] == 'truncated':
                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
                 fcutoff = 10**self.inj['log_fcut']
@@ -485,7 +485,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                 print("Constructing foreground spectrum from DWD population...")
                 ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
                 ## additional factor of 2 b/c S_GW = 2 * S_A
-                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'])*4 
+                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 
                 
 #                 plt.figure()
 #                 det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None,approximate_R=True)
@@ -624,20 +624,22 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
     
                         Omegamap_inj = Omega_1mHz * skymap_inj
     
-                        hp.graticule()
+                        
                         hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        hp.graticule()
                         
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                         print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                         plt.close()
                         
-                        hp.graticule()
+                        
                         hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                        hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                         plt.close()
-                        hp.graticule()
                         hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                        hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                         plt.close()
@@ -652,7 +654,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         
                         ## generate skymap
                         print("Constructing foreground skymap from DWD population...")
-                        DWD_FG_map, log_DWD_FG_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,names=self.inj['columns'])
+                        DWD_FG_map, log_DWD_FG_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,
+                                                                  self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
                         ## convert to blms
                         DWD_FG_sph = self.sph_galactic_foreground(DWD_FG_map)
                         ## extract alms
@@ -674,21 +677,19 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
     
 #                        Omegamap_inj = Omega_1mHz * skymap_inj
-    
-                        hp.graticule()
                         hp.mollview(skymap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
-                        
+                        hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                         print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                         plt.close()
                         
-                        hp.graticule()
                         hp.mollview(DWD_FG_map, title='Population-derived DWD Foreground skymap')
+                        hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                         plt.close()
-                        hp.graticule()
                         hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Population-derived DWD Foreground alm map')
+                        hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                         plt.close()
@@ -782,20 +783,20 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
                     Omegamap_inj = Omega_1mHz * skymap_inj
 
-                    hp.graticule()
                     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    hp.graticule()
                     
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
                     
-                    hp.graticule()
                     hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
+                    hp.graticule()
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
-                    hp.graticule()
                     hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map')
+                    hp.graticule()
                     plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                     plt.close()
@@ -962,7 +963,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
         DWD_density = disk_density + bulge_density
         ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
-        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
+#        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
+        gc = cc.SkyCoord(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc, frame='galactocentric')
         SSBc = gc.transform_to(cc.Galactic)
         ## Calculate GW power
         #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
@@ -975,10 +977,11 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## resolution is 2x analysis resolution
         pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         ## Create skymap
-        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+#        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
         ## Bin
-        for i in range(DWD_FG_mapG.size):
-            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+#        for i in range(DWD_FG_mapG.size):
+#            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         ## create logarithmic skymap for plotting purposes
         log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
         ## Transform into the ecliptic
