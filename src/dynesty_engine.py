@@ -70,7 +70,8 @@ class dynesty_engine():
             blm_parameters = []
             ## add additional parameters
             if params['spectrum_model'] == 'broken_powerlaw':
-                signal_parameters.extend([r'$\log_{10} (f_{cutoff})$',r'$\alpha_2$'])
+#                signal_parameters.extend([r'$\log_{10} (f_{cutoff})$',r'$\alpha_2$'])
+                signal_parameters = [r'$\alpha_1$',r'$\log_{10} (A_1)$',r'$\alpha_2$',r'$\log_{10} (A_2)$']
             elif params['spectrum_model'] == 'truncated_powerlaw':
                 signal_parameters.extend([r'$\log_{10} (f_{cutoff})$'])
             # add the blms
@@ -91,13 +92,13 @@ class dynesty_engine():
             npar = len(all_parameters)
 
             if params['spectrum_model'] == 'broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior_bpl,\
-                    npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
+                engine = NestedSampler(lisaobj.fg_log_likelihood, cls.sph_prior_bpl,\
+                    npar-1, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
             elif params['spectrum_model'] == 'truncated_powerlaw':
-                engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior_tpl,\
+                engine = NestedSampler(lisaobj.fg_log_likelihood, cls.sph_prior_tpl,\
                     npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
             else:
-                engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
+                engine = NestedSampler(lisaobj.fg_log_likelihood, cls.sph_prior,\
                     npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
 
 
@@ -413,18 +414,27 @@ class dynesty_engine():
         log_Np = -4*theta[0] - 39
         log_Na = -4*theta[1] - 46
 
-        # Prior on alpha, and omega_0
-        alpha = 8*theta[2] - 4
-        log_omega0  = -6*theta[3] - 5
+#        # Prior on alpha, and omega_0
+#        alpha = 8*theta[2] - 4
+#        log_omega0  = -6*theta[3] - 5
         
-        # Prior on fcutoff and alpha2
-        log_fcutoff = 1*theta[4] - 3.3
-        alpha2 = 21*theta[5] - 20
+        # Prior on alpha_1, alpha_2
+        # For foreground, additional constraint that alpha_1 - alpha_2 = 2/3
+        alpha_1 = 8*theta[2] - 4
+#        alpha_2 = alpha_1 - 0.67
+        
+        # Prior on A1 and A2
+        log_A1 = -10*theta[3] - 17
+        log_A2 = -15*theta[4] - 5
+        
+#        # Prior on fcutoff and alpha2
+#        log_fcutoff = 1*theta[4] - 3.3
+#        alpha2 = 21*theta[5] - 20
 
         # Calculate lmax from the size of theta blm arrays. The shape is
         # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
-        lmax = np.sqrt( theta[6:].size + 1 ) - 1
+        lmax = np.sqrt( theta[5:].size + 1 ) - 1
 
         if lmax.is_integer():
             lmax = int(lmax)
@@ -435,7 +445,7 @@ class dynesty_engine():
         blm_theta = []
 
         ## counter for the rest of theta
-        cnt = 4
+        cnt = 5
 
         for lval in range(1, lmax + 1):
             for mval in range(lval + 1):
@@ -458,7 +468,8 @@ class dynesty_engine():
         # blm_theta.append(theta[4])
         # blm_theta.append(2*np.pi*theta[5] - np.pi)
 
-        theta = [log_Np, log_Na, alpha, log_omega0, log_fcutoff, alpha2] + blm_theta
+#        theta = [log_Np, log_Na, alpha, log_omega0, log_fcutoff, alpha2] + blm_theta
+        theta = [log_Np, log_Na, alpha_1, log_A1, log_A2] + blm_theta
 
         return theta
     

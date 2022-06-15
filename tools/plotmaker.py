@@ -14,6 +14,11 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
     
     if type(parameters) is dict:
         blm_start = len(parameters['noise']) + len(parameters['signal'])
+        ## deal with extra parameter in broken_powerlaw:
+        if 'spectrum_model' in params.keys():
+            if params['spectrum_model']=='broken_powerlaw':
+                blm_start = blm_start - 1
+        
     elif type(parameters) is list:
         print("Warning: using a depreciated parameter format. Number of non-b_lm parameters is unknown, defaulting to n=4.")
         blm_start = 4
@@ -180,16 +185,49 @@ def fitmaker(params,parameters,inj):
     inj : dictionary
         Dictionary of injection params
     '''
+#    ## get samples
+#    post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
+#    
+#    fs = np.logspace(np.log10(params['fmin']),np.log10(params['fmax']),100)
+#    ## foreground has a bunch of different models
+#    if params['modeltype'] == 'dwd_fg':
+#        if params['spectrum_model'] == 'broken_powerlaw':
+#            alpha_1 = post[:,2]
+#            log_A1 = post[:,3]
+#            alpha_2 = post[:,2] - 0.667
+#            log_A2 = post[:,4]
+#            median = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
+#            
+#        elif params['spectrum_model'] == 'powerlaw':
+#            log_Omega0 = post[:,2]
+#            alpha = post[:,3]
+#        elif params['spectrum_model'] == 'truncated':
+#            print("No fit plotting support for truncated model (which is slated for removal soon). Sorry!")
+#            return
+#        else:
+#            raise TypeError("Unrecognized foreground spectral model. Can be 'powerlaw' or 'broken_powerlaw'.")
+#    ## otherwise basic power law
+#    else:
+#        log_Omega0 = post[:,2]
+#        alpha = post[:,3]
+        
     ## get samples
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
+    ## get frequencies
+    Nperseg=int(params['fs']*params['dur'])
+    frange = np.fft.rfftfreq(Nperseg, 1.0/params['fs'])[1:]
+    ffilt = (frange>params['fmin'])*(frange<params['fmax'])
+    fs = frange[ffilt].reshape(-1,1)
     
+#     fs = np.logspace(np.log10(params['fmin']),np.log10(params['fmax']),100)
     ## foreground has a bunch of different models
     if params['modeltype'] == 'dwd_fg':
         if params['spectrum_model'] == 'broken_powerlaw':
-            log_Omega0 = post[:,2]
-            alpha = post[:,3]
-            log_fcutoff = post[:,4]
-            alpha2 = post[:,5]
+            alpha_1 = post[:,2]
+            log_A1 = post[:,3]
+            alpha_2 = post[:,2] - 0.667
+            log_A2 = post[:,4]
+            
         elif params['spectrum_model'] == 'powerlaw':
             log_Omega0 = post[:,2]
             alpha = post[:,3]
@@ -202,9 +240,53 @@ def fitmaker(params,parameters,inj):
     else:
         log_Omega0 = post[:,2]
         alpha = post[:,3]
+
+    ## H0 def (SI)
+    H0 = 2.2*10**(-18)
+    
+    ## get injected spectrum
+    if inj['fg_spectrum']=='powerlaw':
+#        Omegaf_inj = powerlaw(fs,10**inj['ln_omega0'],inj['alpha'],fref=params['fref'])
+        Omegaf_inj =(10**inj['log_Omega0'])*(fs/(params['fref']))**inj['alpha']
+    elif inj['fg_spectrum']=='broken_powerlaw':
+        
+        Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
+#        Omegaf_inj = broken_powerlaw(fs,inj['alpha1'],inj['log_A1'],inj['alpha1']-0.667,inj['log_A2'])
+    else:
+        print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
+        return
     
     
-    return  
+    Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+    
+    ## get recovered spectrum
+    if params['spectrum_model']=='broken_powerlaw':
+        Omegaf = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
+    else:
+        Omegaf = (10**log_Omega0)*(fs/(params['fref']))**alpha
+    
+    Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
+
+    ## median and 95% C.I.
+    Sgw_median = np.median(Sgw,axis=1)
+    Sgw_upper95 = np.quantile(Sgw,0.975,axis=1)
+    Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
+    
+    plt.figure()
+    plt.loglog(fs,Sgw_inj,label='Injected Spectrum',color='steelblue')
+    plt.loglog(fs,Sgw_median,label='Median Recovered Spectrum',color='darkorange')
+    plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.5,label='95% C.I.',color='moccasin')
+    plt.legend()
+    plt.title("Fit vs. Injection")
+    plt.xlabel('Frequency [Hz]')
+    plt.ylabel('PSD [1/Hz]')
+    plt.savefig(params['out_dir'] + '/spectral_fit.png', dpi=150)
+    print("Spectral fit plot saved to " + params['out_dir'] + "spectral_fit.png")
+    plt.close()
+    
+    return #Sgw_median, Sgw_upper95, Sgw_lower95, Sgw_inj, Sgw, fs.flatten()
+    
+
   
 def plotmaker(params,parameters, inj):
 
@@ -239,6 +321,11 @@ def plotmaker(params,parameters, inj):
             mapmaker(params,post,parameters,coord=params['healpy_proj'])
         else:
             mapmaker(params, post,parameters)
+            
+    ## if spectral fit type is supported, call the fitmaker.
+    if 'spectrum_model' in params.keys():
+        if params['spectrum_model']=='powerlaw' or params['spectrum_model']=='broken_powerlaw':
+            fitmaker(params,parameters,inj)
 
 
     ## setup the truevals dict
@@ -284,9 +371,18 @@ def plotmaker(params,parameters, inj):
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
-        truevals.append( inj['alpha'] )
-        truevals.append( inj['ln_omega0'] )
         
+        if params['spectrum_model']=='powerlaw':
+            truevals.append( inj['alpha'] )
+            truevals.append( inj['ln_omega0'] )
+        elif params['spectrum_model']=='broken_powerlaw':
+            truevals.append( inj['alpha1'] )
+            truevals.append( inj['log_A1'] )
+            truevals.append( inj['alpha1'] - 0.667)
+            truevals.append( inj['log_A2'] )
+            ## need to transform alpha_1 samples to alpha_2
+            post = np.insert(post,4,post[:,2] - 0.667,axis=1)
+            
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
     else:

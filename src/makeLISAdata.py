@@ -461,12 +461,15 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             elif self.inj['fg_spectrum'] == 'powerlaw':
                 Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
             elif self.inj['fg_spectrum'] == 'broken_powerlaw':
-                fcutoff = 10**self.inj['log_fcut']
-                lowfilt = (frange < fcutoff)
-                highfilt = np.invert(lowfilt)
-                Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
-                Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha'] + \
-                         highfilt*Omega_cut*(frange/fcutoff)**self.inj['alpha2']
+                alpha_2 = self.inj['alpha1'] - 0.667
+                Omegaf = ((10**self.inj['log_A1'])*(frange/self.params['fref'])**self.inj['alpha1'])/(\
+                         1 + (10**self.inj['log_A2'])*(frange/self.params['fref'])**alpha_2)
+#                fcutoff = 10**self.inj['log_fcut']
+#                lowfilt = (frange < fcutoff)
+#                highfilt = np.invert(lowfilt)
+#                Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
+#                Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha'] + \
+#                         highfilt*Omega_cut*(frange/fcutoff)**self.inj['alpha2']
                 
 #                 plt.figure()
 #                 det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None)
