@@ -338,7 +338,7 @@ class LISA(LISAdata, likelihoods):
                     plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
                 elif self.inj['fg_spectrum'] == 'population':
                     # Power spectra of the specified DWD population
-                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
                     # Spectrum of the SGWB signal convoluted with the detector response tensor.
                     S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
         
@@ -651,9 +651,9 @@ def blip(paramsfile='params.ini',resume=False):
 
     print("\nMaking posterior Plots ...")
     plotmaker(params, parameters, inj)
-#    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
-#        print("\nMaking posterior skymap ...")
-#        mapmaker(params, post_samples, parameters, coord=params['projection'])
+    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
+        print("\nMaking posterior skymap ...")
+        mapmaker(params, post_samples, parameters, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":
