@@ -616,8 +616,23 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         ## extrct only the non-negative components
                         alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
     
-                        Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
-    
+                        if 'fg_spectrum' in self.inj.keys():
+                            if self.inj['fg_spectrum']=='broken_powerlaw':
+                                alpha_1 = self.inj['alpha1']
+                                log_A1 = self.inj['log_A1']
+                                alpha_2 = self.inj['alpha1'] - 0.667
+                                log_A2 = self.inj['log_A1']
+                                Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
+                            elif self.inj['fg_spectrum']=='population':
+                                ## need to grab the population Sgw at ~1 mHz, preferably without calling pop2spec again
+                                Omega_1mHz = Sgw[np.argmin(np.abs(frange - 1e-3))]/((3/(4*(1e-3)**3))*(H0/np.pi)**2)
+                            else:
+                                if self.params['fg_spectrum'] != 'powerlaw':
+                                    print("Unknown spectral model. Defaulting to power law...")
+                                Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
+                        else:
+                            print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+                            Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
                         ## response matrix summed over Ylms
                         summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
     
@@ -677,10 +692,28 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
     
                         # converts alm_inj into a healpix map to be plotted and saved
                         # Plot with twice the analysis nside for better resolution
+                        # get Omega at 1mHz
+                        if 'fg_spectrum' in self.inj.keys():
+                            if self.inj['fg_spectrum']=='broken_powerlaw':
+                                alpha_1 = self.inj['alpha1']
+                                log_A1 = self.inj['log_A1']
+                                alpha_2 = self.inj['alpha1'] - 0.667
+                                log_A2 = self.inj['log_A1'][4]
+                                Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
+                            elif self.inj['fg_spectrum']=='population':
+                                ## need to grab the population Sgw at ~1 mHz, preferably without calling pop2spec again
+                                Omega_1mHz = Sgw[np.argmin(np.abs(frange - 1e-3))]/((3/(4*(1e-3)**3))*(H0/np.pi)**2)
+                            else:
+                                if self.params['fg_spectrum'] != 'powerlaw':
+                                    print("Unknown spectral model. Defaulting to power law...")
+                                Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
+                        else:
+                            print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+                            Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
+                        
                         skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
-    
-#                        Omegamap_inj = Omega_1mHz * skymap_inj
-                        hp.mollview(skymap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        Omegamap_inj = Omega_1mHz * skymap_inj
+                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                         print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')

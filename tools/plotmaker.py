@@ -47,8 +47,29 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
         sample = post[ii, :]
 
         # Omega at 1 mHz
-        Omega_1mHz = (10**(sample[3])) * (1e-3/25)**(sample[2])
-
+        # handle various spectral models, but default to power law
+        if 'spectrum_model' in params.keys():
+            if params['spectrum_model']=='broken_powerlaw':
+                alpha_1 = sample[2]
+                log_A1 = sample[3]
+                alpha_2 = sample[2] - 0.667
+                log_A2 = sample[4]
+                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+            elif params['spectrum_model'] == 'powerlaw':
+                log_Omega0 = sample[2]
+                alpha = sample[3]
+                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+            else:
+                print("Unknown spectral model. Defaulting to power law...")
+                log_Omega0 = sample[2]
+                alpha = sample[3]
+                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+        else:
+            print("Warning: running on older output without specification of spectral model.")
+            print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+            log_Omega0 = sample[2]
+            alpha = sample[3]
+            Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
         ## blms.
         blms = np.append([1], sample[blm_start:])
 
@@ -118,10 +139,30 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
     med_vals = np.median(post, axis=0)
 
     ## blms.
-    blms_median = np.append([1], med_vals[4:])
+    blms_median = np.append([1], med_vals[blm_start:])
 
     # Omega at 1 mHz
-    Omega_1mHz_median = (10**(med_vals[3])) * (1e-3/25)**(med_vals[2])
+    # handle various spectral models, but default to power law
+    ## include backwards compatability check (to be depreciated later)
+    if 'spectrum_model' in params.keys():
+        if params['spectrum_model']=='broken_powerlaw':
+            alpha_1 = med_vals[2]
+            log_A1 = med_vals[3]
+            alpha_2 = med_vals[2] - 0.667
+            log_A2 = med_vals[4]
+            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+        else:
+            if params['spectrum_model'] != 'powerlaw':
+                print("Unknown spectral model. Defaulting to power law...")
+            log_Omega0 = med_vals[2]
+            alpha = med_vals[3]
+            Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+    else:
+        print("Warning: running on older output without specification of spectral model.")
+        print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+        log_Omega0 = med_vals[2]
+        alpha = med_vals[3]
+        Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
 
     ## Complex array of blm values for both +ve m values
     blm_median_vals = np.zeros(blm_size, dtype='complex')
