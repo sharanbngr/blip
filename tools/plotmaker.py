@@ -1,3 +1,5 @@
+import sys, os
+sys.path.append(os.getcwd()) ## this lets python find src
 import numpy as np
 import matplotlib
 #matplotlib.use('Agg')
@@ -5,8 +7,10 @@ import matplotlib.pyplot as plt
 from chainconsumer import ChainConsumer
 import healpy as hp
 from healpy import Alm
+from astropy import units as u
 import pickle, argparse
 import logging
+from src.populations import populations
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
@@ -246,18 +250,20 @@ def fitmaker(params,parameters,inj):
     
     ## get injected spectrum
     if inj['fg_spectrum']=='powerlaw':
-#        Omegaf_inj = powerlaw(fs,10**inj['ln_omega0'],inj['alpha'],fref=params['fref'])
         Omegaf_inj =(10**inj['log_Omega0'])*(fs/(params['fref']))**inj['alpha']
+        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
     elif inj['fg_spectrum']=='broken_powerlaw':
-        
         Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
-#        Omegaf_inj = broken_powerlaw(fs,inj['alpha1'],inj['log_A1'],inj['alpha1']-0.667,inj['log_A2'])
+        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+    elif inj['fg_spectrum']=='population':
+        pop = populations(params,inj)
+        Sgw_inj = pop.pop2spec(inj['popfile'],fs.flatten(),params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4
     else:
         print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
         return
     
     
-    Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+    
     
     ## get recovered spectrum
     if params['spectrum_model']=='broken_powerlaw':
@@ -331,24 +337,24 @@ def plotmaker(params,parameters, inj):
     ## setup the truevals dict
     truevals = []
 
-    if params['modeltype']=='isgwb':
+    if inj['injtype']=='isgwb':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
         truevals.append( inj['alpha'] )
         truevals.append( inj['ln_omega0'] )
 
-    elif params['modeltype']=='noise_only':
+    elif inj['injtype']=='noise_only':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
 
-    elif params['modeltype'] =='isgwb_only':
+    elif inj['injtype'] =='isgwb_only':
 
         truevals.append( inj['alpha'] )
         truevals.append( inj['ln_omega0'] )
 
-    elif params['modeltype']=='sph_sgwb':
+    elif inj['injtype']=='sph_sgwb':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
@@ -367,19 +373,21 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
 
-    elif params['modeltype']=='dwd_fg':
+    elif inj['injtype']=='dwd_fg':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
         
-        if params['spectrum_model']=='powerlaw':
+        if inj['fg_spectrum']=='powerlaw':
             truevals.append( inj['alpha'] )
             truevals.append( inj['ln_omega0'] )
-        elif params['spectrum_model']=='broken_powerlaw':
+        elif inj['fg_spectrum']=='broken_powerlaw':
             truevals.append( inj['alpha1'] )
             truevals.append( inj['log_A1'] )
             truevals.append( inj['alpha1'] - 0.667)
             truevals.append( inj['log_A2'] )
+    if params['modeltype']=='dwd_fg':
+        if params['spectrum_model']=='broken_powerlaw':
             ## need to transform alpha_1 samples to alpha_2
             post = np.insert(post,4,post[:,2] - 0.667,axis=1)
             

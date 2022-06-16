@@ -420,12 +420,12 @@ class dynesty_engine():
         
         # Prior on alpha_1, alpha_2
         # For foreground, additional constraint that alpha_1 - alpha_2 = 2/3
-        alpha_1 = 8*theta[2] - 4
+        alpha_1 = 14*theta[2] - 10
 #        alpha_2 = alpha_1 - 0.67
         
         # Prior on A1 and A2
-        log_A1 = -10*theta[3] - 17
-        log_A2 = -15*theta[4] - 5
+        log_A1 = -30*theta[3] - 5
+        log_A2 = -30*theta[4] - 5
         
 #        # Prior on fcutoff and alpha2
 #        log_fcutoff = 1*theta[4] - 3.3
