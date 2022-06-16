@@ -215,7 +215,7 @@ class likelihoods():
         H0 = 2.2*10**(-18)
         ## Special case for a truncated power law galactic foreground
         ## added sdg and or statement -SMR
-        if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.inj['fg_spectrum'] == 'truncated':
+        if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.params['spectrum_model'] == 'truncated':
 #             fcutoff = self.inj['fcutoff']
             fcutoff = 10**self.inj['log_fcut']
             fcut = (self.fdata < fcutoff)
@@ -223,7 +223,7 @@ class likelihoods():
             ## add a negligible amount relative to the true Omegaf to avoid nan errors in log likelihood
             Omegaf = Omegaf*fcut + (self.fdata >= fcutoff)*np.min(Omegaf[Omegaf!=0])*1e-10
         ## WIP for population injections and broken power law
-        elif self.params['modeltype'] == 'dwd_fg' and (self.inj['fg_spectrum'] == 'broken_powerlaw' or self.inj['fg_spectrum'] == 'catalogue'):
+        elif self.params['modeltype'] == 'dwd_fg' and self.params['spectrum_model'] == 'broken_powerlaw':
             ## this may just need to be an entirely separate likelihood tbh
             ## for now let's actually just hardcode the cutoff and second slope...
             fcutoff = 10**self.inj['log_fcut']
@@ -296,7 +296,9 @@ class likelihoods():
         
         # unpack priors, depends on spectrum model, defaults to standard power law
         if self.params['spectrum_model'] == 'broken_powerlaw':
-            log_Np, log_Na, alpha, log_omega0, log_fcutoff, alpha_2  = theta[0],theta[1], theta[2], theta[3], theta[4], theta[5]
+#            log_Np, log_Na, alpha, log_omega0, log_fcutoff, alpha_2  = theta[0],theta[1], theta[2], theta[3], theta[4], theta[5]
+            log_Np, log_Na, alpha_1, log_A1, log_A2  = theta[0],theta[1], theta[2], theta[3], theta[4]
+            alpha_2 = alpha_1 - 0.667
         elif self.params['spectrum_model'] == 'truncated_powerlaw':
             log_Np, log_Na, alpha, log_omega0, log_fcutoff  = theta[0],theta[1], theta[2], theta[3], theta[4]
         else:
@@ -321,11 +323,12 @@ class likelihoods():
 #            Omegaf = Omegaf*fcut + (self.fdata >= fcutoff)*np.min(Omegaf[Omegaf!=0])*1e-10
         ## broken power law model
         if self.params['spectrum_model'] == 'broken_powerlaw':
-            lowfilt = (self.fdata < (10**log_fcutoff))
-            highfilt = np.invert(lowfilt)
-            Omega_cut = (10**log_omega0)*((10**log_fcutoff)/(self.params['fref']))**alpha
-            Omegaf = lowfilt*(10**log_omega0)*(self.fdata/(self.params['fref']))**alpha + \
-                     highfilt*Omega_cut*(self.fdata/(10**log_fcutoff))**alpha_2
+#            lowfilt = (self.fdata < (10**log_fcutoff))
+#            highfilt = np.invert(lowfilt)
+#            Omega_cut = (10**log_omega0)*((10**log_fcutoff)/(self.params['fref']))**alpha
+#            Omegaf = lowfilt*(10**log_omega0)*(self.fdata/(self.params['fref']))**alpha + \
+#                     highfilt*Omega_cut*(self.fdata/(10**log_fcutoff))**alpha_2
+            Omegaf = ((10**log_A1)*(self.fdata/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(self.fdata/self.params['fref'])**alpha_2)
         ## truncated power law model. This is just a broken power law, but alpha2 is fixed (not a parameter)
         ## this is so we can use a very steep second slope (which we can't really measure anyway) to induce a sudden drop in the fg psd.
         elif self.params['spectrum_model'] == 'truncated_powerlaw':
@@ -344,7 +347,7 @@ class likelihoods():
         
         ## broken powerlaw theta has more elements before the blms
         if self.params['spectrum_model'] == 'broken_powerlaw':
-            blm_theta = theta[6:]
+            blm_theta = theta[5:]
         elif self.params['spectrum_model'] == 'truncated_powerlaw':
             blm_theta = theta[5:]
         else:

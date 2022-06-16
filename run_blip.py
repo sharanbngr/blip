@@ -300,15 +300,17 @@ class LISA(LISAdata, likelihoods):
                     plt.close()
                     plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
                 elif self.inj['fg_spectrum'] == 'broken_powerlaw':
-                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
-                    
-                    fcutoff = 10**self.inj['log_fcut']
-                    lowfilt = (self.fdata < fcutoff)
-                    highfilt = np.invert(lowfilt)
-                    Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
-                    Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(self.fdata/(self.params['fref']))**self.inj['alpha'] + \
-                             highfilt*Omega_cut*(self.fdata/fcutoff)**self.inj['alpha2']
-        
+#                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
+#                    
+#                    fcutoff = 10**self.inj['log_fcut']
+#                    lowfilt = (self.fdata < fcutoff)
+#                    highfilt = np.invert(lowfilt)
+#                    Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
+#                    Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(self.fdata/(self.params['fref']))**self.inj['alpha'] + \
+#                             highfilt*Omega_cut*(self.fdata/fcutoff)**self.inj['alpha2']
+                    alpha_2 = self.inj['alpha1'] - 0.667
+                    Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
+                         1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**alpha_2)
                     # Power spectra of the SGWB
                     Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
                     
@@ -476,11 +478,11 @@ def blip(paramsfile='params.ini',resume=False):
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
     params['datatype'] = str(config.get("params", "datatype"))
-    params['loadResponse'] = int(config.get("params", "loadResponse"))
-    params['loadCustom'] = int(config.get("params", "loadCustom"))
-    params['responsefile1']  = str(config.get("params", "responsefile1"))
-    params['responsefile2']  = str(config.get("params", "responsefile2"))
-    params['responsefile3']  = str(config.get("params", "responsefile3"))
+#    params['loadResponse'] = int(config.get("params", "loadResponse"))
+#    params['loadCustom'] = int(config.get("params", "loadCustom"))
+#    params['responsefile1']  = str(config.get("params", "responsefile1"))
+#    params['responsefile2']  = str(config.get("params", "responsefile2"))
+#    params['responsefile3']  = str(config.get("params", "responsefile3"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
@@ -502,12 +504,16 @@ def blip(paramsfile='params.ini',resume=False):
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
     
-    inj['log_fcut']     = float(config.get("inj", "log_fcut"))
-    inj['alpha2']      = float(config.get("inj", "alpha2"))
-    
     
     inj['fg_type']     = str(config.get("inj", "fg_type"))
     inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    if inj['fg_spectrum'] == 'truncated_powerlaw':
+        inj['log_fcut']     = float(config.get("inj", "log_fcut"))
+        inj['alpha2']      = float(config.get("inj", "alpha2"))
+    if inj['fg_spectrum'] == 'broken_powerlaw':
+        inj['alpha1']     = float(config.get("inj", "alpha1"))
+        inj['log_A1']      = float(config.get("inj", "log_A1"))
+        inj['log_A2']      = float(config.get("inj", "log_A2"))
     if inj['fg_type'] == 'breivik2020':
         inj['rh']          = float(config.get("inj", "rh"))
         inj['zh']          = float(config.get("inj", "zh"))
