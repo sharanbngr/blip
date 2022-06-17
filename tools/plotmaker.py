@@ -14,7 +14,7 @@ from src.populations import populations
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post, parameters, saveto=None):
+def mapmaker(params, post, parameters, inj, saveto=None):
     
     if type(parameters) is dict:
         blm_start = len(parameters['noise']) + len(parameters['signal'])
@@ -291,19 +291,22 @@ def fitmaker(params,parameters,inj):
     H0 = 2.2*10**(-18)
     
     ## get injected spectrum
-    if inj['fg_spectrum']=='powerlaw':
+    if inj['injtype']=='dwd_fg':
+        if inj['fg_spectrum']=='powerlaw':
+            Omegaf_inj =(10**inj['ln_omega0'])*(fs/(params['fref']))**inj['alpha']
+            Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+        elif inj['fg_spectrum']=='broken_powerlaw':
+            Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
+            Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+        elif inj['fg_spectrum']=='population':
+            pop = populations(params,inj)
+            Sgw_inj = pop.pop2spec(inj['popfile'],fs.flatten(),params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4
+        else:
+            print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
+            return
+    else:
         Omegaf_inj =(10**inj['ln_omega0'])*(fs/(params['fref']))**inj['alpha']
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
-    elif inj['fg_spectrum']=='broken_powerlaw':
-        Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
-        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
-    elif inj['fg_spectrum']=='population':
-        pop = populations(params,inj)
-        Sgw_inj = pop.pop2spec(inj['popfile'],fs.flatten(),params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4
-    else:
-        print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
-        return
-    
     
     
     
@@ -366,9 +369,9 @@ def plotmaker(params,parameters, inj):
     ## if modeltype is anisotropic, first call the mapmaker.
     if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
         if 'healpy_proj' in params.keys():
-            mapmaker(params,post,parameters,coord=params['healpy_proj'])
+            mapmaker(params,post,parameters,inj, coord=params['healpy_proj'])
         else:
-            mapmaker(params, post,parameters)
+            mapmaker(params, post, parameters, inj)
             
     ## if spectral fit type is supported, call the fitmaker.
     if 'spectrum_model' in params.keys():

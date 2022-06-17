@@ -4,11 +4,11 @@ import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
 from src.likelihoods import likelihoods
 from tools.plotmaker import plotmaker
-from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 from astropy import units as u
 from multiprocessing import Pool
 import time
+import healpy as hp
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -262,9 +262,32 @@ class LISA(LISAdata, likelihoods):
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
 
         if self.params['modeltype'] != 'noise_only':
-            ## modified below line to include dwd_sdg -SMR 
+            ## first check if the injection is a point source
+#            if self.inj['injtype'] == 'point_source':
+#                # extra auto-power GW responses
+#                summ_response_mat = np.sum(self.response_mat, axis=-1)
+#                R1 = np.real(summ_response_mat[0, 0, :, :])
+#                R2 = np.real(summ_response_mat[1, 1, :, :])
+#                R3 = np.real(summ_response_mat[2, 2, :, :])
             if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
+                if self.inj['injtype'] == 'point_source':
+                    npix = hp.nside2npix(10)
+                    Sgwmap = np.zeros(npix)
+                    
+                    # identify the pixel with the point source
+                    ps_id = hp.ang2pix(10, self.inj['theta'], self.inj['phi'])
 
+                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+                    
+                    H0 = 2.2*10**(-18)
+                    Sgwmap[ps_id] = np.sqrt(Omega_1mHz*(3/(4*(1e-3)**3))*(H0/np.pi)**2)
+                    blms_inj = hp.sphtfunc.map2alm(Sgwmap,lmax=self.blmax)
+                    self.alms_inj = self.blm_2_alm(blms_inj)
+#                else:
+#                    alms_inj = self.blm_2_alm(self.inj['blms'])
+
+                # normalize
+#                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
                 summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
@@ -430,10 +453,14 @@ class LISA(LISAdata, likelihoods):
         if self.params['modeltype'] == 'noise_only':
             Sx = C_noise[ii, jj, :]
         elif self.params['modeltype'] == 'sph_sgwb':
-            Sx = C_noise[ii, jj, :] + Sgw*summ_response_mat[ii, jj, :, 0]
+            if self.inj['injtype'] == 'point_source':
+                Sx = C_noise[ii, jj, :, None] + Sgw[:,None]*summ_response_mat[ii, jj, :, 0]
+            else:
+                Sx = C_noise[ii, jj, :] + Sgw*summ_response_mat[ii, jj, :, 0]
+            
         else:
             Sx = C_noise[ii, jj, :, None] + Sgw[:,None]*self.response_mat[ii, jj, :, 0]
-
+        
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
         plt.subplot(2, 1, 1)
@@ -489,16 +516,36 @@ class LISA(LISAdata, likelihoods):
         # Extract noise auto-power. This is stationary, so it has no time dependence
         S1 = C_noise[0, 0, :]
 
-        if self.params['modeltype'] == 'sph_sgwb':
-            alms_inj = self.blm_2_alm(self.inj['blms'])
 
-            # normalize
-            alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+        if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
+            if self.inj['injtype'] == 'point_source':
+                npix = hp.nside2npix(10)
+                Sgwmap = np.zeros(npix)
+                
+                # identify the pixel with the point source
+                ps_id = hp.ang2pix(10, self.inj['theta'], self.inj['phi'])
 
-            summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+                
+                H0 = 2.2*10**(-18)
+                Sgwmap[ps_id] = np.sqrt(Omega_1mHz*(3/(4*(1e-3)**3))*(H0/np.pi)**2)
+                blms_inj = hp.sphtfunc.map2alm(Sgwmap,lmax=self.blmax)
+                self.alms_inj = self.blm_2_alm(blms_inj)
 
+            summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
             # extra auto-power GW responses
             R1 = np.real(summ_response_mat[0, 0, :, :])
+#
+#        if self.params['modeltype'] == 'sph_sgwb':
+#            alms_inj = self.blm_2_alm(self.inj['blms'])
+#
+#            # normalize
+#            alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+#
+#            summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+#
+#            # extra auto-power GW responses
+#            R1 = np.real(summ_response_mat[0, 0, :, :])
 
         else:
             # extra auto-power GW responses
@@ -527,9 +574,9 @@ class LISA(LISAdata, likelihoods):
 
         print('The single channel SNR is ' + str(single_channel_snr))
 
-        file = open( self.params['out_dir'] + '/snr.txt' , 'w' )
-        file.write( 'The single channel SNR is ' + str(single_channel_snr) )
-        file.close()
+        with open( self.params['out_dir'] + '/snr.txt' , 'w' ) as file:
+            file.write( 'The single channel SNR is ' + str(single_channel_snr) )
+#        file.close()
 
         return 
 
