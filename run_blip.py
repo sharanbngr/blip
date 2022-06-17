@@ -4,7 +4,11 @@ import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
 from src.likelihoods import likelihoods
 from tools.plotmaker import plotmaker
+from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
+from astropy import units as u
+from multiprocessing import Pool
+import time
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -91,7 +95,7 @@ class LISA(LISAdata, likelihoods):
         cspeed = 3e8
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
-
+        
     def read_mldc_data(self):
         '''
         Just a wrapper function to use the methods the LISAdata class to
@@ -157,6 +161,21 @@ class LISA(LISAdata, likelihoods):
             self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
+            
+        elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
+            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
+            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='aet':
+            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
+        ## import pdb; pdb.set_trace()
+        ## adding copy of above for dwd_sdg -SMR
+        elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='michelson':
+            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='xyz':
+            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='aet':
+            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
 
         elif self.params['modeltype'] == 'noise_only':
             print('Noise only model chosen ...')
@@ -179,14 +198,25 @@ class LISA(LISAdata, likelihoods):
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
-        
         elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.ps_mich_response
         elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.ps_aet_response
         elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.ps_xyz_response
-        
+        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.asgwb_mich_response
+        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.asgwb_aet_response
+        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.asgwb_xyz_response
+        ## copy of above for dwd_sdg -SMR
+        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.asgwb_mich_response
+        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.asgwb_aet_response
+        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.asgwb_xyz_response
         else:
            raise ValueError('Unknown recovery model selected')
 
@@ -202,7 +232,6 @@ class LISA(LISAdata, likelihoods):
         # ------------ Calculate PSD ------------------
 
         # Number of segmants
-
         Nperseg=int(self.params['fs']*self.params['seglen'])
 
         # PSD from the FFTs
@@ -233,14 +262,10 @@ class LISA(LISAdata, likelihoods):
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
 
         if self.params['modeltype'] != 'noise_only':
+            ## modified below line to include dwd_sdg -SMR 
+            if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
 
-            if self.params['modeltype'] == 'sph_sgwb':
-                alms_inj = self.blm_2_alm(self.inj['blms'])
-
-                # normalize
-                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
-
-                summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+                summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
                 R2 = np.real(summ_response_mat[1, 1, :, :])
@@ -257,26 +282,106 @@ class LISA(LISAdata, likelihoods):
 
             # Hubble constant
             H0 = 2.2*10**(-18)
-
             # Calculate astrophysical power law noise
-            Omegaf = Omega0*(self.fdata/25)**alpha
 
-            # Power spectra of the SGWB
-            Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
-            
-            # Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+            if self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
+                if self.inj['fg_spectrum'] == 'powerlaw':
+                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
 
-            # The total noise spectra is the sum of the instrumental + astrophysical
-            S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+#             # added or statement for dwd_sdg -SMR
+#             if (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.inj['fg_spectrum'] == 'truncated':
+#                 ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+#                 fcutoff = self.inj['fcutoff']
+#                 fcut = (self.fdata < fcutoff)*self.fdata
+#                 Omegaf = Omega0*(fcut/25)**alpha
+#                 # Power spectra of the SGWB
+#                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                
+#                 # Spectrum of the SGWB signal convoluted with the detector response tensor.
+#                 S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
 
-            plt.close()
-            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+    
+                    # Power spectra of the SGWB
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                    
+                    # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+        
+                    plt.close()
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                elif self.inj['fg_spectrum'] == 'broken_powerlaw':
+#                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
+#                    
+#                    fcutoff = 10**self.inj['log_fcut']
+#                    lowfilt = (self.fdata < fcutoff)
+#                    highfilt = np.invert(lowfilt)
+#                    Omega_cut = (10**self.inj['ln_omega0'])*(fcutoff/(self.params['fref']))**self.inj['alpha'] 
+#                    Omegaf = lowfilt*(10**self.inj['ln_omega0'])*(self.fdata/(self.params['fref']))**self.inj['alpha'] + \
+#                             highfilt*Omega_cut*(self.fdata/fcutoff)**self.inj['alpha2']
+                    alpha_2 = self.inj['alpha1'] - 0.667
+                    Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
+                         1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**alpha_2)
+                    # Power spectra of the SGWB
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                    
+                    # Spectrum of the SGWB signal convolved with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+        
+                    plt.close()
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                elif self.inj['fg_spectrum'] == 'truncated':
+                    ## frequency cutoff based on Fig 1. of Breivik et al (2020)
+                    fcutoff = 10**self.inj['log_fcut']
+                    fcut = (self.fdata < fcutoff)*self.fdata
+                    Omegaf = Omega0*(fcut/self.params['fref'])**alpha
+                    # Power spectra of the SGWB
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                    
+                    # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+                    
+                    plt.close()
+                    plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
+                elif self.inj['fg_spectrum'] == 'population':
+                    # Power spectra of the specified DWD population
+                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                    S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+        
+                    # The total noise spectra is the sum of the instrumental + astrophysical
+                    S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+        
+                    plt.close()
+                    plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+                    plt.loglog(self.fdata, np.mean(S1,axis=1), label='Simulated Total spectrum', lw=0.75)
+            else:       
+                Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
+
+                # Power spectra of the SGWB
+                Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                
+                # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+    
+                # The total noise spectra is the sum of the instrumental + astrophysical
+                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+    
+                plt.close()
+                plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
 
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
-        plt.ylim([1e-43, 1e-39])
+#        plt.ylim([1e-43, 1e-39])
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
@@ -292,8 +397,9 @@ class LISA(LISAdata, likelihoods):
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-        plt.ylim([1e-44, 5e-40])
+#        plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
@@ -331,7 +437,7 @@ class LISA(LISAdata, likelihoods):
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
         plt.subplot(2, 1, 1)
-        plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
@@ -341,7 +447,7 @@ class LISA(LISAdata, likelihoods):
         plt.grid()
 
         plt.subplot(2, 1, 2)
-        plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
@@ -352,7 +458,7 @@ class LISA(LISAdata, likelihoods):
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
-
+        
 
     def snr_calc(self):
 
@@ -427,9 +533,7 @@ class LISA(LISAdata, likelihoods):
 
         return 
 
-
-
-def blip(paramsfile='params.ini'):
+def blip(paramsfile='params.ini',resume=False):
     '''
     The main workhorse of the bayesian pipeline.
 
@@ -458,14 +562,16 @@ def blip(paramsfile='params.ini'):
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
     params['datatype'] = str(config.get("params", "datatype"))
-    params['loadResponse'] = int(config.get("params", "loadResponse"))
-    params['loadCustom'] = int(config.get("params", "loadCustom"))
-    params['responsefile1']  = str(config.get("params", "responsefile1"))
-    params['responsefile2']  = str(config.get("params", "responsefile2"))
-    params['responsefile3']  = str(config.get("params", "responsefile3"))
+#    params['loadResponse'] = int(config.get("params", "loadResponse"))
+#    params['loadCustom'] = int(config.get("params", "loadCustom"))
+#    params['responsefile1']  = str(config.get("params", "responsefile1"))
+#    params['responsefile2']  = str(config.get("params", "responsefile2"))
+#    params['responsefile3']  = str(config.get("params", "responsefile3"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
+    params['spectrum_model'] = str(config.get("params", "spectrum_model"))
+    params['truncation_alpha'] = float(config.get("params", "truncation_alpha"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))
@@ -481,6 +587,40 @@ def blip(paramsfile='params.ini'):
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
     inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
+    
+    
+    inj['fg_type']     = str(config.get("inj", "fg_type"))
+    inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
+    if inj['fg_spectrum'] == 'truncated_powerlaw':
+        inj['log_fcut']     = float(config.get("inj", "log_fcut"))
+        inj['alpha2']      = float(config.get("inj", "alpha2"))
+    if inj['fg_spectrum'] == 'broken_powerlaw':
+        inj['alpha1']     = float(config.get("inj", "alpha1"))
+        inj['log_A1']      = float(config.get("inj", "log_A1"))
+        inj['log_A2']      = float(config.get("inj", "log_A2"))
+    if inj['fg_type'] == 'breivik2020':
+        inj['rh']          = float(config.get("inj", "rh"))
+        inj['zh']          = float(config.get("inj", "zh"))
+    if inj['fg_type'] == 'population' or inj['fg_spectrum'] == 'population':
+        inj['popfile']     = str(config.get("inj","popfile"))
+        inj['SNRcut']      = float(config.get("inj","SNRcut"))
+        colnames = str(config.get("inj","columns"))
+        colnames = colnames.split(',')
+        inj['columns'] = colnames
+        delimiter = str(config.get("inj","delimiter"))
+        if delimiter == 'space':
+            delimiter = ' '
+        elif delimiter == 'tab':
+            delimiter = '\t'
+        inj['delimiter'] = delimiter
+
+    # new sdg injection parameters:
+#    inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
+#    inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
+#    inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
+#    inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
+#    inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
+
 
     if inj['injtype'] ==  'sph_sgwb':
         blm_vals = config.get("inj", "blms")
@@ -501,13 +641,15 @@ def blip(paramsfile='params.ini'):
     params['out_dir']            = str(config.get("run_params", "out_dir"))
     params['doPreProc']          = int(config.get("run_params", "doPreProc"))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
+    params['projection'] = str(config.get("run_params", "projection"))
     params['FixSeed']            = str(config.get("run_params", "FixSeed"))
     params['seed']               = int(config.get("run_params", "seed"))
     verbose            = int(config.get("run_params", "verbose"))
     nlive              = int(config.get("run_params", "nlive"))
     nthread            = int(config.get("run_params", "Nthreads"))
-
-
+    # checkpointing (dynesty only for now)
+    params['checkpoint']            = int(config.get("run_params", "checkpoint"))
+    params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
 
     # Fix random seed
     if params['FixSeed']:
@@ -515,28 +657,67 @@ def blip(paramsfile='params.ini'):
         seed = params['seed']
         randst = setrs(seed)
     else:
+        if params['checkpoint']:
+            raise TypeError("Checkpointing without a fixed seed is not supported. Set 'FixSeed' to true and specify 'seed'.")
+        if resume:
+            raise TypeError("Resuming from a checkpoint requires re-generation of data, so the random seed MUST be fixed.")
         randst = None
 
 
-
-    # Make directories, copy stuff
-
-    # Make output folder
-    subprocess.call(["mkdir", "-p", params['out_dir']])
-
-    # Copy the params file to outdir, to keep track of the parameters of each run.
-    subprocess.call(["cp", paramsfile, params['out_dir']])
-
-
-    # Initialize lisa class
-    lisa =  LISA(params, inj)
+    if not resume:
+        # Make directories, copy stuff
+        # Make output folder
+        subprocess.call(["mkdir", "-p", params['out_dir']])
+    
+        # Copy the params file to outdir, to keep track of the parameters of each run.
+        subprocess.call(["cp", paramsfile, params['out_dir']])
+        
+        # Initialize lisa class
+        lisa =  LISA(params, inj)
+    else:
+        print("Resuming a previous analysis. Regenerating data...")
 
     if params['sampler'] == 'dynesty':
-
         # Create engine
-        engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, randst)
-        post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
-
+        if not resume:
+            # multiprocessing
+            if nthread > 1:
+                pool = Pool(nthread)
+            else:
+                pool = None
+            engine, parameters = dynesty_engine().define_engine(lisa, params, nlive, nthread, randst, pool=pool)    
+        else:
+            pool = None
+            if nthread > 1:
+                print("Warning: Nthread > 1, but multiprocessing is not supported when resuming a run. Pool set to None.")
+                ## To anyone reading this and wondering why:
+                ## The pickle calls used by Python's multiprocessing fail when trying to run the sampler after saving/reloading it.
+                ## This is because pickling the sampler maps all its attributes to their full paths;
+                ## e.g., dynesty_engine.isgwb_prior is named as src.dynesty_engine.dynesty_engine.isgwb_prior
+                ## BUT the object itself is still e.g. <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>
+                ## so we get an error like
+                ## _pickle.PicklingError: Can't pickle <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>: \
+                ##                        it's not the same object as src.dynesty_engine.dynesty_engine.isgwb_prior
+                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
+                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
+                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
+                
+            engine, parameters = dynesty_engine.load_engine(params,randst,pool)
+        ## run sampler
+        if params['checkpoint']:
+            checkpoint_file = params['out_dir']+'/checkpoint.pickle'
+            t1 = time.time()
+            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,parameters,params['checkpoint_interval'],checkpoint_file)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        else:
+            t1 = time.time()
+            post_samples, logz, logzerr = dynesty_engine.run_engine(engine)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        if nthread > 1:
+            engine.pool.close()
+            engine.pool.join()
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
         np.savetxt(params['out_dir'] + "/logz.txt", logz)
@@ -556,18 +737,24 @@ def blip(paramsfile='params.ini'):
 
 
     # Save parameters as a pickle
-    outfile = open(params['out_dir'] + '/config.pickle', 'wb')
-    pickle.dump(params, outfile)
-    pickle.dump(inj, outfile)
-    pickle.dump(parameters, outfile)
+    with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+        pickle.dump(params, outfile)
+        pickle.dump(inj, outfile)
+        pickle.dump(parameters, outfile)
 
-    print("\n Making posterior Plots ...")
+    print("\nMaking posterior Plots ...")
     plotmaker(params, parameters, inj)
+#    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
+#        print("\nMaking posterior skymap ...")
+#        mapmaker(params, post_samples, parameters, coord=params['projection'])
     # open_img(params['out_dir'])
 
 if __name__ == "__main__":
 
     if len(sys.argv) != 2:
-        raise ValueError('Provide (only) the params file as an argument')
+        if sys.argv[2] == 'resume':
+            blip(sys.argv[1],resume=True)
+        else:
+            raise ValueError('Provide (only) the params file as an argument')
     else:
         blip(sys.argv[1])
