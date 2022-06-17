@@ -14,7 +14,7 @@ from src.populations import populations
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(params, post, parameters,coord='E', saveto=None):
+def mapmaker(params, post, parameters, saveto=None):
     
     if type(parameters) is dict:
         blm_start = len(parameters['noise']) + len(parameters['signal'])
@@ -56,19 +56,19 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
                 log_A2 = sample[4]
                 Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
             elif params['spectrum_model'] == 'powerlaw':
-                log_Omega0 = sample[2]
-                alpha = sample[3]
+                alpha = sample[2]
+                log_Omega0 = sample[3]
                 Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
             else:
                 print("Unknown spectral model. Defaulting to power law...")
-                log_Omega0 = sample[2]
-                alpha = sample[3]
+                alpha = sample[2]
+                log_Omega0 = sample[3]
                 Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
         else:
             print("Warning: running on older output without specification of spectral model.")
             print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
-            log_Omega0 = sample[2]
-            alpha = sample[3]
+            alpha = sample[2]
+            log_Omega0 = sample[3]
             Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
         ## blms.
         blms = np.append([1], sample[blm_start:])
@@ -103,7 +103,9 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
     omega_map = omega_map/post.shape[0]
 
     # setting coord back to E, if parameter isn't specified
-    if coord is None:
+    if 'projection' in params.keys():
+        coord = params['projection']
+    else:
         coord = 'E'
     
     ## HEALpy is really, REALLY noisy sometimes. This stops that.
@@ -134,7 +136,6 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
 
 
     #### ------------ Now plot median value
-
     # median values of the posteriors
     med_vals = np.median(post, axis=0)
 
@@ -154,14 +155,14 @@ def mapmaker(params, post, parameters,coord='E', saveto=None):
         else:
             if params['spectrum_model'] != 'powerlaw':
                 print("Unknown spectral model. Defaulting to power law...")
-            log_Omega0 = med_vals[2]
-            alpha = med_vals[3]
+            alpha = med_vals[2]
+            log_Omega0 = med_vals[3]
             Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
     else:
         print("Warning: running on older output without specification of spectral model.")
         print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
-        log_Omega0 = med_vals[2]
-        alpha = med_vals[3]
+        alpha = med_vals[2]
+        log_Omega0 = med_vals[3]
         Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
 
     ## Complex array of blm values for both +ve m values
@@ -274,8 +275,8 @@ def fitmaker(params,parameters,inj):
             log_A2 = post[:,4]
             
         elif params['spectrum_model'] == 'powerlaw':
-            log_Omega0 = post[:,2]
-            alpha = post[:,3]
+            alpha = post[:,2]
+            log_Omega0 = post[:,3]
         elif params['spectrum_model'] == 'truncated':
             print("No fit plotting support for truncated model (which is slated for removal soon). Sorry!")
             return
@@ -283,15 +284,16 @@ def fitmaker(params,parameters,inj):
             raise TypeError("Unrecognized foreground spectral model. Can be 'powerlaw' or 'broken_powerlaw'.")
     ## otherwise basic power law
     else:
-        log_Omega0 = post[:,2]
-        alpha = post[:,3]
+        alpha = post[:,2]
+        log_Omega0 = post[:,3]
+        
 
     ## H0 def (SI)
     H0 = 2.2*10**(-18)
     
     ## get injected spectrum
     if inj['fg_spectrum']=='powerlaw':
-        Omegaf_inj =(10**inj['log_Omega0'])*(fs/(params['fref']))**inj['alpha']
+        Omegaf_inj =(10**inj['ln_omega0'])*(fs/(params['fref']))**inj['alpha']
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
     elif inj['fg_spectrum']=='broken_powerlaw':
         Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))

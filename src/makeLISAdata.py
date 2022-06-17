@@ -621,13 +621,13 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                                 alpha_1 = self.inj['alpha1']
                                 log_A1 = self.inj['log_A1']
                                 alpha_2 = self.inj['alpha1'] - 0.667
-                                log_A2 = self.inj['log_A1']
+                                log_A2 = self.inj['log_A2']
                                 Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
                             elif self.inj['fg_spectrum']=='population':
                                 ## need to grab the population Sgw at ~1 mHz, preferably without calling pop2spec again
                                 Omega_1mHz = Sgw[np.argmin(np.abs(frange - 1e-3))]/((3/(4*(1e-3)**3))*(H0/np.pi)**2)
                             else:
-                                if self.params['fg_spectrum'] != 'powerlaw':
+                                if self.inj['fg_spectrum'] != 'powerlaw':
                                     print("Unknown spectral model. Defaulting to power law...")
                                 Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
                         else:
@@ -698,7 +698,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                                 alpha_1 = self.inj['alpha1']
                                 log_A1 = self.inj['log_A1']
                                 alpha_2 = self.inj['alpha1'] - 0.667
-                                log_A2 = self.inj['log_A1'][4]
+                                log_A2 = self.inj['log_A2']
                                 Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
                             elif self.inj['fg_spectrum']=='population':
                                 ## need to grab the population Sgw at ~1 mHz, preferably without calling pop2spec again
