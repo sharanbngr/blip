@@ -585,12 +585,6 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     hp.graticule()
                     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
 
-                    ## generating skymap, switches to specified projection if not ecliptic
-                    # if coord=='E':
-                    #     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
-                    # else:
-                    #     hp.mollview(Omegamap_inj, coord=['E',coord], title='Injected angular distribution map $/Omega (f = 1 mHz)$')
-
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
