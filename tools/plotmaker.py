@@ -366,10 +366,11 @@ def plotmaker(params,parameters, inj):
         raise TypeError("parameters argument is not dict or list.")
     ## if modeltype is sph, first call the mapmaker.
     if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
-        if 'healpy_proj' in params.keys():
-            mapmaker(params,post,parameters,coord=params['healpy_proj'])
+        if 'projection' in params.keys():
+            mapmaker(params,post,parameters)
+            # mapmaker(params,post,parameters,coord=params['projection'])
         else:
-            mapmaker(params, post,parameters)
+            mapmaker(params,post,parameters)
             
     ## if spectral fit type is supported, call the fitmaker.
     if 'spectrum_model' in params.keys():

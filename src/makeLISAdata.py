@@ -585,6 +585,12 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     hp.graticule()
                     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
 
+                    ## generating skymap, switches to specified projection if not ecliptic
+                    # if coord=='E':
+                    #     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                    # else:
+                    #     hp.mollview(Omegamap_inj, coord=['E',coord], title='Injected angular distribution map $/Omega (f = 1 mHz)$')
+
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
@@ -643,7 +649,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         Omegamap_inj = Omega_1mHz * skymap_inj
     
                         
-                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
                         hp.graticule()
                         
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
@@ -651,12 +657,12 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         plt.close()
                         
                         
-                        hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                        hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                         plt.close()
-                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
@@ -713,18 +719,18 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         
                         skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
                         Omegamap_inj = Omega_1mHz * skymap_inj
-                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                         print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                         plt.close()
                         
-                        hp.mollview(DWD_FG_map, title='Population-derived DWD Foreground skymap')
+                        hp.mollview(DWD_FG_map, coord=coord, title='Population-derived DWD Foreground skymap')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                         plt.close()
-                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Population-derived DWD Foreground alm map')
+                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Population-derived DWD Foreground alm map')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
