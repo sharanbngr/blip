@@ -28,7 +28,7 @@ def mapmaker(params, post, parameters, saveto=None):
         blm_start = 4
     else:
         raise TypeError("parameters argument is not dict or list.")
-    
+
     # size of the blm array
     blm_size = Alm.getsize(params['lmax'])
 
@@ -104,7 +104,7 @@ def mapmaker(params, post, parameters, saveto=None):
 
     # setting coord back to E, if parameter isn't specified
     if 'projection' in params.keys():
-        coord = params['projection']
+        coord = ['E',params['projection']]
     else:
         coord = 'E'
     
@@ -113,12 +113,11 @@ def mapmaker(params, post, parameters, saveto=None):
     logger.setLevel(logging.ERROR)
     
     # generating skymap, switches to specified projection if not 'E'
-    if coord=='E':
-        hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-    else:
-        hp.mollview(omega_map, coord=['E',coord], title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
    
-    # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+    if inj['injtype']=='point_source':
+        # if it is a point source injection add the injected position
+        hp.projscatter(inj['theta'], inj['phi'],color='r', marker='*', coord=coord)
 
     hp.graticule()
     
@@ -192,10 +191,11 @@ def mapmaker(params, post, parameters, saveto=None):
     ## HEALpy is really, REALLY noisy sometimes. This stops that.
     logger.setLevel(logging.ERROR)
     
-    if coord=='E':
-        hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$')
-    else:
-        hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$')
+    hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$')
+
+    if inj['injtype']=='point_source':
+        # if it is a point source injection add the injected position
+        hp.projscatter(inj['theta'], inj['phi'],color='r', marker='*',coord=coord)
     
     hp.graticule()
     
@@ -209,7 +209,6 @@ def mapmaker(params, post, parameters, saveto=None):
     else:
         plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
         logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
-
     plt.close()
 
     return
@@ -364,7 +363,7 @@ def plotmaker(params,parameters, inj):
         all_parameters = parameters
     else:
         raise TypeError("parameters argument is not dict or list.")
-    ## if modeltype is sph, first call the mapmaker.
+    ## if modeltype is anisotropic, first call the mapmaker.
     if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
         if 'healpy_proj' in params.keys():
             mapmaker(params,post,parameters,coord=params['healpy_proj'])
@@ -416,6 +415,13 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
 
+    elif inj['injtype']=='point_source':
+
+        truevals.append(inj['log_Np'])
+        truevals.append( inj['log_Na'])
+        truevals.append( inj['alpha'] )
+        truevals.append( inj['ln_omega0'] )
+    
     elif inj['injtype']=='dwd_fg':
 
         truevals.append(inj['log_Np'])
@@ -429,6 +435,7 @@ def plotmaker(params,parameters, inj):
             truevals.append( inj['log_A1'] )
             truevals.append( inj['alpha1'] - 0.667)
             truevals.append( inj['log_A2'] )
+    
     if params['modeltype']=='dwd_fg':
         if params['spectrum_model']=='broken_powerlaw':
             ## need to transform alpha_1 samples to alpha_2
@@ -453,7 +460,7 @@ def plotmaker(params,parameters, inj):
             summary=False, statistics="max_central", spacing=2, summary_area=0.95, cloud=False, bins=1.2)
     cc.configure_truth(color='g', ls='--', alpha=0.7)
 
-    if knowTrue:
+    if len(truevals) > 0:
         fig = cc.plotter.plot(figsize=(16, 16), truth=truevals)
     else:
         fig = cc.plotter.plot(figsize=(16, 16))

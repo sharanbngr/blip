@@ -131,7 +131,6 @@ class dynesty_engine():
             engine = NestedSampler(lisaobj.sph_log_likelihood, cls.sph_prior,\
                     npar, bound='multi', sample='rslice', nlive=nlive, rstate = randst)
 
-
         elif params['modeltype']=='noise_only':
 
             print("Doing an instrumental noise only analysis ...")

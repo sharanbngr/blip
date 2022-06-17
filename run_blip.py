@@ -47,6 +47,9 @@ class LISA(LISAdata, likelihoods):
         # Make some simple diagnostic plots to contrast spectra
         self.diag_spectra()
 
+        if self.params['modeltype'] != 'noise_only':
+            self.snr_calc()
+
     def makedata(self):
 
         '''
@@ -65,7 +68,10 @@ class LISA(LISAdata, likelihoods):
         # Generate TDI isotropic signal
         if self.inj['doInj']:
 
-            h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
+            if self.inj['injtype']=='point_source':      
+                h1_gw, h2_gw, h3_gw, times = self.add_ps_data()
+            else:
+                h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
 
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
 
@@ -185,12 +191,19 @@ class LISA(LISAdata, likelihoods):
             self.add_astro_signal = self.isgwb_xyz_response
         elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.isgwb_mich_response
+
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.asgwb_mich_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
+        elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='michelson':
+            self.add_astro_signal = self.ps_mich_response
+        elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='aet':
+            self.add_astro_signal = self.ps_aet_response
+        elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='xyz':
+            self.add_astro_signal = self.ps_xyz_response
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.asgwb_mich_response
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='aet':
@@ -447,7 +460,78 @@ class LISA(LISAdata, likelihoods):
         plt.close()
         
 
+    def snr_calc(self):
 
+        '''
+        Calculate the *theoretical* SNR of a signal in a single channel
+        '''
+
+        # Number of segmants
+
+        Nperseg=int(self.params['fs']*self.params['seglen'])
+
+        # "Cut" to desired frequencies
+        idx = np.logical_and(self.fdata >=  self.params['fmin'] , self.fdata <=  self.params['fmax'])
+        psdfreqs = self.fdata[idx]
+
+        #Charactersitic frequency
+        fstar = 3e8/(2*np.pi*self.armlength)
+
+        # define f0 = f/2f*
+        f0 = self.fdata/(2*fstar)
+
+        # The last two elements are the position and the acceleration noise levels.
+        Np, Na = 10**self.inj['log_Np'], 10**self.inj['log_Na']
+
+        # Modelled Noise PSD
+        C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+
+        # Extract noise auto-power. This is stationary, so it has no time dependence
+        S1 = C_noise[0, 0, :]
+
+        if self.params['modeltype'] == 'sph_sgwb':
+            alms_inj = self.blm_2_alm(self.inj['blms'])
+
+            # normalize
+            alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+
+            summ_response_mat = np.sum(self.response_mat*alms_inj[None, None, None, None, :], axis=-1)
+
+            # extra auto-power GW responses
+            R1 = np.real(summ_response_mat[0, 0, :, :])
+
+        else:
+            # extra auto-power GW responses
+            R1 = np.real(self.response_mat[0, 0, :, :])
+
+
+        # SGWB signal levels of the mldc data
+        Omega0, alpha = 10**self.inj['ln_omega0'], self.inj['alpha']
+
+        # Hubble constant
+        H0 = 2.2*10**(-18)
+
+        # Calculate astrophysical power law noise
+        Omegaf = Omega0*(self.fdata/25)**alpha
+
+
+        # Power spectra of the SGWB
+        Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+        
+        # Spectrum of the SGWB signal convoluted with the detector response tensor.
+        S1_gw = Sgw[:, None]*R1
+
+        delf = self.fdata[1] - self.fdata[0]
+
+        single_channel_snr = np.sqrt( self.params['seglen'] * delf * np.sum(S1_gw/S1[:, None] ) )
+
+        print('The single channel SNR is ' + str(single_channel_snr))
+
+        file = open( self.params['out_dir'] + '/snr.txt' , 'w' )
+        file.write( 'The single channel SNR is ' + str(single_channel_snr) )
+        file.close()
+
+        return 
 
 def blip(paramsfile='params.ini',resume=False):
     '''
@@ -549,6 +633,9 @@ def blip(paramsfile='params.ini',resume=False):
             blms[ii] = complex(blm_vals[ii])
 
         inj['blms'] = blms
+    elif inj['injtype'] == 'point_source':
+        inj['theta'] = float(config.get("inj", "theta"))
+        inj['phi'] = float(config.get("inj", "phi"))
 
     # some run parameters
     params['out_dir']            = str(config.get("run_params", "out_dir"))
