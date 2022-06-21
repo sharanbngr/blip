@@ -1044,7 +1044,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         DWD_FG_sph = hp.sphtfunc.map2alm(sqrt_map, lmax=self.blmax)
 
         # Normalize        
-        DWD_FG_sph = DWD_FG_sph/DWD_FG_sph[0]
+        DWD_FG_sph = DWD_FG_sph/(DWD_FG_sph[0]* np.sqrt(4*np.pi))
 
         return DWD_FG_sph
         
