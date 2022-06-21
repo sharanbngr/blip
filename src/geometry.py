@@ -337,7 +337,8 @@ class geometry(sph_geometry):
                 
         # identify the pixel with the point source
         ps_id = hp.ang2pix( self.params['nside'] , theta_inj, phi_inj)
-        inj_map[ps_id-1:ps_id+1] = 1
+#        inj_map[ps_id-1:ps_id+1] = 1
+        inj_map[ps_id] = 1
 
         # Array of pixel indices
         pix_idx  = np.arange(npix)

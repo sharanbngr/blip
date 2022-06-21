@@ -68,10 +68,10 @@ class LISA(LISAdata, likelihoods):
         # Generate TDI isotropic signal
         if self.inj['doInj']:
 
-            if self.inj['injtype']=='point_source':      
-                h1_gw, h2_gw, h3_gw, times = self.add_ps_data()
-            else:
-                h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
+#            if self.inj['injtype']=='point_source':      
+#                h1_gw, h2_gw, h3_gw, times = self.add_ps_data()
+#            else:
+            h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
 
             h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
 
@@ -199,11 +199,14 @@ class LISA(LISAdata, likelihoods):
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
         elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.ps_mich_response
+#            self.add_astro_signal = self.ps_mich_response
+            self.add_astro_signal = self.asgwb_mich_response
         elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.ps_aet_response
+#            self.add_astro_signal = self.ps_aet_response
+            self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='point_source' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.ps_xyz_response
+#            self.add_astro_signal = self.ps_xyz_response
+            self.add_astro_signal = self.asgwb_xyz_response
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
             self.add_astro_signal = self.asgwb_mich_response
         elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='aet':
@@ -270,24 +273,27 @@ class LISA(LISAdata, likelihoods):
 #                R2 = np.real(summ_response_mat[1, 1, :, :])
 #                R3 = np.real(summ_response_mat[2, 2, :, :])
             if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
-                if self.inj['injtype'] == 'point_source':
-                    npix = hp.nside2npix(10)
-                    Sgwmap = np.zeros(npix)
-                    
-                    # identify the pixel with the point source
-                    ps_id = hp.ang2pix(10, self.inj['theta'], self.inj['phi'])
-
-                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
-                    
-                    H0 = 2.2*10**(-18)
-                    Sgwmap[ps_id] = np.sqrt(Omega_1mHz*(3/(4*(1e-3)**3))*(H0/np.pi)**2)
-                    blms_inj = hp.sphtfunc.map2alm(Sgwmap,lmax=self.blmax)
-                    self.alms_inj = self.blm_2_alm(blms_inj)
-#                else:
+#                if self.inj['injtype'] == 'point_source':
+#                    npix = hp.nside2npix(10)
+#                    Sgwmap = np.zeros(npix)
+#                    
+#                    # identify the pixel with the point source
+#                    ps_id = hp.ang2pix(10, self.inj['theta'], self.inj['phi'])
+#
+#                    Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
+#                    
+#                    H0 = 2.2*10**(-18)
+#                    Sgwmap[ps_id] = np.sqrt(Omega_1mHz*(3/(4*(1e-3)**3))*(H0/np.pi)**2)
+#                    blms_inj = hp.sphtfunc.map2alm(Sgwmap,lmax=self.blmax)
+#                    blms_inj = blms_inj/(blms_inj[0]* np.sqrt(4*np.pi))
+#                    alms_inj = self.blm_2_alm(blms_inj)
+#                    self.alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+##                else:
 #                    alms_inj = self.blm_2_alm(self.inj['blms'])
 
                 # normalize
 #                alms_inj = alms_inj/(alms_inj[0] * np.sqrt(4*np.pi))
+#                else:
                 summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
@@ -443,6 +449,21 @@ class LISA(LISAdata, likelihoods):
 
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
+        plt.close()
+        
+        ## lets also plot psd residue factor
+#        rel_res_mean = (data_PSD3 - np.mean(S3,axis=1))/np.mean(S3,axis=1)
+        res_fac_mean = np.mean(S3,axis=1)/data_PSD3
+        plt.semilogx(self.fdata, res_fac_mean , label='mean residue factor')
+        plt.xlabel('f in Hz')
+        plt.ylabel('Residue Factor')
+#        plt.ylim([-1.50, 1.50])
+        plt.legend()
+        plt.grid()
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+
+        plt.savefig(self.params['out_dir'] + '/res_fac_psd.png', dpi=200)
+        print('Second residue spectra plot made in ' + self.params['out_dir'] + '/res)fac_psd.png')
         plt.close()
         
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
