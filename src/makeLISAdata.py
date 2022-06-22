@@ -453,12 +453,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         H0 = 2.2*10**(-18) ## in SI units
         
         if self.inj['injtype'] == 'dwd_fg' or self.inj['injtype'] == 'dwd_sdg':
-            if self.inj['fg_spectrum'] == 'truncated':
-                ## frequency cutoff based on Fig 1. of Breivik et al (2020)
-                fcutoff = 10**self.inj['log_fcut']
-                fcut = (frange < fcutoff)*frange
-                Omegaf = (10**self.inj['ln_omega0'])*(fcut/(self.params['fref']))**self.inj['alpha']
-            elif self.inj['fg_spectrum'] == 'powerlaw':
+            if self.inj['fg_spectrum'] == 'powerlaw':
                 Omegaf = (10**self.inj['ln_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
             elif self.inj['fg_spectrum'] == 'broken_powerlaw':
                 alpha_2 = self.inj['alpha1'] - 0.667
