@@ -478,16 +478,10 @@ def blip(paramsfile='params.ini',resume=False):
     params['Shfile']   = config.get("params", "Shfile")
     params['mldc'] = int(config.get("params", "mldc"))
     params['datatype'] = str(config.get("params", "datatype"))
-#    params['loadResponse'] = int(config.get("params", "loadResponse"))
-#    params['loadCustom'] = int(config.get("params", "loadCustom"))
-#    params['responsefile1']  = str(config.get("params", "responsefile1"))
-#    params['responsefile2']  = str(config.get("params", "responsefile2"))
-#    params['responsefile3']  = str(config.get("params", "responsefile3"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
     params['modeltype'] = str(config.get("params", "modeltype"))
     params['spectrum_model'] = str(config.get("params", "spectrum_model"))
-    params['truncation_alpha'] = float(config.get("params", "truncation_alpha"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))
@@ -507,9 +501,6 @@ def blip(paramsfile='params.ini',resume=False):
     
     inj['fg_type']     = str(config.get("inj", "fg_type"))
     inj['fg_spectrum'] = str(config.get("inj", "fg_spectrum"))
-    if inj['fg_spectrum'] == 'truncated_powerlaw':
-        inj['log_fcut']     = float(config.get("inj", "log_fcut"))
-        inj['alpha2']      = float(config.get("inj", "alpha2"))
     if inj['fg_spectrum'] == 'broken_powerlaw':
         inj['alpha1']     = float(config.get("inj", "alpha1"))
         inj['log_A1']      = float(config.get("inj", "log_A1"))
