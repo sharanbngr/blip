@@ -424,8 +424,8 @@ class dynesty_engine():
 #        alpha_2 = alpha_1 - 0.67
         
         # Prior on A1 and A2
-        log_A1 = -30*theta[3] - 5
-        log_A2 = -30*theta[4] - 5
+        log_A1 = -55*theta[3] + 10
+        log_A2 = -55*theta[4] + 10
         
 #        # Prior on fcutoff and alpha2
 #        log_fcutoff = 1*theta[4] - 3.3
