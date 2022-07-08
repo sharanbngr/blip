@@ -420,7 +420,7 @@ class dynesty_engine():
         
         # Prior on alpha_1, alpha_2
         # For foreground, additional constraint that alpha_1 - alpha_2 = 2/3
-        alpha_1 = 14*theta[2] - 10
+        alpha_1 = 34*theta[2] - 20
 #        alpha_2 = alpha_1 - 0.67
         
         # Prior on A1 and A2
