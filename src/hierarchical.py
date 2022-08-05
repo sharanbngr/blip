@@ -21,6 +21,7 @@ from scipy.stats import multivariate_normal
 import emcee
 import time
 from multiprocessing import Pool
+from tqdm import tqdm
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 class postprocess(LISAdata):
@@ -400,14 +401,18 @@ class postprocess(LISAdata):
             ## burn-in
             print("Performing {} samples of burn-in...".format(Nburn))
             start = time.time()
-            pos, prob, state = sampler.run_mcmc(theta0,Nburn)
+#            pos, prob, state = sampler.run_mcmc(theta0,Nburn)
+            for pos, logp, state in tqdm(sampler.sample(theta0,iterations=Nburn),total=Nburn,ascii='>='):
+                pass
             dur = time.time() - start
             print('Time elapsed for burn: {:0.2f} s.'.format(dur))
             ## run
             print("Performing hierarchical sampling...")
             sampler.reset()
             start = time.time()
-            pos, prob, state = sampler.run_mcmc(pos,Nsamples)
+            for pos, logp, state in tqdm(sampler.sample(pos,iterations=Nsamples),total=Nsamples,ascii='>='):
+                pass
+#            pos, prob, state = sampler.run_mcmc(pos,Nsamples)
             dur = time.time() - start
             print('Time elapsed for sampling: {:0.2f} s.'.format(dur))
             
