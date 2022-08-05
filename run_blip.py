@@ -261,8 +261,15 @@ class LISA(LISAdata, likelihoods):
         if self.params['modeltype'] != 'noise_only':
             ## modified below line to include dwd_sdg -SMR 
             if self.params['modeltype'] == 'sph_sgwb' or self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg':
-
-                summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
+                if 'injbasis' in self.inj.keys():
+                    if self.inj['injbasis'] == 'sph':
+                        summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
+                    elif self.inj['injbasis'] == 'pixel':
+#                        summ_response_mat = np.sum(self.add_astro_signal*self.alms_inj[None, None, None, None, :], axis=-1)
+                        summ_response_mat = np.einsum('ijklm,m', self.add_astro_signal(self.f0, self.tsegmid), self.skymap_inj)
+                        
+                else:
+                    summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
                 R2 = np.real(summ_response_mat[1, 1, :, :])
@@ -385,7 +392,7 @@ class LISA(LISAdata, likelihoods):
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
-        np.savez(self.params['out_dir'] +'noisespec.npz',C_noise=C_noise,fdata=self.fdata)
+        np.savez(self.params['out_dir'] +'/noisespec.npz',C_noise=C_noise,fdata=self.fdata)
 #        plt.ylim([1e-43, 1e-39])
         plt.legend()
         plt.xlabel('$f$ in Hz')
