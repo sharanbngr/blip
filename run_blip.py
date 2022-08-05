@@ -163,8 +163,6 @@ class LISA(LISAdata, likelihoods):
             self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='dwd_fg' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
-        ## import pdb; pdb.set_trace()
-        ## adding copy of above for dwd_sdg -SMR
         elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='michelson':
             self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='dwd_sdg' and self.params['tdi_lev']=='xyz':
@@ -192,19 +190,30 @@ class LISA(LISAdata, likelihoods):
             self.add_astro_signal = self.asgwb_aet_response
         elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
             self.add_astro_signal = self.asgwb_xyz_response
-        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.asgwb_mich_response
-        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.asgwb_aet_response
-        elif self.inj['injtype']=='dwd_fg' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.asgwb_xyz_response
-        ## copy of above for dwd_sdg -SMR
-        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.asgwb_mich_response
-        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.asgwb_aet_response
-        elif self.inj['injtype']=='dwd_sdg' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.asgwb_xyz_response
+        elif self.inj['injtype']=='dwd_fg' or self.inj['injtype']=='dwd_sdg':
+            ## backwards compatability, rm later
+            if 'injbasis' in self.inj.keys():
+                if self.inj['injbasis']=='pixel':
+                    if self.params['tdi_lev']=='michelson':
+                        self.add_astro_signal = self.pixel_mich_response
+                    elif self.params['tdi_lev']=='aet':
+                        self.add_astro_signal = self.pixel_aet_response
+                    elif self.params['tdi_lev']=='xyz':
+                        self.add_astro_signal = self.pixel_xyz_response
+                elif self.inj['injbasis']=='sph':
+                    if self.params['tdi_lev']=='michelson':
+                        self.add_astro_signal = self.asgwb_mich_response
+                    elif self.params['tdi_lev']=='aet':
+                        self.add_astro_signal = self.asgwb_aet_response
+                    elif self.params['tdi_lev']=='xyz':
+                        self.add_astro_signal = self.asgwb_xyz_response
+            else:
+                if self.params['tdi_lev']=='michelson':
+                    self.add_astro_signal = self.asgwb_mich_response
+                elif self.params['tdi_lev']=='aet':
+                    self.add_astro_signal = self.asgwb_aet_response
+                elif self.params['tdi_lev']=='xyz':
+                    self.add_astro_signal = self.asgwb_xyz_response
         else:
            raise ValueError('Unknown recovery model selected')
 
@@ -509,6 +518,13 @@ def blip(paramsfile='params.ini',resume=False):
     # Injection Dict
     inj['doInj']       = int(config.get("inj", "doInj"))
     inj['injtype']     = str(config.get("inj", "injtype"))
+    ## backwards compatibility, rm later
+    try:
+        inj['injbasis'] = str(config.get("inj", "injbasis"))
+    except:
+        if inj['injtype']=='dwd_fg' or inj['injtype']=='dwd_sdg':
+            print("Warning: performing a realistic signal injection but no injection basis is specified in the params file.")
+            print("Defaulting to spherical harmonic injection basis...")
     inj['ln_omega0']   = np.log10(float(config.get("inj", "omega0")))
     inj['alpha']       = float(config.get("inj", "alpha"))
     inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
