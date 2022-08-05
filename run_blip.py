@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 from astropy import units as u
 from multiprocessing import Pool
 import time
+from scipy.interpolate import interp1d
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 #from src.emcee_engine import emcee_engine
@@ -340,7 +341,14 @@ class LISA(LISAdata, likelihoods):
                     plt.loglog(np.append(self.fdata[self.fdata < fcutoff],fcutoff), np.append(np.mean(S1_gw,axis=1)[self.fdata < fcutoff],0), label='Simulated GW spectrum', lw=0.75)
                 elif self.inj['fg_spectrum'] == 'population':
                     # Power spectra of the specified DWD population
-                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+#                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,plot=False,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    ## need to use the same frequencies as during the data generation process
+                    N_spec=int(self.params['fs']*self.params['dur'])
+                    fs_spec = np.fft.rfftfreq(N_spec, 1.0/self.params['fs'])[1:]
+                    Sgw_fine = self.pop2spec(self.inj['popfile'],fs_spec,self.params['dur']*u.s,plot=False,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    ## now downsample to the frequencies at which we've evaluated the response
+                    interp = interp1d(fs_spec,Sgw_fine)
+                    Sgw = interp(self.fdata)
                     # Spectrum of the SGWB signal convoluted with the detector response tensor.
                     S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
         
@@ -368,6 +376,7 @@ class LISA(LISAdata, likelihoods):
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
+        np.savez(self.params['out_dir'] +'noisespec.npz',C_noise=C_noise,fdata=self.fdata)
 #        plt.ylim([1e-43, 1e-39])
         plt.legend()
         plt.xlabel('$f$ in Hz')
@@ -424,7 +433,11 @@ class LISA(LISAdata, likelihoods):
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 
         plt.subplot(2, 1, 1)
-        plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        ## handle the fact that Sx can change shape depending on isotropic vs. anisotropic response
+        if len(Sx.shape) == 1:
+            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        else:
+            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
@@ -434,7 +447,10 @@ class LISA(LISAdata, likelihoods):
         plt.grid()
 
         plt.subplot(2, 1, 2)
-        plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        if len(Sx.shape) == 1:
+            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        else:
+            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')

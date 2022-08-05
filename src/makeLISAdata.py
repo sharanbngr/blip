@@ -569,7 +569,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     Omega_1mHz = 10**(self.inj['ln_omega0']) * (1e-3/25)**(self.inj['alpha'])
 
                     ## response matrix summed over Ylms
-                    summ_response_mat = np.einsum('ijklm,m', response_mat, alms_inj)
+                    summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
 
                     # converts alm_inj into a healpix max to be plotted and saved
                     # Plot with twice the analysis nside for better resolution
@@ -708,18 +708,19 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         
                         skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
                         Omegamap_inj = Omega_1mHz * skymap_inj
-                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                         print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                         plt.close()
                         
-                        hp.mollview(DWD_FG_map, title='Population-derived DWD Foreground skymap')
+                        hp.mollview(DWD_FG_map, title='Population-derived DWD Foreground skymap', unit="GW PSD$(f= 1mHz)$")
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                         plt.close()
-                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Population-derived DWD Foreground alm map')
+                        hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Population-derived DWD Foreground alm map',
+                                    unit="Per-Pixel Normalization Factor")
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
@@ -847,7 +848,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             htilda2  = np.concatenate([ [0], z_scale[:, 1]])
             htilda3  = np.concatenate([ [0], z_scale[:, 2]])
 
-
+            np.savez(self.params['out_dir'] +'htilde_gw123.npz',htilda1=htilda1,htilda2=htilda2,htilda3=htilda3,frange=frange)
+            
             if ii == 0:
                 # Take inverse fft to get time series data
                 h1 = splice_win * np.fft.irfft(htilda1, N)
@@ -1039,7 +1041,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         DWD_FG_sph = hp.sphtfunc.map2alm(sqrt_map, lmax=self.blmax)
 
         # Normalize        
-        DWD_FG_sph = DWD_FG_sph/(DWD_FG_sph[0]* np.sqrt(4*np.pi))
+        DWD_FG_sph = DWD_FG_sph/DWD_FG_sph[0]#* np.sqrt(4*np.pi))
 
         return DWD_FG_sph
         

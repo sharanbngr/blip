@@ -127,7 +127,7 @@ class populations():
             print("Invalid specification of get_type; can be 'resolved' or 'unresolved'.")
             raise
 
-    def gen_summed_spectrum(self,fs,hs,frange,t_obs):
+    def gen_summed_spectrum(self,fs,hs,frange,t_obs,plot=True):
         '''
         Function to calculate the foreground spectrum arising from a set of monochromatic strains and associated frequencies.
         
@@ -159,6 +159,13 @@ class populations():
         if np.any(bin_widths*u.Hz<min_bin_width):
             print("Warning: frequency resolution exceeds the maximum allowed by t_obs.")
         
+        
+        ## need to bin at size dictated by delta_f = 1/T_obs, **assuming a 4yr observation time**
+#        bin_widths = (1/(4*u.yr)).to(u.Hz)
+#        ## ensure full converage of BLIP frequency array
+#        bins = np.arange(frange.min()-3*bin_widths.value/2,frange.max()+3*bin_widths.value/2,bin_widths.value)
+#        mids = bins[:-1] + bin_widths.value/2
+##        edges = np.arange(fs.min()-min_bin_width.value/2,fs.max()+min_bin_width.value/2,min_bin_width.value)
         ## bin
         fg_PSD_binned, edges = np.histogram(fs,bins=bins,weights=PSDs_unres)
 #        counts, edges_2 = np.histogram(fs,bins=bins)
@@ -222,41 +229,41 @@ class populations():
 #        fg_PSD_binned = (power_before/power_after)*fg_PSD_binned
         
         runmed_binned = medfilt(fg_PSD_binned,kernel_size=11)
-        
-        plt.figure()
-        det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=4*u.yr,confusion_noise=None,approximate_R=True)
-        response_lw = lw.psd.approximate_response_function(frange,fstar=1e-3)
-        det_PSD_robson = lw.psd.lisa_psd(frange*u.Hz,t_obs=4*u.yr,confusion_noise='robson19',approximate_R=True)
-        plt.plot(frange,det_PSD,color='black',ls='--',label='Detector PSD')
-        plt.plot(frange,det_PSD_robson,color='black',label='Detector PSD (R19)')
-        plt.plot(frange,response_lw*fg_PSD_binned/bin_widths,color='slategray',alpha=0.5,label='Foreground')
-        plt.plot(frange,response_lw*runmed_binned/bin_widths,color='teal',alpha=0.5,label='FG Running Median')
-        plt.plot(frange,response_lw*runmed_binned/bin_widths*(1/u.Hz)+det_PSD,color='mediumorchid',alpha=0.5,label='FG + Det. PSD')
-        plt.legend(loc='upper right')
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.ylim(1e-43,1e-34)
-        # plt.xlim(1e-4,1e-2)
-        plt.xlabel('Frquency [Hz]')
-        plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-        plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin.png', dpi=150)
-        plt.close()
-        ## zoom zoom
-        plt.figure()
-        plt.plot(frange,det_PSD,color='black',ls='--',label='Detector PSD')
-        plt.plot(frange,det_PSD_robson,color='black',label='Detector PSD (R19)')
-        plt.plot(frange,response_lw*fg_PSD_binned/bin_widths,color='slategray',alpha=0.5,label='Foreground')
-        plt.plot(frange,response_lw*runmed_binned/bin_widths,color='teal',alpha=0.5,label='FG Running Median')
-        plt.plot(frange,response_lw*runmed_binned/bin_widths*(1/u.Hz)+det_PSD,color='mediumorchid',alpha=0.5,label='FG + Det. PSD')
-        plt.legend(loc='upper right')
-        plt.xscale('log')
-        plt.yscale('log')
-        plt.ylim(1e-40,1e-35)
-        plt.xlim(2e-4,4e-3)
-        plt.xlabel('Frquency [Hz]')
-        plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-        plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin_zoom.png', dpi=150)
-        plt.close()
+        if plot == True:
+            plt.figure()
+            det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=4*u.yr,confusion_noise=None,approximate_R=True)
+            response_lw = lw.psd.approximate_response_function(frange,fstar=1e-3)
+            det_PSD_robson = lw.psd.lisa_psd(frange*u.Hz,t_obs=4*u.yr,confusion_noise='robson19',approximate_R=True)
+            plt.plot(frange,det_PSD,color='black',ls='--',label='Detector PSD')
+            plt.plot(frange,det_PSD_robson,color='black',label='Detector PSD (R19)')
+            plt.plot(frange,response_lw*fg_PSD_binned/bin_widths,color='slategray',alpha=0.5,label='Foreground')
+            plt.plot(frange,response_lw*runmed_binned/bin_widths,color='teal',alpha=0.5,label='FG Running Median')
+            plt.plot(frange,response_lw*runmed_binned/bin_widths*(1/u.Hz)+det_PSD,color='mediumorchid',alpha=0.5,label='FG + Det. PSD')
+            plt.legend(loc='upper right')
+            plt.xscale('log')
+            plt.yscale('log')
+            plt.ylim(1e-43,1e-34)
+            # plt.xlim(1e-4,1e-2)
+            plt.xlabel('Frquency [Hz]')
+            plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+            plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin.png', dpi=150)
+            plt.close()
+            ## zoom zoom
+            plt.figure()
+            plt.plot(frange,det_PSD,color='black',ls='--',label='Detector PSD')
+            plt.plot(frange,det_PSD_robson,color='black',label='Detector PSD (R19)')
+            plt.plot(frange,response_lw*fg_PSD_binned/bin_widths,color='slategray',alpha=0.5,label='Foreground')
+            plt.plot(frange,response_lw*runmed_binned/bin_widths,color='teal',alpha=0.5,label='FG Running Median')
+            plt.plot(frange,response_lw*runmed_binned/bin_widths*(1/u.Hz)+det_PSD,color='mediumorchid',alpha=0.5,label='FG + Det. PSD')
+            plt.legend(loc='upper right')
+            plt.xscale('log')
+            plt.yscale('log')
+            plt.ylim(1e-40,1e-35)
+            plt.xlim(2e-4,4e-3)
+            plt.xlabel('Frquency [Hz]')
+            plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
+            plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin_zoom.png', dpi=150)
+            plt.close()
         np.savetxt(self.params['out_dir'] + '/fg_test_inpop_postbin_runmed.txt', [frange,runmed_binned])
         ## safety check: conservation of total power just in case things go sideways for some reason
 #        if power_before != np.sum(fg_PSD_binned*bin_widths*u.Hz):
@@ -384,7 +391,7 @@ class populations():
         logskymap = np.log10(skymap)
         return skymap, logskymap
     
-    def pop2spec(self,popfile,frange,t_obs,SNR_cut=7,**read_csv_kwargs):
+    def pop2spec(self,popfile,frange,t_obs,SNR_cut=7,plot=True,**read_csv_kwargs):
         '''
         Function to calculate the foreground spectrum arising from a population catalogue of unresolved DWD binaries.
         
@@ -399,7 +406,7 @@ class populations():
         ## note, for now we are fixing t_obs=4yr for the purpose of determining which systems are unresolved!!
         snrs = self.get_snr(fs*u.Hz,hs,(4*u.yr).to(u.s))
         fs_unres, hs_unres = self.filter_by_snr(fs,snrs,SNR_cut=SNR_cut), self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)
-        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs).value
+        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs,plot=plot).value
         return fg_PSD
     
     def pop2spec_old(self,popfile,frange,t_obs,SNR_cut=7,**read_csv_kwargs):
