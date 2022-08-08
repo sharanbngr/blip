@@ -483,7 +483,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                 print("Constructing foreground spectrum from DWD population...")
                 ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
                 ## additional factor of 2 b/c S_GW = 2 * S_A
-                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 
+                Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'],plot=False)*4 
                 
 #                 plt.figure()
 #                 det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=self.params['dur']*u.s,confusion_noise=None,approximate_R=True)
@@ -574,9 +574,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     # converts alm_inj into a healpix max to be plotted and saved
                     # Plot with twice the analysis nside for better resolution
                     skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
-
                     Omegamap_inj = Omega_1mHz * skymap_inj
-
                     hp.graticule()
                     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
 
@@ -627,7 +625,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                             skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
                         elif self.inj['injbasis'] == 'pixel':
                             ## normalize so total power is from GW spectrum
-                            skymap_inj = DWD_FG_map/np.sum(DWD_FG_map)
+                            skymap_inj = DWD_FG_map/(np.sum(DWD_FG_map)*hp.pixelfunc.nside2pixarea(2*self.params['nside']))
                             self.skymap_inj = skymap_inj
                             summ_response_mat = np.einsum('ijklm,m', response_mat, skymap_inj)
                                 
@@ -654,7 +652,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         Omegamap_inj = Omega_1mHz * skymap_inj
     
                         
-                        hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
+                        hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map of $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
                         hp.graticule()
                         
                         plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
@@ -662,14 +660,14 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         plt.close()
                         
                         
-                        hp.mollview(DWD_FG_map, title='Simulated DWD Foreground skymap')
+                        hp.mollview(DWD_FG_map, coord=coord, title='Simulated DWD Foreground skymap')
                         hp.graticule()
                         plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                         plt.close()
                         if 'injbasis' in self.inj.keys():
                             if self.inj['injbasis'] == 'sph':
-                                hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), title='Simulated DWD Foreground alm map')
+                                hp.mollview(hp.alm2map(DWD_FG_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map', unit='Per-pixel Normalization Factor')
                                 hp.graticule()
                                 plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                                 print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
@@ -1306,7 +1304,9 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         #     DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         
         ## create logarithmic skymap for plotting purposes
-        log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+        DWD_FG_mapG_copy = DWD_FG_mapG
+        DWD_FG_mapG_copy[DWD_FG_mapG_copy<=0] = 1e-80
+        log_DWD_FG_mapG = np.log10(DWD_FG_mapG_copy)
         
 
         ## below isn't in the jupyter notebook?

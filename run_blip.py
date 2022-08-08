@@ -393,7 +393,10 @@ class LISA(LISAdata, likelihoods):
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
         np.savez(self.params['out_dir'] +'/noisespec.npz',C_noise=C_noise,fdata=self.fdata)
-#        plt.ylim([1e-43, 1e-39])
+        ## population injection drops to zero inside frequency range and squishes the plot
+        if self.inj['fg_spectrum'] == 'population':
+            ymin = 0.5*S1_gw[S1_gw>1e-50].min()
+            plt.ylim(bottom=ymin)
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
