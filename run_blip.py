@@ -255,13 +255,13 @@ class LISA(LISAdata, likelihoods):
             if self.inj['injtype'] == 'sph_sgwb' or self.inj['injtype'] == 'astro':
                 if self.inj['injtype'] == 'astro':
                     if self.inj['injbasis'] == 'sph':
-                        summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
+                        summ_response_mat = np.sum(self.add_astro_signal(self.f0, self.tsegmid)*self.alms_inj[None, None, None, None, :], axis=-1)
                     elif self.inj['injbasis'] == 'pixel':
                         summ_response_mat = np.einsum('ijklm,m', self.add_astro_signal(self.f0, self.tsegmid), self.skymap_inj)   
                     else:
                         raise ValueError("Unknown injection basis for astrophysical injection. Can be 'sph' or 'pixel'.")
                 else:
-                    summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
+                    summ_response_mat = np.sum(self.add_astro_signal(self.f0, self.tsegmid)*self.alms_inj[None, None, None, None, :], axis=-1)
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
                 R2 = np.real(summ_response_mat[1, 1, :, :])
@@ -269,9 +269,9 @@ class LISA(LISAdata, likelihoods):
 
             else:
                 # extra auto-power GW responses
-                R1 = np.real(self.response_mat[0, 0, :, :])
-                R2 = np.real(self.response_mat[1, 1, :, :])
-                R3 = np.real(self.response_mat[2, 2, :, :])
+                R1 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[0, 0, :, :])
+                R2 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[1, 1, :, :])
+                R3 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[2, 2, :, :])
 
 #            # SGWB signal levels of the mldc data
 #            Omega0, alpha = 10**self.inj['log_omega0'], self.inj['alpha']
@@ -511,18 +511,19 @@ def blip(paramsfile='params.ini',resume=False):
             inj['rh']          = float(config.get("inj", "rh"))
             inj['zh']          = float(config.get("inj", "zh"))
         ## only need to load these parameters is spectral inj isn't also population
-        elif inj['spatial_inj'] == 'population' and inj['spectral_inj'] != 'population':
-            inj['popfile']     = str(config.get("inj","popfile"))
-            inj['SNRcut']      = float(config.get("inj","SNRcut"))
-            colnames = str(config.get("inj","columns"))
-            colnames = colnames.split(',')
-            inj['columns'] = colnames
-            delimiter = str(config.get("inj","delimiter"))
-            if delimiter == 'space':
-                delimiter = ' '
-            elif delimiter == 'tab':
-                delimiter = '\t'
-            inj['delimiter'] = delimiter
+        elif inj['spatial_inj'] == 'population':
+            if inj['spectral_inj'] != 'population':
+                inj['popfile']     = str(config.get("inj","popfile"))
+                inj['SNRcut']      = float(config.get("inj","SNRcut"))
+                colnames = str(config.get("inj","columns"))
+                colnames = colnames.split(',')
+                inj['columns'] = colnames
+                delimiter = str(config.get("inj","delimiter"))
+                if delimiter == 'space':
+                    delimiter = ' '
+                elif delimiter == 'tab':
+                    delimiter = '\t'
+                inj['delimiter'] = delimiter
         elif inj['spatial_inj'] == 'sdg':
             print("WIP")
             # new sdg injection parameters:
