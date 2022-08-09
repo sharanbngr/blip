@@ -264,47 +264,45 @@ def fitmaker(params,parameters,inj):
     frange = np.fft.rfftfreq(Nperseg, 1.0/params['fs'])[1:]
     ffilt = (frange>params['fmin'])*(frange<params['fmax'])
     ## filter and downsample 
-    fs = (frange[ffilt][::100]).reshape(-1,1)
+    fs = frange[ffilt].reshape(-1,1)
+    fs = frange[ffilt][::10]
+#    if fs[-1] != frange[-1]:
+#        fs = np.append(fs,frange[-1])
+    fs = fs.reshape(-1,1)
     ## need to ensure population construction uses same frequencies as in BLIP
-    if inj['fg_spectrum']=='population':
+    if inj['spectral_inj']=='population':
         fs_inj = frange
     else:
         fs_inj = fs
     
 #     fs = np.logspace(np.log10(params['fmin']),np.log10(params['fmax']),100)
     ## foreground has a bunch of different models
-    if params['modeltype'] == 'dwd_fg':
-        if params['spectrum_model'] == 'broken_powerlaw':
-            alpha_1 = post[:,2]
-            log_A1 = post[:,3]
-            alpha_2 = post[:,2] - 0.667
-            log_A2 = post[:,4]
-            
-        elif params['spectrum_model'] == 'powerlaw':
-            alpha = post[:,2]
-            log_Omega0 = post[:,3]
-        elif params['spectrum_model'] == 'truncated':
-            print("No fit plotting support for truncated model (which is slated for removal soon). Sorry!")
-            return
-        else:
-            raise TypeError("Unrecognized foreground spectral model. Can be 'powerlaw' or 'broken_powerlaw'.")
-    ## otherwise basic power law
-    else:
+    if params['spectrum_model'] == 'broken_powerlaw':
+        alpha_1 = post[:,2]
+        log_A1 = post[:,3]
+        alpha_2 = post[:,2] - 0.667
+        log_A2 = post[:,4]
+        
+    elif params['spectrum_model'] == 'powerlaw':
         alpha = post[:,2]
         log_Omega0 = post[:,3]
-        
+    elif params['spectrum_model'] == 'truncated':
+        print("No fit plotting support for truncated model (which is slated for removal soon). Sorry!")
+        return
+    else:
+        raise TypeError("Unrecognized spectral model. Can be 'powerlaw' or 'broken_powerlaw'.")
 
     ## H0 def (SI)
     H0 = 2.2*10**(-18)
     
     ## get injected spectrum
-    if inj['fg_spectrum']=='powerlaw':
-        Omegaf_inj =(10**inj['ln_omega0'])*(fs/(params['fref']))**inj['alpha']
+    if inj['spectral_inj']=='powerlaw':
+        Omegaf_inj =(10**inj['log_omega0'])*(fs/(params['fref']))**inj['alpha']
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
-    elif inj['fg_spectrum']=='broken_powerlaw':
+    elif inj['spectral_inj']=='broken_powerlaw':
         Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
-    elif inj['fg_spectrum']=='population':
+    elif inj['spectral_inj']=='population':
         pop = populations(params,inj)
         Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,plot=False,names=inj['columns'],sep=inj['delimiter'])*4
     else:
@@ -387,29 +385,33 @@ def plotmaker(params,parameters, inj):
     ## setup the truevals dict
     truevals = []
 
-    if inj['injtype']=='isgwb':
+    ## spectral model
+    
+    if inj['injtype']=='noise_only':
 
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
-        truevals.append( inj['alpha'] )
-        truevals.append( inj['ln_omega0'] )
-
-    elif inj['injtype']=='noise_only':
-
-        truevals.append(inj['log_Np'])
-        truevals.append( inj['log_Na'])
-
+    
     elif inj['injtype'] =='isgwb_only':
 
         truevals.append( inj['alpha'] )
-        truevals.append( inj['ln_omega0'] )
-
-    elif inj['injtype']=='sph_sgwb':
-
+        truevals.append( inj['log_omega0'] )
+        
+    else:
         truevals.append(inj['log_Np'])
         truevals.append( inj['log_Na'])
-        truevals.append( inj['alpha'] )
-        truevals.append( inj['ln_omega0'] )
+        
+        if params['spectrum_model'] == inj['spectral_inj']:
+            if inj['spectral_inj']=='powerlaw':
+                truevals.append( inj['alpha'] )
+                truevals.append( inj['log_omega0'] )
+            elif inj['spectral_inj']=='broken_powerlaw':
+                truevals.append( inj['alpha1'] )
+                truevals.append( inj['log_A1'] )
+                truevals.append( inj['alpha1'] - 0.667)
+                truevals.append( inj['log_A2'] )
+    
+    if inj['injtype']=='sph_sgwb':
 
         ## get blms
         for lval in range(1, params['lmax'] + 1):
@@ -423,23 +425,9 @@ def plotmaker(params,parameters, inj):
                     truevals.append(np.abs(inj['blms'][idx]))
                     truevals.append(np.angle(inj['blms'][idx]))
 
-    elif inj['injtype']=='dwd_fg':
-
-        truevals.append(inj['log_Np'])
-        truevals.append( inj['log_Na'])
-        
-        if inj['fg_spectrum']=='powerlaw':
-            truevals.append( inj['alpha'] )
-            truevals.append( inj['ln_omega0'] )
-        elif inj['fg_spectrum']=='broken_powerlaw':
-            truevals.append( inj['alpha1'] )
-            truevals.append( inj['log_A1'] )
-            truevals.append( inj['alpha1'] - 0.667)
-            truevals.append( inj['log_A2'] )
-    if params['modeltype']=='dwd_fg':
-        if params['spectrum_model']=='broken_powerlaw':
-            ## need to transform alpha_1 samples to alpha_2
-            post = np.insert(post,4,post[:,2] - 0.667,axis=1)
+    if params['spectrum_model']=='broken_powerlaw':
+        ## need to transform alpha_1 samples to alpha_2
+        post = np.insert(post,4,post[:,2] - 0.667,axis=1)
             
     if len(truevals) > 0:
         knowTrue = 1 ## Bit for whether we know the true vals or not
