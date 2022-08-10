@@ -525,17 +525,21 @@ def blip(paramsfile='params.ini',resume=False):
                     delimiter = '\t'
                 inj['delimiter'] = delimiter
         elif inj['spatial_inj'] == 'sdg':
+            inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
+            inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
+            inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
+            inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
+            inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
+        elif inj['spatial_inj'] == 'point_source':
             print("WIP")
-            # new sdg injection parameters:
-#            inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
-#            inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
-#            inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
-#            inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
-#            inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
-        elif inj['spatial_inj'] == 'ps':
+            inj['theta'] = float(config.get("inj", "theta"))
+            inj['phi'] = float(config.get("inj", "phi"))
+        elif inj['spatial_inj'] == 'two_point':
             print("WIP")
-        elif inj['spatial_inj'] == 'tps':
-            print("WIP")
+            inj['theta_1'] = float(config.get("inj", "theta_1"))
+            inj['phi_1'] = float(config.get("inj", "phi_1"))
+            inj['theta_2'] = float(config.get("inj", "theta_2"))
+            inj['phi_2'] = float(config.get("inj", "phi_2"))
         else:
             raise TypeError("Unkown spatial injection type. Currently supported: 'breivik2020', 'population', 'sdg', 'ps', 'tps'.")
 

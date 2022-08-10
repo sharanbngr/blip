@@ -563,10 +563,20 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     elif self.inj['spatial_inj'] == 'sdg':
                         print("WIP")
                         astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
-                    elif self.inj['spatial_inj'] == 'ps':
+                    elif self.inj['spatial_inj'] == 'point_source':
                         print("WIP")
-                    elif self.inj['spatial_inj'] == 'tps':
+                        ## identify pixel with source
+                        ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
+                        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+                        ## set pixel magnitude to 1
+                        astro_map[ps_id] = 1 #/hp.pixelfunc.nside2pixarea(2*self.params['nside'])
+                    elif self.inj['spatial_inj'] == 'two_point':
                         print("WIP")
+                        ps_idx = [hp.ang2pix(2*self.params['nside'], self.inj['theta_1'], self.inj['phi_1']),
+                                  hp.ang2pix(2*self.params['nside'], self.inj['theta_2'], self.inj['phi_2'])]
+                        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+                        ## set pixel magnitudes to 1
+                        astro_map[ps_idx] = 0.5 #/hp.pixelfunc.nside2pixarea(2*self.params['nside'])
                     else:
                         raise ValueError("Unknown astrophysical spatial injection type ('spatial_inj'). Can be 'breivik2020', 'population', 'sdg', 'ps', or 'tps'.")     
                     

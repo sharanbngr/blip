@@ -601,9 +601,23 @@ class geometry(sph_geometry):
         if nside is None:
             nside = 2*self.params['nside']
         # Array of pixel indices
+        # special cases for point source & two-point injections to allow for high-res injections
+        # without manually computing the zero responses for many empty pixels
+        # re-add and deal with downstream issues if necessary
+#        if self.inj['injtype']=='astro' and self.inj['spatial_inj']=='point_source':
+#            npix = 1
+#            pix_idx = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
+#        elif self.inj['injtype']=='astro' and self.inj['spatial_inj']=='two_point':
+#            npix = 2
+#            pix_idx = [hp.ang2pix(10, self.inj['theta_1'], self.inj['phi_1']),hp.ang2pix(10, self.inj['theta_2'], self.inj['phi_2'])]
+#        else:
+#            npix = hp.nside2npix(nside)
+#            pix_idx  = np.arange(npix)
+        
+        # Array of pixel indices
         npix = hp.nside2npix(nside)
         pix_idx  = np.arange(npix)
-
+        
         #Angular coordinates of pixel indcides
         theta, phi = hp.pix2ang(nside, pix_idx)
 
