@@ -223,9 +223,21 @@ class likelihoods():
             ## add a negligible amount relative to the true Omegaf to avoid nan errors in log likelihood
             Omegaf = Omegaf*fcut + (self.fdata >= fcutoff)*np.min(Omegaf[Omegaf!=0])*1e-10
         ## WIP for population injections and broken power law
-        elif self.params['modeltype'] == 'dwd_fg' and self.params['spectrum_model'] == 'broken_powerlaw':
+        elif (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg') and self.params['spectrum_model'] == 'broken_powerlaw':
             ## this may just need to be an entirely separate likelihood tbh
             ## for now let's actually just hardcode the cutoff and second slope...
+            fcutoff = 10**self.inj['log_fcut']
+            alpha2 = self.inj['alpha2']
+            lowfilt = (self.fdata < fcutoff)
+            highfilt = np.invert(lowfilt)
+            Omega_cut = (10**log_omega0)*(fcutoff/(self.params['fref']))**alpha
+            Omegaf = lowfilt*(10**log_omega0)*(self.fdata/(self.params['fref']))**alpha + \
+                     highfilt*Omega_cut*(self.fdata/fcutoff)**alpha2
+        elif (self.params['modeltype'] == 'dwd_fg' or self.params['modeltype'] == 'dwd_sdg')  and self.params['spectrum_model'] == 'free_broken_powerlaw':
+            ## copied from above for now, need to edit for alpha2 to be correct #-s
+            # possible this section is unnecessary, doesn't make sense to use fbpl with this likelihood
+            # for now, this is here, but is incomplete; probably wrong
+            print("Warning: spectrum_model=free_broken_powerlaw not updated for use with modeltype=dwd_fg or dwd_sdg")
             fcutoff = 10**self.inj['log_fcut']
             alpha2 = self.inj['alpha2']
             lowfilt = (self.fdata < fcutoff)
@@ -299,6 +311,8 @@ class likelihoods():
 #            log_Np, log_Na, alpha, log_omega0, log_fcutoff, alpha_2  = theta[0],theta[1], theta[2], theta[3], theta[4], theta[5]
             log_Np, log_Na, alpha_1, log_A1, log_A2  = theta[0],theta[1], theta[2], theta[3], theta[4]
             alpha_2 = alpha_1 - 0.667
+        elif self.params['spectrum_model'] == 'free_broken_powerlaw': 
+            log_Np, log_Na, alpha_1, log_A1, alpha_2, log_A2  = theta[0], theta[1], theta[2], theta[3], theta[4], theta[5]
         elif self.params['spectrum_model'] == 'truncated_powerlaw':
             log_Np, log_Na, alpha, log_omega0, log_fcutoff  = theta[0],theta[1], theta[2], theta[3], theta[4]
         else:
@@ -322,7 +336,7 @@ class likelihoods():
 #            ## add a negligible amount relative to the true Omegaf to avoid nan errors in log likelihood
 #            Omegaf = Omegaf*fcut + (self.fdata >= fcutoff)*np.min(Omegaf[Omegaf!=0])*1e-10
         ## broken power law model
-        if self.params['spectrum_model'] == 'broken_powerlaw':
+        if self.params['spectrum_model'] == 'broken_powerlaw' or self.params['spectrum_model'] == 'free_broken_powerlaw': #-s
 #            lowfilt = (self.fdata < (10**log_fcutoff))
 #            highfilt = np.invert(lowfilt)
 #            Omega_cut = (10**log_omega0)*((10**log_fcutoff)/(self.params['fref']))**alpha
@@ -348,6 +362,8 @@ class likelihoods():
         ## broken powerlaw theta has more elements before the blms
         if self.params['spectrum_model'] == 'broken_powerlaw':
             blm_theta = theta[5:]
+        elif self.params['spectrum_model'] == 'free_broken_powerlaw':
+            blm_theta = theta[6:]
         elif self.params['spectrum_model'] == 'truncated_powerlaw':
             blm_theta = theta[5:]
         else:

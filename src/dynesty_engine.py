@@ -69,7 +69,7 @@ class dynesty_engine():
             signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
             blm_parameters = []
             ## add additional parameters
-            if params['spectrum_model'] == 'broken_powerlaw':
+            if params['spectrum_model'] == 'broken_powerlaw' or params['spectrum_model'] == 'free_broken_powerlaw':
 #                signal_parameters.extend([r'$\log_{10} (f_{cutoff})$',r'$\alpha_2$'])
                 signal_parameters = [r'$\alpha_1$',r'$\log_{10} (A_1)$',r'$\alpha_2$',r'$\log_{10} (A_2)$']
             elif params['spectrum_model'] == 'truncated_powerlaw':
@@ -91,9 +91,16 @@ class dynesty_engine():
             parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
             npar = len(all_parameters)
 
+            # I thought that the number of parameters is dealt with below with the spherical harmonics being off by 1, why is npar-1 here?
+            # I think perhaps npar-1 was needed to subtract alpha_2 from the normal bpl, rather than a spherical harmonic parameter
+            # Removing -1 from npar for fbpl should fix my problem with the number of thetas being wrong. It did. 
+
             if params['spectrum_model'] == 'broken_powerlaw':
                 engine = NestedSampler(lisaobj.fg_log_likelihood, cls.sph_prior_bpl,\
                     npar-1, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
+            elif params['spectrum_model'] == 'free_broken_powerlaw':
+                engine = NestedSampler(lisaobj.fg_log_likelihood, cls.sph_prior_fbpl,\
+                    npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
             elif params['spectrum_model'] == 'truncated_powerlaw':
                 engine = NestedSampler(lisaobj.fg_log_likelihood, cls.sph_prior_tpl,\
                     npar, bound='multi', sample='rslice', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
@@ -473,6 +480,80 @@ class dynesty_engine():
 
         return theta
     
+    def sph_prior_fbpl(theta):
+
+        '''
+        Prior for a power spectra based spherical harmonic anisotropic analysis with a broken power law spectral model. 
+        The same as the previous broken power law, but without asymptoting to a specific value, alpha1 and alpha2 are independent.
+        The constraint that alpha_1 -alpha_2 = 2/3 is removed, and they are made independent parameters.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, fcutoff, alpha2, Np and Na. The first element is always alpha and the last two are always Np and Na (I think this is just wrong #-s)
+        '''
+
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
+        
+        # Prior on alpha_1, alpha_2
+        # For LMC, removed additional constraint that alpha_1 - alpha_2 = 2/3
+        alpha_1 = 34*theta[2] - 20
+        alpha_2 = 34*theta[4] - 20
+        
+        # Prior on A1 and A2
+        log_A1 = -55*theta[3] + 10 
+        log_A2 = -55*theta[5] + 10
+        
+#        # Prior on fcutoff and alpha2
+#        log_fcutoff = 1*theta[4] - 3.3
+    #    alpha2 = 21*theta[5] - 20
+
+        # Calculate lmax from the size of theta blm arrays. The shape is
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
+        # an independent parameter
+        lmax = np.sqrt( theta[6:].size + 1 ) - 1
+        
+        if lmax.is_integer():
+            lmax = int(lmax)
+        else:
+            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+
+        # The rest of the priors define the blm parameter space
+        blm_theta = []
+
+        ## counter for the rest of theta
+        cnt = 6
+
+        for lval in range(1, lmax + 1):
+            for mval in range(lval + 1):
+
+                if mval == 0:
+                    blm_theta.append(6*theta[cnt] - 3)
+                    cnt = cnt + 1
+                else:
+
+                    # prior on real and imaginary parts
+                    # blm_theta.append(6*theta[cnt] - 3)
+                    # blm_theta.append(6*theta[cnt + 1] - 3)
+
+                    ## prior on amplitude, phase
+                    blm_theta.append(3* theta[cnt])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    cnt = cnt + 2
+
+        theta = [log_Np, log_Na, alpha_1, log_A1, alpha_2, log_A2] + blm_theta
+
+        return theta
+
     @staticmethod
     def sph_prior_tpl(theta):
 

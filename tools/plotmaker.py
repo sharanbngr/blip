@@ -20,7 +20,7 @@ def mapmaker(params, post, parameters, saveto=None):
         blm_start = len(parameters['noise']) + len(parameters['signal'])
         ## deal with extra parameter in broken_powerlaw:
         if 'spectrum_model' in params.keys():
-            if params['spectrum_model']=='broken_powerlaw':
+            if params['spectrum_model']=='broken_powerlaw' or params['spectrum_model']=='free_broken_powerlaw':
                 blm_start = blm_start - 1
         
     elif type(parameters) is list:
@@ -54,6 +54,12 @@ def mapmaker(params, post, parameters, saveto=None):
                 log_A1 = sample[3]
                 alpha_2 = sample[2] - 0.667
                 log_A2 = sample[4]
+                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+            if params['spectrum_model']=='free_broken_powerlaw': 
+                alpha_1 = sample[2]
+                log_A1 = sample[3]
+                alpha_2 = sample[4]
+                log_A2 = sample[5]
                 Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
             elif params['spectrum_model'] == 'powerlaw':
                 alpha = sample[2]
@@ -151,6 +157,12 @@ def mapmaker(params, post, parameters, saveto=None):
             log_A1 = med_vals[3]
             alpha_2 = med_vals[2] - 0.667
             log_A2 = med_vals[4]
+            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+        elif params['spectrum_model']=='free_broken_powerlaw': 
+            alpha_1 = med_vals[2]
+            log_A1 = med_vals[3]
+            alpha_2 = med_vals[4] 
+            log_A2 = med_vals[5]
             Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
         else:
             if params['spectrum_model'] != 'powerlaw':
@@ -273,7 +285,11 @@ def fitmaker(params,parameters,inj):
             log_A1 = post[:,3]
             alpha_2 = post[:,2] - 0.667
             log_A2 = post[:,4]
-            
+        elif params['spectrum_model']=='free_broken_powerlaw': 
+            alpha_1 = post[:,2]
+            log_A1 = post[:,3]
+            alpha_2 = post[:,4] 
+            log_A2 = post[:,5]
         elif params['spectrum_model'] == 'powerlaw':
             alpha = post[:,2]
             log_Omega0 = post[:,3]
@@ -281,7 +297,7 @@ def fitmaker(params,parameters,inj):
             print("No fit plotting support for truncated model (which is slated for removal soon). Sorry!")
             return
         else:
-            raise TypeError("Unrecognized foreground spectral model. Can be 'powerlaw' or 'broken_powerlaw'.")
+            raise TypeError("Unrecognized foreground spectral model. Can be 'powerlaw' or 'broken_powerlaw' or 'free_broken_powerlaw'.")
     ## otherwise basic power law
     else:
         alpha = post[:,2]
@@ -297,10 +313,10 @@ def fitmaker(params,parameters,inj):
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
     elif inj['fg_spectrum']=='broken_powerlaw':
         Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
-        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2 
     elif inj['fg_spectrum']=='population':
         pop = populations(params,inj)
-        Sgw_inj = pop.pop2spec(inj['popfile'],fs.flatten(),params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4
+        Sgw_inj = pop.pop2spec(inj['popfile'],fs.flatten(),params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4 
     else:
         print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
         return
@@ -309,7 +325,7 @@ def fitmaker(params,parameters,inj):
     
     
     ## get recovered spectrum
-    if params['spectrum_model']=='broken_powerlaw':
+    if params['spectrum_model']=='broken_powerlaw' or params['spectrum_model']=='free_broken_powerlaw': 
         Omegaf = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
     else:
         Omegaf = (10**log_Omega0)*(fs/(params['fref']))**alpha
@@ -374,7 +390,7 @@ def plotmaker(params,parameters, inj):
             
     ## if spectral fit type is supported, call the fitmaker.
     if 'spectrum_model' in params.keys():
-        if params['spectrum_model']=='powerlaw' or params['spectrum_model']=='broken_powerlaw':
+        if params['spectrum_model']=='powerlaw' or params['spectrum_model']=='broken_powerlaw' or params['spectrum_model']=='free_broken_powerlaw':
             fitmaker(params,parameters,inj)
 
 
