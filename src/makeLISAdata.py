@@ -561,17 +561,27 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         astro_map, log_astro_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,
                                                                   self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
                     elif self.inj['spatial_inj'] == 'sdg':
-                        print("WIP")
                         astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
                     elif self.inj['spatial_inj'] == 'point_source':
-                        print("WIP")
-                        ## identify pixel with source
-                        ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
-                        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
-                        ## set pixel magnitude to 1
-                        astro_map[ps_id] = 1 #/hp.pixelfunc.nside2pixarea(2*self.params['nside'])
+                        if self.inj['injbasis'] == 'sph':
+                            ## identify pixel with source
+                            ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
+                            astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+                            ## set pixel magnitude to 1
+                            astro_map[ps_id] = 1
+                        elif self.inj['injbasis'] == 'pixel':
+                            ## note that a single-pixel map causes numerical issues in np.linalg.cholesky (numerical error causes numpy to believe the response matrix is not postive-definite)
+                            ## solution: add a very small amount of power to all adjacent pixels
+                            astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+                            ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
+                            ## set pixel magnitude to 1
+                            astro_map[ps_id] = 1
+                            neighbours = hp.pixelfunc.get_all_neighbours(2*self.params['nside'],ps_id)
+                            astro_map[neighbours] = 1e-10
+                            
+                        else:
+                            raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
                     elif self.inj['spatial_inj'] == 'two_point':
-                        print("WIP")
                         ps_idx = [hp.ang2pix(2*self.params['nside'], self.inj['theta_1'], self.inj['phi_1']),
                                   hp.ang2pix(2*self.params['nside'], self.inj['theta_2'], self.inj['phi_2'])]
                         astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
@@ -602,7 +612,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         skymap_inj = astro_map/(np.sum(astro_map)*hp.pixelfunc.nside2pixarea(2*self.params['nside']))
                         self.skymap_inj = skymap_inj
                         summ_response_mat = np.einsum('ijklm,m', response_mat, skymap_inj)
-                  
+                    else:
+                        raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
                     ## get Omega(1mHz)
                     if self.inj['spectral_inj'] == 'powerlaw':
                         Omega_1mHz = 10**(self.inj['log_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
