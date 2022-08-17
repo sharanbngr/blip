@@ -458,6 +458,9 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             alpha_2 = self.inj['alpha1'] - 0.667
             Omegaf = ((10**self.inj['log_A1'])*(frange/self.params['fref'])**self.inj['alpha1'])/(\
                      1 + (10**self.inj['log_A2'])*(frange/self.params['fref'])**alpha_2)
+        elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
+            Omegaf = ((10**self.inj['log_A1'])*(frange/self.params['fref'])**self.inj['alpha1'])/(\
+                     1 + (10**self.inj['log_A2'])*(frange/self.params['fref'])**self.inj['alpha2'])
         elif self.inj['spectral_inj'] == 'population':
             print("Constructing foreground spectrum from DWD population...")
             ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
@@ -517,6 +520,12 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         alpha_1 = self.inj['alpha1']
                         log_A1 = self.inj['log_A1']
                         alpha_2 = self.inj['alpha1'] - 0.667
+                        log_A2 = self.inj['log_A2']
+                        Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
+                    elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
+                        alpha_1 = self.inj['alpha1']
+                        log_A1 = self.inj['log_A1']
+                        alpha_2 = self.inj['alpha2']
                         log_A2 = self.inj['log_A2']
                         Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
                     elif self.inj['spectral_inj'] == 'population':
@@ -601,7 +610,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
     
                         ## extrct only the non-negative components
                         alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
-                                            ## response matrix summed over Ylms
+                        ## response matrix summed over Ylms
                         summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
     
                         # converts alm_inj into a healpix map to be plotted and saved
@@ -609,9 +618,10 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
                     elif self.inj['injbasis'] == 'pixel':
                         ## normalize so total power is from GW spectrum
-                        skymap_inj = astro_map/(np.sum(astro_map)*hp.pixelfunc.nside2pixarea(2*self.params['nside']))
+                        skymap_inj = astro_map/(np.sum(astro_map)) 
                         self.skymap_inj = skymap_inj
-                        summ_response_mat = np.einsum('ijklm,m', response_mat, skymap_inj)
+                        ## take sum over all sky directions
+                        summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside'])/(8*np.pi))*np.einsum('ijklm,m', response_mat, skymap_inj)
                     else:
                         raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
                     ## get Omega(1mHz)
@@ -621,6 +631,12 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         alpha_1 = self.inj['alpha1']
                         log_A1 = self.inj['log_A1']
                         alpha_2 = self.inj['alpha1'] - 0.667
+                        log_A2 = self.inj['log_A2']
+                        Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
+                    elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
+                        alpha_1 = self.inj['alpha1']
+                        log_A1 = self.inj['log_A1']
+                        alpha_2 = self.inj['alpha2']
                         log_A2 = self.inj['log_A2']
                         Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
                     elif self.inj['spectral_inj'] == 'population':
@@ -845,8 +861,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
     
     def skymap_pix2sph(self, pixmap):
         '''
-        Transform the foreground produced in generate_galactic_foreground() into
-        b_lm spherical harmonic basis
+        Transform a pixel-basis power skymap into the b_lm spherical harmonic basis
         
         Returns
         ---------

@@ -600,20 +600,7 @@ class geometry(sph_geometry):
         '''
         if nside is None:
             nside = 2*self.params['nside']
-        # Array of pixel indices
-        # special cases for point source & two-point injections to allow for high-res injections
-        # without manually computing the zero responses for many empty pixels
-        # re-add and deal with downstream issues if necessary
-#        if self.inj['injtype']=='astro' and self.inj['spatial_inj']=='point_source':
-#            npix = 1
-#            pix_idx = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
-#        elif self.inj['injtype']=='astro' and self.inj['spatial_inj']=='two_point':
-#            npix = 2
-#            pix_idx = [hp.ang2pix(10, self.inj['theta_1'], self.inj['phi_1']),hp.ang2pix(10, self.inj['theta_2'], self.inj['phi_2'])]
-#        else:
-#            npix = hp.nside2npix(nside)
-#            pix_idx  = np.arange(npix)
-        
+
         # Array of pixel indices
         npix = hp.nside2npix(nside)
         pix_idx  = np.arange(npix)
@@ -727,25 +714,13 @@ class geometry(sph_geometry):
             F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
             F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
 
-            R1[ii, :, :] = dOmega/(8*np.pi)*F1 #np.einsum('ij, jk', F1, Ylms)
-            R2[ii, :, :] = dOmega/(8*np.pi)*F2 #np.einsum('ij, jk', F2, Ylms)
-            R3[ii, :, :] = dOmega/(8*np.pi)*F3 #np.einsum('ij, jk', F3, Ylms)
-            R12[ii, :, :] = dOmega/(8*np.pi)*F12 #np.einsum('ij, jk', F12, Ylms)
-            R13[ii, :, :] = dOmega/(8*np.pi)*F13 #np.einsum('ij, jk', F13, Ylms)
-            R23[ii, :, :] = dOmega/(8*np.pi)*F23 #np.einsum('ij, jk', F23, Ylms)
-#            R21[ii, :, :] = dOmega/(8*np.pi)*np.conj(F12) #np.einsum('ij, jk', np.conj(F12), Ylms)
-#            R31[ii, :, :] = dOmega/(8*np.pi)*np.conj(F13) #np.einsum('ij, jk', np.conj(F13), Ylms)
-#            R32[ii, :, :] = dOmega/(8*np.pi)*np.conj(F23) #np.einsum('ij, jk', np.conj(F23), Ylms)
-            ## Detector response summed over polarization and integrated over sky direction
-            ## The travel time phases for the which are relevent for the cross-channel are
-            ## accounted for in the Fplus and Fcross expressions above.
-#            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )
-#            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )
-#            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )
-#            R12[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)
-#            R13[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)
-#            R23[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)
-#        response_mat = np.array([ [R1, R12, R13] , [R21, R2, R23], [R31, R32, R3] ])
+            R1[ii, :, :] = 1/(8*np.pi)*F1 #np.einsum('ij, jk', F1, Ylms)
+            R2[ii, :, :] = 1/(8*np.pi)*F2 #np.einsum('ij, jk', F2, Ylms)
+            R3[ii, :, :] = 1/(8*np.pi)*F3 #np.einsum('ij, jk', F3, Ylms)
+            R12[ii, :, :] = 1/(8*np.pi)*F12 #np.einsum('ij, jk', F12, Ylms)
+            R13[ii, :, :] = 1/(8*np.pi)*F13 #np.einsum('ij, jk', F13, Ylms)
+            R23[ii, :, :] = 1/(8*np.pi)*F23 #np.einsum('ij, jk', F23, Ylms)
+            
         response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
         return response_mat
    

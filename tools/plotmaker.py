@@ -55,6 +55,12 @@ def mapmaker(params, post, parameters, saveto=None):
                 alpha_2 = sample[2] - 0.667
                 log_A2 = sample[4]
                 Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+            elif params['spectrum_model']=='free_broken_powerlaw':
+                alpha_1 = sample[2]
+                log_A1 = sample[3]
+                alpha_2 = sample[4]
+                log_A2 = sample[5]
+                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
             elif params['spectrum_model'] == 'powerlaw':
                 alpha = sample[2]
                 log_Omega0 = sample[3]
@@ -152,6 +158,12 @@ def mapmaker(params, post, parameters, saveto=None):
             alpha_2 = med_vals[2] - 0.667
             log_A2 = med_vals[4]
             Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+        elif params['spectrum_model']=='free_broken_powerlaw':
+            alpha_1 = med_vals[2]
+            log_A1 = med_vals[3]
+            alpha_2 = med_vals[4]
+            log_A2 = med_vals[5]
+            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
         else:
             if params['spectrum_model'] != 'powerlaw':
                 print("Unknown spectral model. Defaulting to power law...")
@@ -230,33 +242,7 @@ def fitmaker(params,parameters,inj):
 
     inj : dictionary
         Dictionary of injection params
-    '''
-#    ## get samples
-#    post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
-#    
-#    fs = np.logspace(np.log10(params['fmin']),np.log10(params['fmax']),100)
-#    ## foreground has a bunch of different models
-#    if params['modeltype'] == 'dwd_fg':
-#        if params['spectrum_model'] == 'broken_powerlaw':
-#            alpha_1 = post[:,2]
-#            log_A1 = post[:,3]
-#            alpha_2 = post[:,2] - 0.667
-#            log_A2 = post[:,4]
-#            median = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
-#            
-#        elif params['spectrum_model'] == 'powerlaw':
-#            log_Omega0 = post[:,2]
-#            alpha = post[:,3]
-#        elif params['spectrum_model'] == 'truncated':
-#            print("No fit plotting support for truncated model (which is slated for removal soon). Sorry!")
-#            return
-#        else:
-#            raise TypeError("Unrecognized foreground spectral model. Can be 'powerlaw' or 'broken_powerlaw'.")
-#    ## otherwise basic power law
-#    else:
-#        log_Omega0 = post[:,2]
-#        alpha = post[:,3]
-        
+    '''        
     ## get samples
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
     ## get frequencies
@@ -266,8 +252,6 @@ def fitmaker(params,parameters,inj):
     ## filter and downsample 
     fs = frange[ffilt].reshape(-1,1)
     fs = frange[ffilt][::10]
-#    if fs[-1] != frange[-1]:
-#        fs = np.append(fs,frange[-1])
     fs = fs.reshape(-1,1)
     ## need to ensure population construction uses same frequencies as in BLIP
     if inj['spectral_inj']=='population':
@@ -275,14 +259,16 @@ def fitmaker(params,parameters,inj):
     else:
         fs_inj = fs
     
-#     fs = np.logspace(np.log10(params['fmin']),np.log10(params['fmax']),100)
-    ## foreground has a bunch of different models
     if params['spectrum_model'] == 'broken_powerlaw':
         alpha_1 = post[:,2]
         log_A1 = post[:,3]
         alpha_2 = post[:,2] - 0.667
         log_A2 = post[:,4]
-        
+    elif params['spectrum_model'] == 'free_broken_powerlaw':
+        alpha_1 = post[:,2]
+        log_A1 = post[:,3]
+        alpha_2 = post[:,4]
+        log_A2 = post[:,5]
     elif params['spectrum_model'] == 'powerlaw':
         alpha = post[:,2]
         log_Omega0 = post[:,3]
@@ -302,6 +288,9 @@ def fitmaker(params,parameters,inj):
     elif inj['spectral_inj']=='broken_powerlaw':
         Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+    elif inj['spectral_inj']=='free_broken_powerlaw':
+        Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha2']))
+        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2
     elif inj['spectral_inj']=='population':
         pop = populations(params,inj)
         Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,plot=False,names=inj['columns'],sep=inj['delimiter'])*4
@@ -313,7 +302,7 @@ def fitmaker(params,parameters,inj):
     
     
     ## get recovered spectrum
-    if params['spectrum_model']=='broken_powerlaw':
+    if params['spectrum_model']=='broken_powerlaw' or params['spectrum_model']=='free_broken_powerlaw':
         Omegaf = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
     else:
         Omegaf = (10**log_Omega0)*(fs/(params['fref']))**alpha
@@ -378,8 +367,7 @@ def plotmaker(params,parameters, inj):
             
     ## if spectral fit type is supported, call the fitmaker.
     if 'spectrum_model' in params.keys():
-        if params['spectrum_model']=='powerlaw' or params['spectrum_model']=='broken_powerlaw':
-            fitmaker(params,parameters,inj)
+        fitmaker(params,parameters,inj)
 
 
     ## setup the truevals dict
@@ -409,6 +397,11 @@ def plotmaker(params,parameters, inj):
                 truevals.append( inj['alpha1'] )
                 truevals.append( inj['log_A1'] )
                 truevals.append( inj['alpha1'] - 0.667)
+                truevals.append( inj['log_A2'] )
+            elif inj['spectral_inj']=='free_broken_powerlaw':
+                truevals.append( inj['alpha1'] )
+                truevals.append( inj['log_A1'] )
+                truevals.append( inj['alpha2'])
                 truevals.append( inj['log_A2'] )
     
     if inj['injtype']=='sph_sgwb':

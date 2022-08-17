@@ -306,6 +306,20 @@ class LISA(LISAdata, likelihoods):
     
                 # The total noise spectra is the sum of the instrumental + astrophysical
                 S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+
+                plt.close()
+                plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+            elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
+                Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
+                     1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**self.inj['alpha2'])
+                # Power spectra of the SGWB
+                Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)
+                
+                # Spectrum of the SGWB signal convolved with the detector response tensor.
+                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+    
+                # The total noise spectra is the sum of the instrumental + astrophysical
+                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
     
                 plt.close()
                 plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
@@ -479,6 +493,11 @@ def blip(paramsfile='params.ini',resume=False):
             inj['alpha']       = float(config.get("inj", "alpha"))
         elif inj['spectral_inj'] == 'broken_powerlaw':
             inj['alpha1']     = float(config.get("inj", "alpha1"))
+            inj['log_A1']      = float(config.get("inj", "log_A1"))
+            inj['log_A2']      = float(config.get("inj", "log_A2"))
+        elif inj['spectral_inj'] == 'free_broken_powerlaw':
+            inj['alpha1']     = float(config.get("inj", "alpha1"))
+            inj['alpha2']     = float(config.get("inj", "alpha2"))
             inj['log_A1']      = float(config.get("inj", "log_A1"))
             inj['log_A2']      = float(config.get("inj", "log_A2"))
         elif inj['spectral_inj'] == 'population' :
