@@ -328,7 +328,7 @@ class LISA(LISAdata, likelihoods):
                 ## need to use the same frequencies as during the data generation process
                 N_spec=int(self.params['fs']*self.params['dur'])
                 fs_spec = np.fft.rfftfreq(N_spec, 1.0/self.params['fs'])[1:]
-                Sgw_fine = self.pop2spec(self.inj['popfile'],fs_spec,self.params['dur']*u.s,plot=False,names=self.inj['columns'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                Sgw_fine = self.pop2spec(self.inj['popfile'],fs_spec,self.params['dur']*u.s,plot=False,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
                 ## now downsample to the frequencies at which we've evaluated the response
                 interp = interp1d(fs_spec,Sgw_fine)
                 Sgw = interp(self.fdata)
