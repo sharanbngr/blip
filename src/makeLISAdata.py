@@ -446,9 +446,6 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         fstar = 3e8/(2*np.pi*self.armlength)
         f0 = frange/(2*fstar)
 
-        ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-        response_mat = self.add_astro_signal(f0, tmids)
-
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
@@ -495,6 +492,11 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         for ii in range(nsplice):
 
             if self.inj['injtype'] == 'isgwb':
+                
+                if ii == 0:
+                    ## Response matrix : shape (3 x 3 x freq x time) if isotropic
+                    response_mat = self.add_astro_signal(f0, tmids)
+                
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
 
@@ -504,6 +506,9 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
                     ## need to set up a few things before doing the spherical harmonic inj
 
+                    ## Response matrix : shape (3 x 3 x freq x time x num_alms) if sph
+                    response_mat = self.add_astro_signal(f0, tmids)
+                    
                     ## extract alms
                     self.alms_inj = self.blm_2_alm(self.inj['blms'])
 
@@ -588,6 +593,14 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                             neighbours = hp.pixelfunc.get_all_neighbours(2*self.params['nside'],ps_id)
                             astro_map[neighbours] = 1e-10
                             
+#                            astro_map = np.zeros(hp.nside2npix(self.params['nside']))
+#                            ps_id = hp.ang2pix(self.params['nside'], self.inj['theta'], self.inj['phi'])
+#                            ## set pixel magnitude to 1
+#                            astro_map[ps_id] = 1
+#                            neighbours = hp.pixelfunc.get_all_neighbours(self.params['nside'],ps_id)
+#                            astro_map[neighbours] = 1e-10
+#                            astro_map = hp.pixelfunc.ud_grade(astro_map,2*self.params['nside'])
+                            
                         else:
                             raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
                     elif self.inj['spatial_inj'] == 'two_point':
@@ -600,6 +613,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         raise ValueError("Unknown astrophysical spatial injection type ('spatial_inj'). Can be 'breivik2020', 'population', 'sdg', 'ps', or 'tps'.")     
                     
                     if self.inj['injbasis'] == 'sph':
+                        ## Response matrix : shape (3 x 3 x freq x time x num_alms) if sph
+                        response_mat = self.add_astro_signal(f0, tmids)
                         ## convert to blms
                         astro_sph = self.skymap_pix2sph(astro_map)
                         ## extract alms
@@ -616,12 +631,35 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         # converts alm_inj into a healpix map to be plotted and saved
                         # Plot with twice the analysis nside for better resolution
                         skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+                        self.skymap_inj = skymap_inj
                     elif self.inj['injbasis'] == 'pixel':
                         ## normalize so total power is from GW spectrum
-                        skymap_inj = astro_map/(np.sum(astro_map)) 
+                        skymap_inj = astro_map/(np.sum(astro_map)*hp.pixelfunc.nside2pixarea(2*self.params['nside'])) 
                         self.skymap_inj = skymap_inj
-                        ## take sum over all sky directions
-                        summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside'])/(8*np.pi))*np.einsum('ijklm,m', response_mat, skymap_inj)
+                        ## get pixel indices with nonzero power
+                        nonzero_pix = np.flatnonzero(skymap_inj)
+#                        import pdb; pdb.set_trace()
+                        if self.inj['pixel_opt'] == 'time':
+                            ## Response matrix : shape (3 x 3 x freq x time x npix) if pixel-basis
+                            response_mat = self.add_astro_signal(f0, tmids, nonzero_pix, 2*self.params['nside'])
+                            ## take sum over all sky directions
+#                            summ_response_mat = np.einsum('ijklm,m', response_mat, skymap_inj[nonzero_pix])
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*np.einsum('ijklm,m', response_mat, skymap_inj[nonzero_pix])
+                        elif self.inj['pixel_opt'] == 'memory':
+                            for i, pix_i in enumerate(nonzero_pix):
+                                ## Response matrix : shape (3 x 3 x freq x time x 1) for each pixel
+                                response_mat_i = self.add_astro_signal(f0, tmids, np.array([pix_i]), 2*self.params['nside'])
+                                ## take sum over all sky directions
+                                if i == 0:
+                                    summ_response_mat = np.einsum('ijklm,m', response_mat_i, skymap_inj[pix_i].reshape(1))
+#                                    summ_response_mat = response_mat_i*skymap_inj[pix_i] #np.einsum('ijklm,m', response_mat, skymap_inj)
+                                else:
+                                    summ_response_mat += np.einsum('ijklm,m', response_mat_i, skymap_inj[pix_i].reshape(1))
+                            ## angular integral prefactor
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*summ_response_mat
+                        else:
+                            ## we should probably have a default here instead.
+                            raise ValueError("Unknown optimization strategy for pixel basis injection. Can be 'time' or 'memory'.")
                     else:
                         raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
                     ## get Omega(1mHz)

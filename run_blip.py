@@ -7,6 +7,7 @@ from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
 from astropy import units as u
+import healpy as hp
 from multiprocessing import Pool
 import time
 from scipy.interpolate import interp1d
@@ -193,11 +194,11 @@ class LISA(LISAdata, likelihoods):
         elif self.inj['injtype']=='astro':
             if self.inj['injbasis']=='pixel':
                 if self.params['tdi_lev']=='michelson':
-                    self.add_astro_signal = self.pixel_mich_response
+                    self.add_astro_signal = self.directional_pixel_mich_response
                 elif self.params['tdi_lev']=='aet':
-                    self.add_astro_signal = self.pixel_aet_response
+                    self.add_astro_signal = self.directional_pixel_aet_response
                 elif self.params['tdi_lev']=='xyz':
-                    self.add_astro_signal = self.pixel_xyz_response
+                    self.add_astro_signal = self.directional_pixel_xyz_response
             elif self.inj['injbasis']=='sph':
                 if self.params['tdi_lev']=='michelson':
                     self.add_astro_signal = self.asgwb_mich_response
@@ -257,7 +258,36 @@ class LISA(LISAdata, likelihoods):
                     if self.inj['injbasis'] == 'sph':
                         summ_response_mat = np.sum(self.add_astro_signal(self.f0, self.tsegmid)*self.alms_inj[None, None, None, None, :], axis=-1)
                     elif self.inj['injbasis'] == 'pixel':
-                        summ_response_mat = np.einsum('ijklm,m', self.add_astro_signal(self.f0, self.tsegmid), self.skymap_inj)   
+                        ## get pixel indices with nonzero power
+                        nonzero_pix = np.flatnonzero(self.skymap_inj)
+#                        import pdb; pdb.set_trace()
+                        if self.inj['pixel_opt'] == 'time':
+                            ## Response matrix : shape (3 x 3 x freq x time x npix) if pixel-basis
+                            response_mat = self.add_astro_signal(self.f0, self.tsegmid, nonzero_pix, 2*self.params['nside'])
+                            ## take sum over all sky directions
+#                            summ_response_mat = np.einsum('ijklm,m', response_mat, self.skymap_inj[nonzero_pix])
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*np.einsum('ijklm,m', response_mat, self.skymap_inj[nonzero_pix])
+                        elif self.inj['pixel_opt'] == 'memory':
+                            
+                            for i, pix_i in enumerate(nonzero_pix):
+                                ## Response matrix : shape (3 x 3 x freq x time x 1) for each pixel
+                                response_mat_i = self.add_astro_signal(self.f0, self.tsegmid, np.array([pix_i]), 2*self.params['nside'])
+                                ## take sum over all sky directions
+                                if i == 0:
+                                    summ_response_mat = np.einsum('ijklm,m', response_mat_i, self.skymap_inj[pix_i].reshape(1))
+#                                    summ_response_mat = response_mat_i*skymap_inj[pix_i] #np.einsum('ijklm,m', response_mat, skymap_inj)
+                                else:
+                                    summ_response_mat += np.einsum('ijklm,m', response_mat_i, self.skymap_inj[pix_i].reshape(1))
+#                                if i == 0:
+#                                    summ_response_mat = response_mat_i*self.skymap_inj[pix_i] #np.einsum('ijklm,m', response_mat, skymap_inj)
+#                                else:
+#                                    summ_response_mat += response_mat_i*self.skymap_inj[pix_i]
+                            ## angular integral prefactor
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*summ_response_mat
+                        else:
+                            ## we should probably have a default here instead.
+                            raise ValueError("Unknown optimization strategy for pixel basis injection. Can be 'time' or 'memory'.")
+#                        summ_response_mat = np.einsum('ijklm,m', self.add_astro_signal(self.f0, self.tsegmid), self.skymap_inj)   
                     else:
                         raise ValueError("Unknown injection basis for astrophysical injection. Can be 'sph' or 'pixel'.")
                 else:
@@ -355,6 +385,9 @@ class LISA(LISAdata, likelihoods):
         plt.ylabel('PSD 1/Hz ')
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
+        print("PSD value at 1e-4 Hz is {}".format(np.mean(S1_gw,axis=1)[0]))
+        print("Sum of skymap is {}".format(np.sum(self.skymap_inj)))
+        print("Sum of skymap x dOmega is {}".format(np.sum(self.skymap_inj)*hp.pixelfunc.nside2pixarea(2*self.params['nside'])))
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
         plt.close()
 
@@ -526,6 +559,8 @@ def blip(paramsfile='params.ini',resume=False):
     elif inj['injtype'] == 'astro':
         inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
         inj['injbasis'] = str(config.get("inj", "injbasis"))
+        if inj['injbasis'] == 'pixel':
+            inj['pixel_opt'] = str(config.get("inj", "pixel_opt"))
         if inj['spatial_inj'] == 'breivik2020':
             inj['rh']          = float(config.get("inj", "rh"))
             inj['zh']          = float(config.get("inj", "zh"))
