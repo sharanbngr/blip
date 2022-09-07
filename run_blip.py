@@ -263,15 +263,15 @@ class LISA(LISAdata, likelihoods):
 #                        import pdb; pdb.set_trace()
                         if self.inj['pixel_opt'] == 'time':
                             ## Response matrix : shape (3 x 3 x freq x time x npix) if pixel-basis
-                            response_mat = self.add_astro_signal(self.f0, self.tsegmid, nonzero_pix, 2*self.params['nside'])
+                            response_mat = self.add_astro_signal(self.f0, self.tsegmid, nonzero_pix, self.params['nside'])
                             ## take sum over all sky directions
 #                            summ_response_mat = np.einsum('ijklm,m', response_mat, self.skymap_inj[nonzero_pix])
-                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*np.einsum('ijklm,m', response_mat, self.skymap_inj[nonzero_pix])
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(self.params['nside']))*np.einsum('ijklm,m', response_mat, self.skymap_inj[nonzero_pix])
                         elif self.inj['pixel_opt'] == 'memory':
                             
                             for i, pix_i in enumerate(nonzero_pix):
                                 ## Response matrix : shape (3 x 3 x freq x time x 1) for each pixel
-                                response_mat_i = self.add_astro_signal(self.f0, self.tsegmid, np.array([pix_i]), 2*self.params['nside'])
+                                response_mat_i = self.add_astro_signal(self.f0, self.tsegmid, np.array([pix_i]), self.params['nside'])
                                 ## take sum over all sky directions
                                 if i == 0:
                                     summ_response_mat = np.einsum('ijklm,m', response_mat_i, self.skymap_inj[pix_i].reshape(1))
@@ -283,7 +283,7 @@ class LISA(LISAdata, likelihoods):
 #                                else:
 #                                    summ_response_mat += response_mat_i*self.skymap_inj[pix_i]
                             ## angular integral prefactor
-                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*summ_response_mat
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(self.params['nside']))*summ_response_mat
                         else:
                             ## we should probably have a default here instead.
                             raise ValueError("Unknown optimization strategy for pixel basis injection. Can be 'time' or 'memory'.")
@@ -387,7 +387,7 @@ class LISA(LISAdata, likelihoods):
         plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
         print("PSD value at 1e-4 Hz is {}".format(np.mean(S1_gw,axis=1)[0]))
         print("Sum of skymap is {}".format(np.sum(self.skymap_inj)))
-        print("Sum of skymap x dOmega is {}".format(np.sum(self.skymap_inj)*hp.pixelfunc.nside2pixarea(2*self.params['nside'])))
+        print("Sum of skymap x dOmega is {}".format(np.sum(self.skymap_inj)*hp.pixelfunc.nside2pixarea(self.params['nside'])))
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
         plt.close()
 

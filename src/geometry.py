@@ -599,7 +599,7 @@ class geometry(sph_geometry):
             averaged over polarization, across all frequencies, times, and sky directions.
         '''
         if nside is None:
-            nside = 2*self.params['nside']
+            nside = self.params['nside']
 
         # Array of pixel indices
         npix = hp.nside2npix(nside)
@@ -741,7 +741,7 @@ class geometry(sph_geometry):
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
         if nside is None:
-            nside = 2*self.params['nside']
+            nside = self.params['nside']
         mich_response_mat = self.pixel_mich_response(f0, tsegmid, nside)
         xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
 
@@ -766,7 +766,7 @@ class geometry(sph_geometry):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
         if nside is None:
-            nside = 2*self.params['nside']
+            nside = self.params['nside']
         
         xyz_response_mat = self.pixel_xyz_response(f0, tsegmid, nside)
 
@@ -820,7 +820,7 @@ class geometry(sph_geometry):
             averaged over polarization, across all frequencies, times, and sky directions.
         '''
         if nside is None:
-            nside = 2*self.params['nside']
+            nside = self.params['nside']
 
         # Array of pixel indices
         npix = len(pix_idx)
@@ -961,7 +961,7 @@ class geometry(sph_geometry):
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
         '''
         if nside is None:
-            nside = 2*self.params['nside']
+            nside = self.params['nside']
         mich_response_mat = self.directional_pixel_mich_response(f0, tsegmid, pix_idx, nside)
         xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
 
@@ -986,7 +986,7 @@ class geometry(sph_geometry):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
         if nside is None:
-            nside = 2*self.params['nside']
+            nside = self.params['nside']
         
         xyz_response_mat = self.directional_pixel_xyz_response(f0, tsegmid, pix_idx, nside)
 

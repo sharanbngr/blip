@@ -545,7 +545,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
                     # converts alm_inj into a healpix max to be plotted and saved
                     # Plot with twice the analysis nside for better resolution
-                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+                    skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
                     Omegamap_inj = Omega_1mHz * skymap_inj
                     hp.graticule()
                     hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
@@ -572,25 +572,25 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     elif self.inj['spatial_inj'] == 'population':
                         ## generate skymap
                         print("Constructing skymap from DWD population...")
-                        astro_map, log_astro_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,
+                        astro_map, log_astro_map = self.pop2map(self.inj['popfile'],self.params['nside'],self.params['dur']*u.s,
                                                                   self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
                     elif self.inj['spatial_inj'] == 'sdg':
                         astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
                     elif self.inj['spatial_inj'] == 'point_source':
                         if self.inj['injbasis'] == 'sph':
                             ## identify pixel with source
-                            ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
-                            astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+                            ps_id = hp.ang2pix(self.params['nside'], self.inj['theta'], self.inj['phi'])
+                            astro_map = np.zeros(hp.nside2npix(self.params['nside']))
                             ## set pixel magnitude to 1
                             astro_map[ps_id] = 1
                         elif self.inj['injbasis'] == 'pixel':
                             ## note that a single-pixel map causes numerical issues in np.linalg.cholesky (numerical error causes numpy to believe the response matrix is not postive-definite)
                             ## solution: add a very small amount of power to all adjacent pixels
-                            astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
-                            ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
+                            astro_map = np.zeros(hp.nside2npix(self.params['nside']))
+                            ps_id = hp.ang2pix(self.params['nside'], self.inj['theta'], self.inj['phi'])
                             ## set pixel magnitude to 1
                             astro_map[ps_id] = 1
-                            neighbours = hp.pixelfunc.get_all_neighbours(2*self.params['nside'],ps_id)
+                            neighbours = hp.pixelfunc.get_all_neighbours(self.params['nside'],ps_id)
                             astro_map[neighbours] = 1e-10
                             
 #                            astro_map = np.zeros(hp.nside2npix(self.params['nside']))
@@ -599,16 +599,16 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 #                            astro_map[ps_id] = 1
 #                            neighbours = hp.pixelfunc.get_all_neighbours(self.params['nside'],ps_id)
 #                            astro_map[neighbours] = 1e-10
-#                            astro_map = hp.pixelfunc.ud_grade(astro_map,2*self.params['nside'])
+#                            astro_map = hp.pixelfunc.ud_grade(astro_map,self.params['nside'])
                             
                         else:
                             raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
                     elif self.inj['spatial_inj'] == 'two_point':
-                        ps_idx = [hp.ang2pix(2*self.params['nside'], self.inj['theta_1'], self.inj['phi_1']),
-                                  hp.ang2pix(2*self.params['nside'], self.inj['theta_2'], self.inj['phi_2'])]
-                        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+                        ps_idx = [hp.ang2pix(self.params['nside'], self.inj['theta_1'], self.inj['phi_1']),
+                                  hp.ang2pix(self.params['nside'], self.inj['theta_2'], self.inj['phi_2'])]
+                        astro_map = np.zeros(hp.nside2npix(self.params['nside']))
                         ## set pixel magnitudes to 1
-                        astro_map[ps_idx] = 0.5 #/hp.pixelfunc.nside2pixarea(2*self.params['nside'])
+                        astro_map[ps_idx] = 0.5 #/hp.pixelfunc.nside2pixarea(self.params['nside'])
                     else:
                         raise ValueError("Unknown astrophysical spatial injection type ('spatial_inj'). Can be 'breivik2020', 'population', 'sdg', 'ps', or 'tps'.")     
                     
@@ -630,25 +630,25 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
     
                         # converts alm_inj into a healpix map to be plotted and saved
                         # Plot with twice the analysis nside for better resolution
-                        skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
                         self.skymap_inj = skymap_inj
                     elif self.inj['injbasis'] == 'pixel':
                         ## normalize so total power is from GW spectrum
-                        skymap_inj = astro_map/(np.sum(astro_map)*hp.pixelfunc.nside2pixarea(2*self.params['nside'])) 
+                        skymap_inj = astro_map/(np.sum(astro_map)*hp.pixelfunc.nside2pixarea(self.params['nside'])) 
                         self.skymap_inj = skymap_inj
                         ## get pixel indices with nonzero power
                         nonzero_pix = np.flatnonzero(skymap_inj)
 #                        import pdb; pdb.set_trace()
                         if self.inj['pixel_opt'] == 'time':
                             ## Response matrix : shape (3 x 3 x freq x time x npix) if pixel-basis
-                            response_mat = self.add_astro_signal(f0, tmids, nonzero_pix, 2*self.params['nside'])
+                            response_mat = self.add_astro_signal(f0, tmids, nonzero_pix, self.params['nside'])
                             ## take sum over all sky directions
 #                            summ_response_mat = np.einsum('ijklm,m', response_mat, skymap_inj[nonzero_pix])
-                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*np.einsum('ijklm,m', response_mat, skymap_inj[nonzero_pix])
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(self.params['nside']))*np.einsum('ijklm,m', response_mat, skymap_inj[nonzero_pix])
                         elif self.inj['pixel_opt'] == 'memory':
                             for i, pix_i in enumerate(nonzero_pix):
                                 ## Response matrix : shape (3 x 3 x freq x time x 1) for each pixel
-                                response_mat_i = self.add_astro_signal(f0, tmids, np.array([pix_i]), 2*self.params['nside'])
+                                response_mat_i = self.add_astro_signal(f0, tmids, np.array([pix_i]), self.params['nside'])
                                 ## take sum over all sky directions
                                 if i == 0:
                                     summ_response_mat = np.einsum('ijklm,m', response_mat_i, skymap_inj[pix_i].reshape(1))
@@ -656,7 +656,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                                 else:
                                     summ_response_mat += np.einsum('ijklm,m', response_mat_i, skymap_inj[pix_i].reshape(1))
                             ## angular integral prefactor
-                            summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside']))*summ_response_mat
+                            summ_response_mat = (hp.pixelfunc.nside2pixarea(self.params['nside']))*summ_response_mat
                         else:
                             ## we should probably have a default here instead.
                             raise ValueError("Unknown optimization strategy for pixel basis injection. Can be 'time' or 'memory'.")
@@ -700,7 +700,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     plt.close()
                     if 'injbasis' in self.inj.keys():
                         if self.inj['injbasis'] == 'sph':
-                            hp.mollview(hp.alm2map(astro_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map', unit='Per-pixel Normalization Factor')
+                            hp.mollview(hp.alm2map(astro_sph, self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map', unit='Per-pixel Normalization Factor')
                             hp.graticule()
                             plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                             print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
@@ -880,11 +880,11 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         DWD_unresolved_powers = DWD_powers*(np.array(SSBc.distance) > 2)
         ## Transform to healpix basis
         ## resolution is 2x analysis resolution
-        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         ## Create skymap
-#        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+#        DWD_FG_mapG = np.zeros(hp.nside2npix(self.params['nside']))
         ## Bin
-        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(self.params['nside']))
 #        for i in range(DWD_FG_mapG.size):
 #            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
         ## create logarithmic skymap for plotting purposes
@@ -1147,13 +1147,13 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## resolution is 2x analysis resolution
         ## setting resolution, taking coordinates from before and transforming to longlat
         ## replace np.array ... with sdg coordinates
-        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
         
 
         ## Create skymap
-        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+        DWD_FG_mapG = np.zeros(hp.nside2npix(self.params['nside']))
         ## Bin
-        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(self.params['nside']))
         ## old, slow way:
         # for i in range(DWD_FG_mapG.size):
         #     DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
