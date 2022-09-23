@@ -15,7 +15,7 @@ matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
 def mapmaker(params, post, parameters, saveto=None):
-    
+#    import pdb; pdb.set_trace()
     if type(parameters) is dict:
         blm_start = len(parameters['noise']) + len(parameters['signal'])
         ## deal with extra parameter in broken_powerlaw:
@@ -281,22 +281,24 @@ def fitmaker(params,parameters,inj):
     ## H0 def (SI)
     H0 = 2.2*10**(-18)
     
-    ## get injected spectrum
-    if inj['spectral_inj']=='powerlaw':
-        Omegaf_inj =(10**inj['log_omega0'])*(fs/(params['fref']))**inj['alpha']
-        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
-    elif inj['spectral_inj']=='broken_powerlaw':
-        Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
-        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
-    elif inj['spectral_inj']=='free_broken_powerlaw':
-        Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha2']))
-        Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2
-    elif inj['spectral_inj']=='population':
-        pop = populations(params,inj)
-        Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,plot=False,names=inj['columns'],sep=inj['delimiter'])*4
-    else:
-        print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
-        return
+    
+    ## get injected spectrum if it exists
+    if inj['doInj']:
+        if inj['spectral_inj']=='powerlaw':
+            Omegaf_inj =(10**inj['log_omega0'])*(fs/(params['fref']))**inj['alpha']
+            Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj']=='broken_powerlaw':
+            Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
+            Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj']=='free_broken_powerlaw':
+            Omegaf_inj = ((10**inj['log_A1'])*(fs/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha2']))
+            Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2
+        elif inj['spectral_inj']=='population':
+            pop = populations(params,inj)
+            Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,plot=False,names=inj['columns'],sep=inj['delimiter'])*4
+        else:
+            print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
+            return
     
     
     
@@ -316,11 +318,15 @@ def fitmaker(params,parameters,inj):
     
     plt.figure()
     plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.5,label='95% C.I.',color='moccasin')
-    plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue',lw=0.75)
+    if inj['doInj']:
+        plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue',lw=0.75)
     plt.loglog(fs,Sgw_median,label='Median Recovered Spectrum',color='darkorange',lw=1.5)
     plt.xlim(0.5*params['fmin'],2*params['fmax'])
     plt.legend()
-    plt.title("Fit vs. Injection")
+    if inj['doInj']:
+        plt.title("Spectral Fit vs. Injection")
+    else:
+        plt.title("Spectral Fit")
     plt.xlabel('Frequency [Hz]')
     plt.ylabel('PSD [1/Hz]')
     plt.savefig(params['out_dir'] + '/spectral_fit.png', dpi=150)
