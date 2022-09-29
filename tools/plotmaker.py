@@ -276,6 +276,13 @@ def fitmaker(params,parameters,inj):
     frange = np.fft.rfftfreq(Nperseg, 1.0/params['fs'])[1:]
     ffilt = (frange>params['fmin'])*(frange<params['fmax'])
     fs = frange[ffilt].reshape(-1,1)
+    fs = frange[ffilt][::10]
+    fs = fs.reshape(-1,1)
+    ## need to ensure population construction uses same frequencies as in BLIP
+    if inj['spectral_inj']=='population':
+        fs_inj = frange
+    else:
+        fs_inj = fs
     
 #     fs = np.logspace(np.log10(params['fmin']),np.log10(params['fmax']),100)
     ## foreground has a bunch of different models
@@ -316,7 +323,8 @@ def fitmaker(params,parameters,inj):
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2   
     elif inj['fg_spectrum']=='population':
         pop = populations(params,inj)
-        Sgw_inj = pop.pop2spec(inj['popfile'],fs.flatten(),params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4 
+        Sgw_inj_initial = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,plot=False,names=inj['columns'],sep=inj['delimiter'])*4
+        Sgw_inj = medfilt(Sgw_inj_initial,kernel_size=11)
     else:
         print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
         return
@@ -338,7 +346,10 @@ def fitmaker(params,parameters,inj):
     Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
     
     plt.figure()
-    plt.loglog(fs,Sgw_inj,label='Injected Spectrum',color='steelblue')
+    if inj['fg_spectrum']=='population':
+        plt.loglog(fs_inj[ffilt],Sgw_inj[ffilt],label='Injected Spectrum',color='steelblue')
+    else:
+        plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue')
     plt.loglog(fs,Sgw_median,label='Median Recovered Spectrum',color='darkorange')
     plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.5,label='95% C.I.',color='moccasin')
     plt.legend()
