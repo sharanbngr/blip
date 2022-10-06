@@ -279,7 +279,7 @@ def fitmaker(params,parameters,inj):
     fs = frange[ffilt][::10]
     fs = fs.reshape(-1,1)
     ## need to ensure population construction uses same frequencies as in BLIP
-    if inj['spectral_inj']=='population':
+    if inj['fg_spectrum']=='population':
         fs_inj = frange
     else:
         fs_inj = fs
