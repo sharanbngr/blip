@@ -323,7 +323,7 @@ def fitmaker(params,parameters,inj):
         Sgw_inj = Omegaf_inj*(3/(4*fs**3))*(H0/np.pi)**2   
     elif inj['fg_spectrum']=='population':
         pop = populations(params,inj)
-        Sgw_inj_initial = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,plot=False,names=inj['columns'],sep=inj['delimiter'])*4
+        Sgw_inj_initial = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,names=inj['columns'],sep=inj['delimiter'])*4
         Sgw_inj = medfilt(Sgw_inj_initial,kernel_size=11)
     else:
         print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
