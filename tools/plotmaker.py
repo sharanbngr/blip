@@ -11,6 +11,7 @@ from astropy import units as u
 import pickle, argparse
 import logging
 from src.populations import populations
+from scipy.signal import medfilt
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
