@@ -447,7 +447,13 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         f0 = frange/(2*fstar)
 
         ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-        response_mat = self.add_astro_signal(f0, tmids)
+        ## set up different use cases
+        if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax':
+            signal_args= (f0,tmids,self.inj_almax)
+        else:
+            signal_args = (f0,tmids)
+        
+        response_mat = self.add_astro_signal(*signal_args)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
@@ -555,28 +561,55 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                                                                   self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
                     elif self.inj['spatial_inj'] == 'sdg':
                         astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
+                    elif self.inj['spatial_inj'] == 'point_source':
+                        astro_map, log_astro_map = self.generate_point_source(self.inj['theta'],self.inj['phi'])
+                    elif self.inj['spatial_inj'] == 'two_point':
+                        astro_map, log_astro_map = self.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'])
                     else:
-                        raise ValueError("Unsupported spatial injection. Currentlys supported: breivik2020, sdg, population.")
+                        raise ValueError("Unsupported spatial injection. Currentlys supported: breivik2020, sdg, population, point_source, two_point_source.")
             
                     if self.inj['injbasis'] == 'sph':
-                            ## convert to blms
-                            astro_sph = self.skymap_pix2sph(astro_map)
-                            ## save blms for truevals
-                            self.inj['astro_blms'] = astro_sph
-                            ## extract alms
-                            self.alms_inj = self.blm_2_alm(astro_sph)
-        
-                            ## normalize
-                            self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
-        
-                            ## extrct only the non-negative components
-                            alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
-                            ## response matrix summed over Ylms
-                            summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
-        
-                            # converts alm_inj into a healpix map to be plotted and saved
-                            # Plot with twice the analysis nside for better resolution
-                            skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+                        ## convert to blms
+                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
+                        ## save blms for truevals
+                        self.inj['astro_blms'] = astro_sph
+                        ## extract alms
+                        self.alms_inj = self.blm_2_alm(astro_sph)
+    
+                        ## normalize
+                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+    
+                        ## extrct only the non-negative components
+                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+                        ## response matrix summed over Ylms
+                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+    
+                        # converts alm_inj into a healpix map to be plotted and saved
+                        # Plot with twice the analysis nside for better resolution
+                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+                    elif self.inj['injbasis'] == 'sph_lmax':
+                        ## version with injection lmax decoupled from analysis lmax
+                        
+                        ## convert to blms
+                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.inj['inj_lmax'])
+                        ## save blms for truevals
+                        self.inj['astro_blms'] = astro_sph
+                        ## extract alms
+                        self.alms_inj = self.inj_blm_2_alm(astro_sph)
+    
+                        ## normalize
+                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+                        
+                        ## get almax from blmax
+                        almax_inj = 2*self.inj['inj_lmax']
+                        ## extract only the non-negative components
+                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(almax_inj)]
+                        ## response matrix summed over Ylms
+                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+    
+                        # converts alm_inj into a healpix map to be plotted and saved
+                        # Plot with twice the analysis nside for better resolution
+                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
                     elif self.inj['injbasis'] == 'pixel':
                         raise ValueError("Still need to implement this, only sph is currently available!")                        
                         
@@ -905,21 +938,72 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## returning healpix skymaps
         return DWD_FG_map, log_DWD_FG_map
     
+    def generate_point_source(self,theta,phi):
+        '''
+        Generates a point source skymap. Allows small amount of power to artifically bleed into adjacent pixels to avoid numerical error issues later on.
+        
+        Arguments
+        ---------
+        theta, phi : float
+            angular coordinates of the point source in radians
+        
+        Returns
+        ---------
+        astro_map, log_astro_map : healpy skymaps
+        '''
+        
+        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ps_id = hp.ang2pix(2*self.params['nside'], theta, phi)
+        astro_map[ps_id] = 1
+        
+        neighbours = hp.pixelfunc.get_all_neighbours(2*self.params['nside'],ps_id)
+        astro_map[neighbours] = 1e-10
+        astro_map = astro_map/np.sum(astro_map)
+        
+        log_astro_map = np.log10(astro_map + 10**-15 * (astro_map==0))
+        
+        return astro_map, log_astro_map
     
-    def skymap_pix2sph(self, DWD_FG_map):
+    def generate_two_point_source(self,theta_1,phi_1,theta_2,phi_2):
+        '''
+        Generates a two-point-source skymap. 
+        
+        Arguments
+        ---------
+        theta_1, phi_1 : float
+            angular coordinates of the 1st point source in radians
+        theta_2, phi_2 : float
+            angular coordinates of the 2nd point source in radians
+        
+        Returns
+        ---------
+        astro_map, log_astro_map : healpy skymaps
+        '''
+        
+        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ps_idx = [hp.ang2pix(2*self.params['nside'], theta_1, phi_1),
+                  hp.ang2pix(2*self.params['nside'], theta_2, phi_2)]
+        astro_map[ps_idx] = 0.5
+        
+        log_astro_map = np.log10(astro_map + 10**-15 * (astro_map==0))
+        
+        return astro_map, log_astro_map
+    
+    
+    def skymap_pix2sph(self, DWD_FG_map, blmax):
         '''
         Transform the foreground produced in generate_galactic_foreground() into
         b_lm spherical harmonic basis
         
         Returns
         ---------
-        DWD_FG_sph : float
+        astro_blms : float
             Spherical harmonic healpy expansion of the galactic foreground
         '''
         ## Take square root of powers
         sqrt_map = np.sqrt(DWD_FG_map)
         ## Generate blms of power (alms of sqrt(power))
-        astro_blms = hp.sphtfunc.map2alm(sqrt_map, lmax=self.blmax)
+        astro_blms = hp.sphtfunc.map2alm(sqrt_map, lmax=blmax)
 
         # Normalize such that b00 = 1    
         astro_blms = astro_blms/(astro_blms[0])

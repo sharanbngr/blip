@@ -29,7 +29,9 @@ def mapmaker(params, post, parameters, saveto=None):
     blm_size = Alm.getsize(params['lmax'])
 
     ## we will plot with a larger nside than the analysis for finer plots
-    nside = 2*params['nside']
+#    nside = 2*params['nside']
+    ## no we won't
+    nside = params['nside']
 
     npix = hp.nside2npix(nside)
 
@@ -422,7 +424,7 @@ def plotmaker(params,parameters, inj):
         mystery_list.extend(parameters['signal'])
     if inj['injtype']=='astro':
         if inj['injbasis']!='sph':
-            mystery_list.extend(parameters['blms'])
+            mystery_list.extend(parameters['blm'])
     param_list = [p for p in parameters['all'] if p not in mystery_list]
     
     val_list = [inj['log_Np'],inj['log_Na']]

@@ -243,8 +243,18 @@ class LISA(LISAdata, likelihoods):
 
         if self.inj['injtype'] != 'noise_only':
             if self.inj['injtype'] == 'sph_sgwb' or self.inj['injtype']=='astro':
-
-                summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
+                ## Response matrix : shape (3 x 3 x freq x time) if isotropic
+                ## set up different use cases
+                if self.inj['injtype'] == 'astro':
+                    if self.inj['injbasis'] == 'sph':
+                        summ_response_mat = np.sum(self.add_astro_signal(self.f0,self.tsegmid)*self.alms_inj[None,None,None,None,:],axis=-1)
+                    elif self.inj['injbasis'] == 'sph_lmax':
+                        summ_response_mat = np.sum(self.add_astro_signal(self.f0,self.tsegmid,set_almax=self.inj_almax)*self.alms_inj[None,None,None,None,:],axis=-1)
+                    elif self.inj['injbasis'] == 'pixel':
+                        raise TypeError("Sorry, pixel injections are not yet supported in this version.")
+                else:
+                    summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
+                
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :])
                 R2 = np.real(summ_response_mat[1, 1, :, :])
@@ -252,9 +262,9 @@ class LISA(LISAdata, likelihoods):
 
             else:
                 # extra auto-power GW responses
-                R1 = np.real(self.response_mat[0, 0, :, :])
-                R2 = np.real(self.response_mat[1, 1, :, :])
-                R3 = np.real(self.response_mat[2, 2, :, :])
+                R1 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[0, 0, :, :])
+                R2 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[1, 1, :, :])
+                R3 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[2, 2, :, :])
             
             
             # Hubble constant
@@ -478,6 +488,8 @@ def blip(paramsfile='params.ini',resume=False):
     elif inj['injtype'] == 'astro':
         inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
         inj['injbasis'] = str(config.get("inj", "injbasis"))
+        if inj['injbasis'] == 'sph_lmax':
+            inj['inj_lmax'] = int(config.get("inj", "inj_lmax"))
         if inj['spatial_inj'] == 'breivik2020':
             inj['rh']          = float(config.get("inj", "rh"))
             inj['zh']          = float(config.get("inj", "zh"))
