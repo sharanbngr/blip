@@ -448,12 +448,16 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
         ## Response matrix : shape (3 x 3 x freq x time) if isotropic
         ## set up different use cases
-        if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax':
-            signal_args= (f0,tmids,self.inj_almax)
+        ## pixel basis computes response in conjunction with skymap, so skip this step
+        if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'pixel':
+            pass
         else:
-            signal_args = (f0,tmids)
+            if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax':
+                signal_args= (f0,tmids,self.inj_almax)
+            else:
+                signal_args = (f0,tmids)
         
-        response_mat = self.add_astro_signal(*signal_args)
+            response_mat = self.add_astro_signal(*signal_args)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
@@ -550,7 +554,6 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             elif self.inj['injtype'] == 'astro':
                 if ii==0:
                     ## pick between different anisotropic astrophysical injections
-                    ## add point source, sdg later
                     if self.inj['spatial_inj'] == 'breivik2020':
                         ## toy model foreground
                         astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
@@ -565,6 +568,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         astro_map, log_astro_map = self.generate_point_source(self.inj['theta'],self.inj['phi'])
                     elif self.inj['spatial_inj'] == 'two_point':
                         astro_map, log_astro_map = self.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'])
+                    elif self.inj['spatial_inj'] == 'isotropic':
+                        astro_map = np.ones(hp.nside2npix(self.params['nside']))
                     else:
                         raise ValueError("Unsupported spatial injection. Currentlys supported: breivik2020, sdg, population, point_source, two_point_source.")
             
@@ -611,9 +616,15 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         # Plot with twice the analysis nside for better resolution
                         skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
                     elif self.inj['injbasis'] == 'pixel':
-                        raise ValueError("Still need to implement this, only sph is currently available!")                        
+                        print("Warning: pixel-basis injections are still under development, results may be erroneous.")
+                        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
+                        skymap_inj = astro_map/(np.sum(astro_map)*(dOmega/(8*np.pi)))
+                        summ_response_mat = self.add_astro_signal(f0,tmids,skymap_inj)                     
                         
                     Omegamap_inj = Omega_1mHz * skymap_inj
+                    
+                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
+                    self.skymap_inj = skymap_inj
     
                         
                     hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
@@ -629,11 +640,12 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
-                    hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
-                    hp.graticule()
-                    plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
-                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
-                    plt.close()
+                    if self.inj['injbasis']!='pixel':
+                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
+                        hp.graticule()
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+                        plt.close()
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))

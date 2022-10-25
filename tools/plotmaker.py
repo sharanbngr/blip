@@ -247,6 +247,8 @@ def fitmaker(params,parameters,inj):
     inj : dictionary
         Dictionary of injection params
     '''
+    
+    print("Computing spectral fit median and 95% CI...")
     ## get samples
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
     ## get frequencies
