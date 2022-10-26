@@ -286,24 +286,25 @@ def fitmaker(params,parameters,inj):
     H0 = 2.2*10**(-18)
     
     ## get injected spectrum
-    if inj['spectral_inj']=='powerlaw':
-        Omegaf_inj =(10**inj['log_omega0'])*(fs_inj/(params['fref']))**inj['alpha']
-        Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
-    elif inj['spectral_inj']=='broken_powerlaw':
-        Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
-        Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
-    elif inj['spectral_inj']=='free_broken_powerlaw':
-        Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs_inj/params['fref'])**(inj['alpha2']))
-        Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
-    elif inj['spectral_inj']=='population':
-        pop = populations(params,inj)
-        Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,return_median=True,names=inj['columns'],sep=inj['delimiter'])*4
-        ## filter to analysis band
-        fs_inj = fs_inj[ffilt]
-        Sgw_inj = Sgw_inj[ffilt]
-    else:
-        print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
-        return
+    if not params['mldc']:
+        if inj['spectral_inj']=='powerlaw':
+            Omegaf_inj =(10**inj['log_omega0'])*(fs_inj/(params['fref']))**inj['alpha']
+            Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj']=='broken_powerlaw':
+            Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
+            Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj']=='free_broken_powerlaw':
+            Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs_inj/params['fref'])**(inj['alpha2']))
+            Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj']=='population':
+            pop = populations(params,inj)
+            Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,return_median=True,names=inj['columns'],sep=inj['delimiter'])*4
+            ## filter to analysis band
+            fs_inj = fs_inj[ffilt]
+            Sgw_inj = Sgw_inj[ffilt]
+        else:
+            print("Other injection types not yet supported, sorry! (Currently supported: powerlaw, broken_powerlaw)")
+            return
     
     ## get recovered spectrum
     if params['spectrum_model']=='powerlaw':
@@ -322,7 +323,8 @@ def fitmaker(params,parameters,inj):
     Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
     
     plt.figure()
-    plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue')
+    if not params['mldc']:
+        plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue')
     plt.loglog(fs,Sgw_median,label='Median Recovered Spectrum',color='darkorange')
     plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.5,label='95% C.I.',color='moccasin')
     plt.legend()
@@ -418,64 +420,65 @@ def plotmaker(params,parameters, inj):
 #                else:
 #                    truevals.append(np.abs(inj['blms'][idx]))
 #                    truevals.append(np.angle(inj['blms'][idx]))
-
-    truevals = {}
-    ## make sure we only plot truevals we have a way of knowing
-    mystery_list = []
-    if inj['spectral_inj']=='population':
-        mystery_list.extend(parameters['signal'])
-    if inj['injtype']=='astro':
-        if inj['injbasis']!='sph':
-            mystery_list.extend(parameters['blm'])
-    param_list = [p for p in parameters['all'] if p not in mystery_list]
+    ## get truevals if not using an external injection
+    if not params['mldc']:
+        truevals = {}
+        ## make sure we only plot truevals we have a way of knowing
+        mystery_list = []
+        if inj['spectral_inj']=='population':
+            mystery_list.extend(parameters['signal'])
+        if inj['injtype']=='astro':
+            if inj['injbasis']!='sph':
+                mystery_list.extend(parameters['blm'])
+        param_list = [p for p in parameters['all'] if p not in mystery_list]
+        
+        val_list = [inj['log_Np'],inj['log_Na']]
+        
+        if inj['spectral_inj']=='powerlaw':
+            val_list.append( inj['alpha'] )
+            val_list.append( inj['log_omega0'] )
+        elif inj['spectral_inj']=='broken_powerlaw':
+            val_list.append( inj['log_A1'] )
+            val_list.append( inj['alpha1'] )
+            val_list.append( inj['log_A2'] )
+        elif inj['spectral_inj']=='free_broken_powerlaw':
+            val_list.append( inj['log_A1'] )
+            val_list.append( inj['alpha1'] )
+            val_list.append( inj['log_A2'] )
+            val_list.append( inj['alpha2'] )
     
-    val_list = [inj['log_Np'],inj['log_Na']]
-    
-    if inj['spectral_inj']=='powerlaw':
-        val_list.append( inj['alpha'] )
-        val_list.append( inj['log_omega0'] )
-    elif inj['spectral_inj']=='broken_powerlaw':
-        val_list.append( inj['log_A1'] )
-        val_list.append( inj['alpha1'] )
-        val_list.append( inj['log_A2'] )
-    elif inj['spectral_inj']=='free_broken_powerlaw':
-        val_list.append( inj['log_A1'] )
-        val_list.append( inj['alpha1'] )
-        val_list.append( inj['log_A2'] )
-        val_list.append( inj['alpha2'] )
-
-    ## get blms
-    if inj['injtype']=='sph_sgwb':
-        for lval in range(1, params['lmax'] + 1):
-            for mval in range(lval + 1):
-
-                idx = Alm.getidx(params['lmax'], lval, mval)
-
-                if mval == 0:
-                    val_list.append(np.real(inj['blms'][idx]))
-                else:
-                    val_list.append(np.abs(inj['blms'][idx]))
-                    val_list.append(np.angle(inj['blms'][idx]))
-    elif inj['injtype']=='astro':
-        if inj['injbasis'] == 'sph':
+        ## get blms
+        if inj['injtype']=='sph_sgwb':
             for lval in range(1, params['lmax'] + 1):
                 for mval in range(lval + 1):
     
                     idx = Alm.getidx(params['lmax'], lval, mval)
     
                     if mval == 0:
-                        val_list.append(np.real(inj['astro_blms'][idx]))
+                        val_list.append(np.real(inj['blms'][idx]))
                     else:
-                        val_list.append(np.abs(inj['astro_blms'][idx]))
-                        val_list.append(np.angle(inj['astro_blms'][idx]))
-    
-    for param, val in zip(param_list,val_list):
-        truevals[param] = val
+                        val_list.append(np.abs(inj['blms'][idx]))
+                        val_list.append(np.angle(inj['blms'][idx]))
+        elif inj['injtype']=='astro':
+            if inj['injbasis'] == 'sph':
+                for lval in range(1, params['lmax'] + 1):
+                    for mval in range(lval + 1):
         
-#        import pdb;pdb.set_trace()
+                        idx = Alm.getidx(params['lmax'], lval, mval)
         
-    if len(truevals) > 0:
-        knowTrue = 1 ## Bit for whether we know the true vals or not
+                        if mval == 0:
+                            val_list.append(np.real(inj['astro_blms'][idx]))
+                        else:
+                            val_list.append(np.abs(inj['astro_blms'][idx]))
+                            val_list.append(np.angle(inj['astro_blms'][idx]))
+        
+        for param, val in zip(param_list,val_list):
+            truevals[param] = val
+        
+        if len(truevals) > 0:
+            knowTrue = 1 ## Bit for whether we know the true vals or not
+        else:
+            knowTrue = 0
     else:
         knowTrue = 0
 
