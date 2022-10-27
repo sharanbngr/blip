@@ -295,7 +295,7 @@ def fitmaker(params,parameters,inj):
         Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
     elif inj['spectral_inj']=='population':
         pop = populations(params,inj)
-        Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,return_median=True,names=inj['columns'],sep=inj['delimiter'])*4
+        Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj.flatten(),params['dur']*u.s,return_median=True,names=inj['columns'],sep=inj['delimiter'])*4
         ## filter to analysis band
         fs_inj = fs_inj[ffilt]
         Sgw_inj = Sgw_inj[ffilt]
