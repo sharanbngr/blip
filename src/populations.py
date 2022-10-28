@@ -253,7 +253,7 @@ class populations():
         ## note, for now we are fixing t_obs=4yr for the purpose of determining which systems are unresolved!!
         snrs = self.get_snr(fs*u.Hz,hs,(4*u.yr).to(u.s))
         fs_unres, hs_unres = self.filter_by_snr(fs,snrs,SNR_cut=SNR_cut), self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)
-        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs).value
+        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs,return_median=return_median).value
         return fg_PSD
 
     
