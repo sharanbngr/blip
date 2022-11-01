@@ -614,30 +614,33 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         raise ValueError("Still need to implement this, only sph is currently available!")                        
                         
                     Omegamap_inj = Omega_1mHz * skymap_inj
-    
-                    if coord=='E':
-                        hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
-                    else:
-                        hp.mollview(Omegamap_inj, coord=['E',coord], title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+
+                    # if coord=='E':
+                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+                    # else:
+                        # hp.mollview(Omegamap_inj, coord=['E',coord], title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
                     hp.graticule()
+                    hp.projscatter(2.8083511213585264, 5.135295683752546,color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
                     
                     
-                    if coord=='E':
-                        hp.mollview(astro_map, coord=coord, title='Simulated astrophysical skymap')
-                    else:
-                        hp.mollview(astro_map, coord=['E',coord], title='Simulated astrophysical skymap')                        
+                    # if coord=='E':
+                    hp.mollview(astro_map, coord=coord, title='Simulated astrophysical skymap')
+                    # else:
+                    #     hp.mollview(astro_map, coord=['E',coord], title='Simulated astrophysical skymap')                        
                     hp.graticule()
+                    hp.projscatter(2.8083511213585264, 5.135295683752546,color='r', marker='*', coord=coord) ## marker for the LMC true position
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
                     
-                    if coord=='E':
-                        hp.mollview(skymap_inj, coord=coord, title='Simulated astrophysical alm map')
-                    else:
-                        hp.mollview(skymap_inj, coord=['E',coord], title='Simulated astrophysical alm map')
+                    # if coord=='E':
+                    hp.mollview(skymap_inj, coord=coord, title='Simulated astrophysical alm map')
+                    # else:
+                    #     hp.mollview(skymap_inj, coord=['E',coord], title='Simulated astrophysical alm map')
+                    hp.projscatter(2.8083511213585264, 5.135295683752546,color='r', marker='*', coord=coord) ## marker for the LMC true position
                     hp.graticule()
                     plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
