@@ -617,7 +617,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     
                     peak_value = max(Omegamap_inj) #max power (ideally the pixel of the LMC)
                     peak_index = list(Omegamap_inj).index(peak_value) #sky location of max power
-                    theta_peak, phi_peak = hp.pix2ang(4, peak_index)
+                    theta_peak, phi_peak = hp.pix2ang(self.params['nside'], peak_index)
                     # print(theta_peak)
                     # print(phi_peak)
                     
@@ -627,7 +627,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         # hp.mollview(Omegamap_inj, coord=['E',coord], title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
                     hp.graticule()
                     # hp.projscatter(2.8083511213585264, 5.135295683752546,color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position
-                    hp.projscatter(2.9371124546212584, 5.497787143782138, color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position                    
+                    hp.projscatter(theta_peak, phi_peak, color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position                    
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()

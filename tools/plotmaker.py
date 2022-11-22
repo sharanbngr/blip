@@ -124,7 +124,8 @@ def mapmaker(params, post, parameters, saveto=None):
         hp.mollview(omega_map, coord=['E',coord], title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
    
     # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-    hp.projscatter(2.9371124546212584, 5.497787143782138, color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position
+    # hp.projscatter(2.9371124546212584, 5.497787143782138, color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position nside4
+    hp.projscatter(3.039486231207189, 5.497787143782138, color='r', marker='*', coord=['E',coord]) ## marker for the LMC true position nside8
     hp.graticule()
     
     ## switch logging level back to normal so we get our own status updates
