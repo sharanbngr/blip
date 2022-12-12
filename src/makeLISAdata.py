@@ -447,27 +447,45 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         f0 = frange/(2*fstar)
 
         ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-        response_mat = self.add_astro_signal(f0, tmids)
+        ## set up different use cases
+        ## pixel basis computes response in conjunction with skymap, so skip this step
+        if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'pixel':
+            pass
+        else:
+            if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax':
+                signal_args= (f0,tmids,self.inj_almax)
+            else:
+                signal_args = (f0,tmids)
+        
+            response_mat = self.add_astro_signal(*signal_args)
 
         ## Cholesky decomposition to get the "sigma" matrix
         H0 = 2.2*10**(-18) ## in SI units
         
+        ## compute spectra and save Omega(1mHz) for later
         if self.inj['spectral_inj'] == 'powerlaw':
             Omegaf = (10**self.inj['log_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
+            Omega_1mHz = 10**(self.inj['log_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
         elif self.inj['spectral_inj'] == 'broken_powerlaw':
             alpha_2 = self.inj['alpha1'] - 0.667
             Omegaf = ((10**self.inj['log_A1'])*(frange/self.params['fref'])**self.inj['alpha1'])/(\
                      1 + (10**self.inj['log_A2'])*(frange/self.params['fref'])**alpha_2)
+            Omega_1mHz= ((10**self.inj['log_A1'])*(1e-3/self.params['fref'])**self.inj['alpha1'])/(\
+                        1 + (10**self.inj['log_A2'])*(1e-3/self.params['fref'])**alpha_2)
         elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
             Omegaf = ((10**self.inj['log_A1'])*(frange/self.params['fref'])**self.inj['alpha1'])/(\
                      1 + (10**self.inj['log_A2'])*(frange/self.params['fref'])**self.inj['alpha2'])
+            Omega_1mHz= ((10**self.inj['log_A1'])*(1e-3/self.params['fref'])**self.inj['alpha1'])/(\
+                        1 + (10**self.inj['log_A2'])*(1e-3/self.params['fref'])**self.inj['alpha2'])
         elif self.inj['spectral_inj'] == 'population':
             print("Constructing foreground spectrum from DWD population...")
             ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
             ## additional factor of 2 b/c S_GW = 2 * S_A
-            Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'],plot=False)*4  
+            Sgw = self.pop2spec(self.inj['popfile'],frange,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4
+            Omega_1mHz = Sgw[np.argmin(np.abs(frange - 1e-3))]/((3/(4*(1e-3)**3))*(H0/np.pi)**2)
         else:
-            raise TypeError('Unknown spectral injection chosen. Supported models: powerlaw, broken_powerlaw, population.')
+            raise ValueError("Unknown spectral injection selected. Can be powerlaw, broken_powerlaw, free_broken_powerlaw, or population.")
+        
         # Spectrum of the SGWB from Omegaf (population version goes directly to the spectrum from binary strains and frequencies)
         if self.inj['spectral_inj'] != 'population':
             Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2    
@@ -513,95 +531,53 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     ## extrct only the non-negative components
                     alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
 
-                    ## get Omega(1mHz)
-                    if self.inj['spectral_inj'] == 'powerlaw':
-                        Omega_1mHz = 10**(self.inj['log_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
-                    elif self.inj['spectral_inj'] == 'broken_powerlaw':
-                        alpha_1 = self.inj['alpha1']
-                        log_A1 = self.inj['log_A1']
-                        alpha_2 = self.inj['alpha1'] - 0.667
-                        log_A2 = self.inj['log_A2']
-                        Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
-                    elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
-                        alpha_1 = self.inj['alpha1']
-                        log_A1 = self.inj['log_A1']
-                        alpha_2 = self.inj['alpha2']
-                        log_A2 = self.inj['log_A2']
-                        Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
-                    elif self.inj['spectral_inj'] == 'population':
-                        ## need to grab the population Sgw at ~1 mHz, preferably without calling pop2spec again
-                        Omega_1mHz = Sgw[np.argmin(np.abs(frange - 1e-3))]/((3/(4*(1e-3)**3))*(H0/np.pi)**2)
-                    else:
-                        raise ValueError("Unknown spectral injection type ('spectral_inj'). Supported models: 'powerlaw', 'broken_powerlaw', 'population'.") 
-                        
-
                     ## response matrix summed over Ylms
                     summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
 
                     # converts alm_inj into a healpix max to be plotted and saved
                     # Plot with twice the analysis nside for better resolution
                     skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
-                    Omegamap_inj = Omega_1mHz * skymap_inj
-                    hp.graticule()
-                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$')
 
+                    Omegamap_inj = Omega_1mHz * skymap_inj
+
+                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+                    hp.graticule()
+                    
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
                     print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
                     plt.close()
                     
-                
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
             elif self.inj['injtype'] == 'astro':
-                
-                if ii == 0:
-                    ## need to set up a few things before doing the spherical harmonic inj
-                    ## for the toy model foreground
+                if ii==0:
+                    ## pick between different anisotropic astrophysical injections
                     if self.inj['spatial_inj'] == 'breivik2020':
-                        ## generate skymap
-                        print("Constructing skymap from simple parameterized Milky Way model...")
+                        ## toy model foreground
                         astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
-
                     elif self.inj['spatial_inj'] == 'population':
                         ## generate skymap
                         print("Constructing skymap from DWD population...")
-                        astro_map, log_astro_map = self.pop2map(self.inj['popfile'],2*self.params['nside'],self.params['dur']*u.s,
+                        astro_map, log_astro_map = self.pop2map(self.inj['popfile'],self.params['nside'],self.params['dur']*u.s,
                                                                   self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
                     elif self.inj['spatial_inj'] == 'sdg':
                         astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
                     elif self.inj['spatial_inj'] == 'point_source':
-                        if self.inj['injbasis'] == 'sph':
-                            ## identify pixel with source
-                            ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
-                            astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
-                            ## set pixel magnitude to 1
-                            astro_map[ps_id] = 1
-                        elif self.inj['injbasis'] == 'pixel':
-                            ## note that a single-pixel map causes numerical issues in np.linalg.cholesky (numerical error causes numpy to believe the response matrix is not postive-definite)
-                            ## solution: add a very small amount of power to all adjacent pixels
-                            astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
-                            ps_id = hp.ang2pix(2*self.params['nside'], self.inj['theta'], self.inj['phi'])
-                            ## set pixel magnitude to 1
-                            astro_map[ps_id] = 1
-                            neighbours = hp.pixelfunc.get_all_neighbours(2*self.params['nside'],ps_id)
-                            astro_map[neighbours] = 1e-10
-                            
-                        else:
-                            raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
+                        astro_map, log_astro_map = self.generate_point_source(self.inj['theta'],self.inj['phi'])
                     elif self.inj['spatial_inj'] == 'two_point':
-                        ps_idx = [hp.ang2pix(2*self.params['nside'], self.inj['theta_1'], self.inj['phi_1']),
-                                  hp.ang2pix(2*self.params['nside'], self.inj['theta_2'], self.inj['phi_2'])]
-                        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
-                        ## set pixel magnitudes to 1
-                        astro_map[ps_idx] = 0.5 #/hp.pixelfunc.nside2pixarea(2*self.params['nside'])
+                        astro_map, log_astro_map = self.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'])
+                    elif self.inj['spatial_inj'] == 'isotropic':
+                        astro_map = np.ones(hp.nside2npix(self.params['nside']))
                     else:
-                        raise ValueError("Unknown astrophysical spatial injection type ('spatial_inj'). Can be 'breivik2020', 'population', 'sdg', 'ps', or 'tps'.")     
-                    
+                        raise ValueError("Unsupported spatial injection. Currentlys supported: breivik2020, sdg, population, point_source, two_point_source.")
+            
                     if self.inj['injbasis'] == 'sph':
                         ## convert to blms
-                        astro_sph = self.skymap_pix2sph(astro_map)
+                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
+                        ## save blms for truevals
+                        self.inj['astro_blms'] = astro_sph
                         ## extract alms
                         self.alms_inj = self.blm_2_alm(astro_sph)
     
@@ -615,39 +591,43 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
     
                         # converts alm_inj into a healpix map to be plotted and saved
                         # Plot with twice the analysis nside for better resolution
-                        skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+                    elif self.inj['injbasis'] == 'sph_lmax':
+                        ## version with injection lmax decoupled from analysis lmax
+                        
+                        ## convert to blms
+                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.inj['inj_lmax'])
+                        ## save blms for truevals
+                        self.inj['astro_blms'] = astro_sph
+                        ## extract alms
+                        self.alms_inj = self.inj_blm_2_alm(astro_sph)
+    
+                        ## normalize
+                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+                        
+                        ## get almax from blmax
+                        almax_inj = 2*self.inj['inj_lmax']
+                        ## extract only the non-negative components
+                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(almax_inj)]
+                        ## response matrix summed over Ylms
+                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+    
+                        # converts alm_inj into a healpix map to be plotted and saved
+                        # Plot with twice the analysis nside for better resolution
+                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
                     elif self.inj['injbasis'] == 'pixel':
-                        ## normalize so total power is from GW spectrum
-                        skymap_inj = astro_map/(np.sum(astro_map)) 
-                        self.skymap_inj = skymap_inj
-                        ## take sum over all sky directions
-                        summ_response_mat = (hp.pixelfunc.nside2pixarea(2*self.params['nside'])/(8*np.pi))*np.einsum('ijklm,m', response_mat, skymap_inj)
-                    else:
-                        raise ValueError("Unknown injection basis. Can be 'sph' or 'pixel'.")
-                    ## get Omega(1mHz)
-                    if self.inj['spectral_inj'] == 'powerlaw':
-                        Omega_1mHz = 10**(self.inj['log_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
-                    elif self.inj['spectral_inj'] == 'broken_powerlaw':
-                        alpha_1 = self.inj['alpha1']
-                        log_A1 = self.inj['log_A1']
-                        alpha_2 = self.inj['alpha1'] - 0.667
-                        log_A2 = self.inj['log_A2']
-                        Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
-                    elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
-                        alpha_1 = self.inj['alpha1']
-                        log_A1 = self.inj['log_A1']
-                        alpha_2 = self.inj['alpha2']
-                        log_A2 = self.inj['log_A2']
-                        Omega_1mHz= ((10**log_A1)*(1e-3/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/self.params['fref'])**alpha_2)
-                    elif self.inj['spectral_inj'] == 'population':
-                        ## need to grab the population Sgw at ~1 mHz, preferably without calling pop2spec again
-                        Omega_1mHz = Sgw[np.argmin(np.abs(frange - 1e-3))]/((3/(4*(1e-3)**3))*(H0/np.pi)**2)
-                    else:
-                        raise ValueError("Unknown spectral injection type ('spectral_inj'). Supported models: 'powerlaw', 'broken_powerlaw', 'population'.") 
+                        print("Warning: pixel-basis injections are still under development, results may be erroneous.")
+                        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
+                        skymap_inj = astro_map/(np.sum(astro_map)*(dOmega/(8*np.pi)))
+                        summ_response_mat = self.add_astro_signal(f0,tmids,skymap_inj)                     
                         
                     Omegamap_inj = Omega_1mHz * skymap_inj
-
-                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map of $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+                    
+                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
+                    self.skymap_inj = skymap_inj
+    
+                        
+                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
                     hp.graticule()
                     
                     plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
@@ -655,21 +635,20 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                     plt.close()
                     
                     
-                    hp.mollview(astro_map, coord=coord, title='Simulated DWD Foreground skymap')
+                    hp.mollview(astro_map, title='Simulated astrophysical skymap')
                     hp.graticule()
                     plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
                     print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
                     plt.close()
-                    if 'injbasis' in self.inj.keys():
-                        if self.inj['injbasis'] == 'sph':
-                            hp.mollview(hp.alm2map(astro_sph, 2*self.params['nside']), coord=coord, title='Simulated DWD Foreground alm map', unit='Per-pixel Normalization Factor')
-                            hp.graticule()
-                            plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
-                            print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
-                            plt.close()
-    
-                    ## move frequency to be the zeroth-axis, then cholesky decomp
-                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+                    if self.inj['injbasis']!='pixel':
+                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
+                        hp.graticule()
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+                        plt.close()
+
+                ## move frequency to be the zeroth-axis, then cholesky decomp
+                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
 
             ## generate standard normal complex data frist
             z_norm = np.random.normal(size=(frange.size, 3)) + 1j * np.random.normal(size=(frange.size, 3))
@@ -682,8 +661,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             htilda2  = np.concatenate([ [0], z_scale[:, 1]])
             htilda3  = np.concatenate([ [0], z_scale[:, 2]])
 
-            np.savez(self.params['out_dir'] +'/htilde_gw123.npz',htilda1=htilda1,htilda2=htilda2,htilda3=htilda3,frange=frange)
-            
+
             if ii == 0:
                 # Take inverse fft to get time series data
                 h1 = splice_win * np.fft.irfft(htilda1, N)
@@ -857,26 +835,192 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
         
         return DWD_FG_map, log_DWD_FG_map
-        
     
-    def skymap_pix2sph(self, pixmap):
+    def generate_sdg(self, ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
         '''
-        Transform a pixel-basis power skymap into the b_lm spherical harmonic basis
+        Generates the stochastic DWD signal from a a generic toy model spherical dwarf galaxy (SDG). Default values are for the LMC.
+        
+        Arguments
+        ---------
+        ra, dec : float
+            Right ascension and declination.
+        D : float
+            Distance to SDG in kpc.
+        r : float
+            radius of SDG in kpc
+        N : int
+            Number of DWD systems in the SDG
         
         Returns
         ---------
-        DWD_FG_sph : float
+        
+        DWD_FG_map : float
+            Healpy GW power skymap of the stochastic DWD signal.
+        log_DWD_FG_map : float
+            Healpy log GW power skymap. For plotting purposes.
+        
+        '''
+        ## ===== ipynb compute_density function ========================================
+        ## all below is only for galaxy model creation
+            ## set grid density
+        grid_fill = 200
+
+        # sdg radius: (default is the LMC)
+        sdg_r = r*u.kpc
+        
+        # default coordinates give the position of the center of the LMC in ICRS coordinates:
+        sdg_icrs = SkyCoord(ra=ra*u.degree, dec=dec*u.degree, distance=D*u.kpc)
+
+        # transform to galactocentric coordinates:
+        sdg_galcen = sdg_icrs.transform_to(cc.Galactocentric)
+        
+        # convert to cartesian coordinates with the origin at the galactic center
+        x_sdg = sdg_galcen.cartesian.x
+        y_sdg = sdg_galcen.cartesian.y
+        z_sdg = sdg_galcen.cartesian.z
+        
+        ## create grid *in cartesian coordinates*
+        ## distances in kpc
+        xs = np.linspace(x_sdg-sdg_r,x_sdg+sdg_r,grid_fill)
+        ys = np.linspace(y_sdg-sdg_r,y_sdg+sdg_r,grid_fill)
+        zs = np.linspace(z_sdg-sdg_r,z_sdg+sdg_r,grid_fill)
+        x, y, z = np.meshgrid(xs,ys,zs)
+        
+        DWD_density = N / (0.524*200**3)
+        # 0.524 is the filling factor of a sphere in a cube
+        # this gives us the number density for points only within the sphere of the sdg, instead of the entire cube
+    
+        ## creating a sphere_filter 3D array, with 1s in a sphere and 0s otherwise
+        # rs = distance from any point to the center of the sdg
+        rs = np.sqrt((x-x_sdg)**2+(y-y_sdg)**2+(z-z_sdg)**2)
+        
+        # set any points within the sdg radius to 1, any points outside to 0
+        sphere_filter = np.zeros((grid_fill,grid_fill,grid_fill))
+        for i in range(grid_fill):
+            for j in range(grid_fill):
+                for k in range(grid_fill):
+                    sphere_filter[i,j,k] = 1 if (rs[i,j,k]<sdg_r) else 0
+        ## ** this is probably a computationally expensive way to do this, but it works
+
+        ## =============================================================================
+        
+        ## ===== ipynb next block ======================================================
+        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
+        gc = cc.Galactocentric(x=x,y=y,z=z)
+        SSBc = gc.transform_to(cc.Galactic)
+        ## =============================================================================
+       
+        ## Calculate GW power
+        #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
+        ## density will be total power divided by the points that we're simulating
+        ## assuming all grid points will contribute an equal amount of power
+        DWD_powers = sphere_filter*DWD_density*(np.array(SSBc.distance))**-2
+        ## Filter nearby grid points (cut out 2kpc sphere)
+        ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
+        ## the density distribution and filtering out resolveable SNR>80 binaries
+        DWD_unresolved_powers = sphere_filter*DWD_powers*(np.array(SSBc.distance) > 2)
+        ## will need to generate DWD_unresolved_powers for sdg
+        
+
+        ## Transform to healpix basis
+        ## resolution is 2x analysis resolution
+        ## setting resolution, taking coordinates from before and transforming to longlat
+        ## replace np.array ... with sdg coordinates
+        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
+        
+
+        ## Create skymap
+        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ## Bin
+        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+        ## old, slow way:
+        # for i in range(DWD_FG_mapG.size):
+        #     DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
+        
+        ## create logarithmic skymap for plotting purposes
+        log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+        
+
+        ## below isn't in the jupyter notebook?
+        ## Transform into the ecliptic
+        rGE = hp.rotator.Rotator(coord=['G','E'])
+        DWD_FG_map = rGE.rotate_map_pixel(DWD_FG_mapG)
+        log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
+        
+        ## returning healpix skymaps
+        return DWD_FG_map, log_DWD_FG_map
+    
+    def generate_point_source(self,theta,phi):
+        '''
+        Generates a point source skymap. Allows small amount of power to artifically bleed into adjacent pixels to avoid numerical error issues later on.
+        
+        Arguments
+        ---------
+        theta, phi : float
+            angular coordinates of the point source in radians
+        
+        Returns
+        ---------
+        astro_map, log_astro_map : healpy skymaps
+        '''
+        
+        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ps_id = hp.ang2pix(2*self.params['nside'], theta, phi)
+        astro_map[ps_id] = 1
+        
+        neighbours = hp.pixelfunc.get_all_neighbours(2*self.params['nside'],ps_id)
+        astro_map[neighbours] = 1e-10
+        astro_map = astro_map/np.sum(astro_map)
+        
+        log_astro_map = np.log10(astro_map + 10**-15 * (astro_map==0))
+        
+        return astro_map, log_astro_map
+    
+    def generate_two_point_source(self,theta_1,phi_1,theta_2,phi_2):
+        '''
+        Generates a two-point-source skymap. 
+        
+        Arguments
+        ---------
+        theta_1, phi_1 : float
+            angular coordinates of the 1st point source in radians
+        theta_2, phi_2 : float
+            angular coordinates of the 2nd point source in radians
+        
+        Returns
+        ---------
+        astro_map, log_astro_map : healpy skymaps
+        '''
+        
+        astro_map = np.zeros(hp.nside2npix(2*self.params['nside']))
+        ps_idx = [hp.ang2pix(2*self.params['nside'], theta_1, phi_1),
+                  hp.ang2pix(2*self.params['nside'], theta_2, phi_2)]
+        astro_map[ps_idx] = 0.5
+        
+        log_astro_map = np.log10(astro_map + 10**-15 * (astro_map==0))
+        
+        return astro_map, log_astro_map
+    
+    
+    def skymap_pix2sph(self, DWD_FG_map, blmax):
+        '''
+        Transform the foreground produced in generate_galactic_foreground() into
+        b_lm spherical harmonic basis
+        
+        Returns
+        ---------
+        astro_blms : float
             Spherical harmonic healpy expansion of the galactic foreground
         '''
         ## Take square root of powers
-        sqrt_map = np.sqrt(pixmap)
+        sqrt_map = np.sqrt(DWD_FG_map)
         ## Generate blms of power (alms of sqrt(power))
-        sph_map = hp.sphtfunc.map2alm(sqrt_map, lmax=self.blmax)
+        astro_blms = hp.sphtfunc.map2alm(sqrt_map, lmax=blmax)
 
-        # Normalize        
-        sph_map = sph_map/(sph_map[0]* np.sqrt(4*np.pi))
+        # Normalize such that b00 = 1    
+        astro_blms = astro_blms/(astro_blms[0])
 
-        return sph_map
+        return astro_blms
         
 
     def read_data(self):
@@ -1028,109 +1172,4 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
         return r1, r2, r3, fdata, tsegstart, tsegmid
 
-    def generate_sdg(self, RA=80.21496, DEC=-69.37772, DIST=50, RAD=2.1462, NUM=2169264):
-        '''
-        Should redo this text:
-        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
-        rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
-        Thin disk has rh=2.9kpc, zh=0.3kpc; Thick disk has rh=3.31kpc, zh=0.9kpc. Defaults to thin disk. 
-        The distribution is azimuthally symmetric in the galactocentric frame.
-        Returns
-        ---------
-        DWD_FG_map : float
-            Healpy GW power skymap of the DWD galactic foreground.
-        log_DWD_FG_map : float
-            Healpy log GW power skymap. For plotting purposes.
-        
-        '''
-        ## ===== ipynb compute_density function ========================================
-        ## all below is only for galaxy model creation
-            ## set grid density
-        grid_fill = 200
-
-        # sdg radius: (default is the LMC)
-        sdg_r = RAD*u.kpc
-        
-        # default coordinates give the position of the center of the LMC in ICRS coordinates:
-        sdg_icrs = SkyCoord(ra=RA*u.degree, dec=DEC*u.degree, distance=DIST*u.kpc)
-
-        # transform to galactocentric coordinates:
-        sdg_galcen = sdg_icrs.transform_to(cc.Galactocentric)
-        
-        # convert to cartesian coordinates with the origin at the galactic center
-        x_sdg = sdg_galcen.cartesian.x
-        y_sdg = sdg_galcen.cartesian.y
-        z_sdg = sdg_galcen.cartesian.z
-        
-        ## create grid *in cartesian coordinates*
-        ## distances in kpc
-        xs = np.linspace(x_sdg-sdg_r,x_sdg+sdg_r,grid_fill)
-        ys = np.linspace(y_sdg-sdg_r,y_sdg+sdg_r,grid_fill)
-        zs = np.linspace(z_sdg-sdg_r,z_sdg+sdg_r,grid_fill)
-        x, y, z = np.meshgrid(xs,ys,zs)
-        
-        DWD_density = NUM / (0.524*200**3)
-        # 0.524 is the filling factor of a sphere in a cube
-        # this gives us the number density for points only within the sphere of the sdg, instead of the entire cube
     
-        ## creating a sphere_filter 3D array, with 1s in a sphere and 0s otherwise
-        # r = distance from any point to the center of the sdg
-        r = np.sqrt((x-x_sdg)**2+(y-y_sdg)**2+(z-z_sdg)**2)
-        
-        # set any points within the sdg radius to 1, any points outside to 0
-        sphere_filter = np.zeros((grid_fill,grid_fill,grid_fill))
-        for i in range(grid_fill):
-            for j in range(grid_fill):
-                for k in range(grid_fill):
-                    sphere_filter[i,j,k] = 1 if (r[i,j,k]<sdg_r) else 0
-        ## ** this is probably a computationally expensive way to do this, but it works
-
-        ## =============================================================================
-        
-        ## ===== ipynb next block ======================================================
-        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
-        gc = cc.Galactocentric(x=x,y=y,z=z)
-        SSBc = gc.transform_to(cc.Galactic)
-        ## =============================================================================
-       
-        ## Calculate GW power
-        #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
-        ## density will be total power divided by the points that we're simulating
-        ## assuming all grid points will contribute an equal amount of power
-        DWD_powers = sphere_filter*DWD_density*(np.array(SSBc.distance))**-2
-        ## Filter nearby grid points (cut out 2kpc sphere)
-        ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
-        ## the density distribution and filtering out resolveable SNR>80 binaries
-        DWD_unresolved_powers = sphere_filter*DWD_powers*(np.array(SSBc.distance) > 2)
-        ## will need to generate DWD_unresolved_powers for sdg
-        
-
-        ## Transform to healpix basis
-        ## resolution is 2x analysis resolution
-        ## setting resolution, taking coordinates from before and transforming to longlat
-        ## replace np.array ... with sdg coordinates
-        pixels = hp.ang2pix(2*self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
-        
-
-        ## Create skymap
-        DWD_FG_mapG = np.zeros(hp.nside2npix(2*self.params['nside']))
-        ## Bin
-        DWD_FG_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
-        ## old, slow way:
-        # for i in range(DWD_FG_mapG.size):
-        #     DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
-        
-        ## create logarithmic skymap for plotting purposes
-        DWD_FG_mapG_copy = DWD_FG_mapG
-        DWD_FG_mapG_copy[DWD_FG_mapG_copy<=0] = 1e-80
-        log_DWD_FG_mapG = np.log10(DWD_FG_mapG_copy)
-        
-
-        ## below isn't in the jupyter notebook?
-        ## Transform into the ecliptic
-        rGE = hp.rotator.Rotator(coord=['G','E'])
-        DWD_FG_map = rGE.rotate_map_pixel(DWD_FG_mapG)
-        log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
-        
-        ## returning healpix skymaps
-        return DWD_FG_map, log_DWD_FG_map

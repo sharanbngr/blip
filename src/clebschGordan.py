@@ -33,6 +33,31 @@ class clebschGordan():
 
             #lval, mval = Alm.getlm(blmax, jj)
             self.bl_idx[ii], self.bm_idx[ii] = self.idxtoalm(self.blmax, ii)
+        
+        ## independent injection lmax case
+        if self.inj['injtype']=='astro' and self.inj['injbasis']=='sph_lmax':
+            self.inj_blmax = self.inj['inj_lmax']
+            self.inj_almax = 2*self.inj_blmax
+    
+            ## size of arrays: for blms its only non-negative m values but for alms it is all of them
+            self.inj_alm_size = (self.inj_almax + 1)**2
+            self.inj_blm_size = Alm.getsize(self.inj_blmax)
+    
+            ## calculate and store beta
+            self.inj_calc_beta()
+    
+            ## calculate and store the output of the idxtoalm method for blmax.
+            ## This will be used many times for the spherical harmonic likelihood
+    
+            ## Array of blm values for both +ve and -ve indices
+            self.inj_bl_idx = np.zeros(2*self.inj_blm_size - self.inj_blmax - 1, dtype='int')
+            self.inj_bm_idx = np.zeros(2*self.inj_blm_size - self.inj_blmax - 1, dtype='int')
+    
+    
+            for ii in range(self.inj_bl_idx.size):
+    
+                #lval, mval = Alm.getlm(blmax, jj)
+                self.inj_bl_idx[ii], self.inj_bm_idx[ii] = self.idxtoalm(self.inj_blmax, ii)
 
 
     def idxtoalm(self, lmax, ii):
@@ -116,7 +141,7 @@ class clebschGordan():
         '''
         Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
-        if self.inj['injtype'] != 'dwd_fg':
+        if not (self.inj['injtype'] == 'astro' and self.inj['inj_basis'] == 'sph_lmax'):
             if blms_in.size != self.blm_size:
                 raise ValueError('The size of the input blm array does not match the size defined by lmax ')
 
@@ -159,6 +184,79 @@ class clebschGordan():
                     cnt = cnt + 2
 
         return blm_vals
+    
+    
+    
+    
+    ## injection mirrors
+    ## for case where injection lmax != analysis lmax, mirror all CG functions to use injection versions of self objects
+    def inj_calc_beta(self):
+
+        '''
+        Method to calculate beta array to convert from blm to alm
+        '''
+
+        ## initialize beta array
+        beta_vals = np.zeros((self.inj_alm_size, 2*self.inj_blm_size - self.inj_blmax - 1, 2*self.inj_blm_size - self.inj_blmax - 1))
+
+        for ii in range(beta_vals.shape[0]):
+            for jj in range(beta_vals.shape[1]):
+                for kk in range(beta_vals.shape[2]):
+
+                    l1, m1 = self.idxtoalm(self.inj_blmax, jj)
+                    l2, m2 = self.idxtoalm(self.inj_blmax, kk)
+                    L, M = self.idxtoalm(self.inj_almax, ii)
+
+                    ## clebs gordon coeffcients
+                    cg0 = (CG(l1, 0, l2, 0, L, 0).doit()).evalf()
+                    cg1 = (CG(l1, m1, l2, m2, L, M).doit()).evalf()
+
+                    beta_vals[ii, jj, kk] =  np.sqrt( (2*l1 + 1) * (2*l2 + 1) / ((4*np.pi) * (2*L + 1) )) * cg0 * cg1
+
+
+        self.inj_beta_vals = beta_vals
+
+    def inj_calc_blm_full(self, blms_in):
+
+        '''
+        Convert samples in blm space to blm complex values including negetive m vals
+
+        Input:  blms ordered dictionary
+        Ouput:  blms_full, list including blms with negative m vals
+
+        '''
+
+        ## Array of blm values for both +ve and -ve indices
+        blms_full = np.zeros(2*self.inj_blm_size - self.inj_blmax - 1, dtype='complex')
+
+
+        for jj in range(blms_full.size):
+
+            lval, mval = self.inj_bl_idx[jj], self.inj_bm_idx[jj]
+
+            if mval >= 0:
+                blms_full[jj] = blms_in[Alm.getidx(self.inj_blmax, lval, mval)]
+
+            elif mval < 0:
+                mval = -mval
+                blms_full[jj] = (-1)**mval *  np.conj(blms_in[Alm.getidx(self.inj_blmax, lval, mval)])
+
+        return blms_full
+
+    def inj_blm_2_alm(self, blms_in):
+
+        '''
+        Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
+        '''
+        if blms_in.size != self.inj_blm_size:
+                raise ValueError('The size of the input blm array does not match the size defined by lmax ')
+
+        ## convert blm array into a full blm array with -m values too
+        blm_full = self.inj_calc_blm_full(blms_in)
+
+        alm_vals = np.einsum('ijk,j,k', self.inj_beta_vals, blm_full, blm_full)
+
+        return alm_vals
 
 
 

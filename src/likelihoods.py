@@ -178,11 +178,11 @@ class likelihoods():
         loglike = np.real(logL)
 
         return loglike
-
+    
     def isgwb_bpl_log_likelihood(self, theta):
 
         '''
-        Calculate likelihood for an isotropic stochastic background analysis.
+        Calculate likelihood for an isotropic stochastic background analysis with a broken power law spectral model that asymptotes to alpha=2/3 (CBC) at low frequencies.
 
 
         Parameters
@@ -198,22 +198,27 @@ class likelihoods():
         Loglike   :   float
             The log-likelihood value at the sampled point in the parameter space
         '''
+
         # unpack priors
-        log_Np, log_Na, alpha_1, log_A1, log_A2  = theta[0],theta[1], theta[2], theta[3], theta[4]
-        ## do transforms
-        alpha_2 = alpha_1 - 0.667
+        log_Np, log_Na, log_A1, alpha_1, log_A2 = theta
+
         Np, Na =  10**(log_Np), 10**(log_Na)
 
+        ## fixed pl (asymptotes to alpha=2/3)
+        alpha_2 = alpha_1 - 0.667
+
         # Modelled Noise PSD
-        cov_noise = self.instr_noise_spectrum(self.fdata, self.f0, Np, Na)
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
         ## repeat C_Noise to have the same time-dimension as everything else
         cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
-        ## broken power law spectral model
+        
+        ## spectral model
         Omegaf = ((10**log_A1)*(self.fdata/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(self.fdata/self.params['fref'])**alpha_2)
+
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
@@ -240,7 +245,7 @@ class likelihoods():
     def isgwb_fbpl_log_likelihood(self, theta):
 
         '''
-        Calculate likelihood for an isotropic stochastic background analysis.
+        Calculate likelihood for an isotropic stochastic background analysis with a free broken power law spectral model.
 
 
         Parameters
@@ -256,21 +261,25 @@ class likelihoods():
         Loglike   :   float
             The log-likelihood value at the sampled point in the parameter space
         '''
+
         # unpack priors
-        log_Np, log_Na, alpha_1, log_A1, alpha_2, log_A2  = theta[0], theta[1], theta[2], theta[3], theta[4], theta[5]
-        ## do transforms
+        log_Np, log_Na, log_A1, alpha_1, log_A2, alpha_2 = theta
+
         Np, Na =  10**(log_Np), 10**(log_Na)
 
+
         # Modelled Noise PSD
-        cov_noise = self.instr_noise_spectrum(self.fdata, self.f0, Np, Na)
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
         ## repeat C_Noise to have the same time-dimension as everything else
         cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
-        ## broken power law spectral model
+        
+        ## spectral model
         Omegaf = ((10**log_A1)*(self.fdata/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(self.fdata/self.params['fref'])**alpha_2)
+
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
 
@@ -296,7 +305,7 @@ class likelihoods():
     def sph_pl_log_likelihood(self, theta):
 
         '''
-        Calculate likelihood for a power-spectra based spherical harmonic analysis.
+        Calculate likelihood for a power-spectra based spherical harmonic analysis with a power law spectral model.
 
 
         Parameters
@@ -327,7 +336,8 @@ class likelihoods():
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
-
+        
+        ## spectral model
         Omegaf = 10**(log_omega0)*(self.fdata/self.params['fref'])**alpha
 
         # Spectrum of the SGWB
@@ -364,12 +374,11 @@ class likelihoods():
 
         loglike = np.real(logL)
         return loglike
- 
-
+    
     def sph_bpl_log_likelihood(self, theta):
 
         '''
-        Calculate likelihood for a power-spectra based spherical harmonic analysis of the Milky Way double white dwarf GW foreground.
+        Calculate likelihood for a power-spectra based spherical harmonic analysis with a broken power law spectral model that asymptotes to alpha=2/3 (CBC) at low frequencies.
 
 
         Parameters
@@ -386,13 +395,14 @@ class likelihoods():
         Loglike   :   float
             The log-likelihood value at the sampled point in the parameter space
         '''
-        
-        
+
         # unpack priors
-        log_Np, log_Na, alpha_1, log_A1, log_A2  = theta[0],theta[1], theta[2], theta[3], theta[4]
-        ## do transforms
-        alpha_2 = alpha_1 - 0.667
+        log_Np, log_Na, log_A1, alpha_1, log_A2  = theta[0],theta[1], theta[2], theta[3], theta[4]
+
         Np, Na =  10**(log_Np), 10**(log_Na)
+        
+        ## fixed pl (asymptotes to alpha=2/3)
+        alpha_2 = alpha_1 - 0.667
 
         # Modelled Noise PSD
         cov_noise = self.instr_noise_spectrum(self.fdata, self.f0, Np, Na)
@@ -402,14 +412,18 @@ class likelihoods():
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
-        ## broken power law spectral model
+        
+        ## spectral model
         Omegaf = ((10**log_A1)*(self.fdata/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(self.fdata/self.params['fref'])**alpha_2)
+
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
-        
-        ## broken powerlaw theta has more elements before the blms
-        blm_theta = theta[5:]
-        
+
+        ## rm this line later
+        # blm_theta  = np.append([0.0], theta[4:])
+
+        blm_theta  = theta[5:]
+
         ## Convert the blm parameter space values to alm values.
         blm_vals = self.blm_params_2_blms(blm_theta)
         alm_vals = self.blm_2_alm(blm_vals)
@@ -436,11 +450,12 @@ class likelihoods():
 
         loglike = np.real(logL)
         return loglike
-
+    
+    
     def sph_fbpl_log_likelihood(self, theta):
 
         '''
-        Calculate likelihood for a power-spectra based spherical harmonic analysis of an anisotropic SGWB with a free broken power law spectral model.
+        Calculate likelihood for a power-spectra based spherical harmonic analysis with a broken power law spectral model.
 
 
         Parameters
@@ -457,11 +472,10 @@ class likelihoods():
         Loglike   :   float
             The log-likelihood value at the sampled point in the parameter space
         '''
-        
-        
+
         # unpack priors
-        log_Np, log_Na, alpha_1, log_A1, alpha_2, log_A2  = theta[0], theta[1], theta[2], theta[3], theta[4], theta[5]
-        ## do transforms
+        log_Np, log_Na, log_A1, alpha_1, log_A2, alpha_2  = theta[0],theta[1], theta[2], theta[3], theta[4], theta[5]
+
         Np, Na =  10**(log_Np), 10**(log_Na)
 
         # Modelled Noise PSD
@@ -472,14 +486,18 @@ class likelihoods():
 
         ## Signal PSD
         H0 = 2.2*10**(-18)
-        ## broken power law spectral model
+        
+        ## spectral model
         Omegaf = ((10**log_A1)*(self.fdata/self.params['fref'])**alpha_1)/(1 + (10**log_A2)*(self.fdata/self.params['fref'])**alpha_2)
+
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
-        
-        ## broken powerlaw theta has more elements before the blms
-        blm_theta = theta[6:]
-        
+
+        ## rm this line later
+        # blm_theta  = np.append([0.0], theta[4:])
+
+        blm_theta  = theta[6:]
+
         ## Convert the blm parameter space values to alm values.
         blm_vals = self.blm_params_2_blms(blm_theta)
         alm_vals = self.blm_2_alm(blm_vals)
@@ -506,6 +524,7 @@ class likelihoods():
 
         loglike = np.real(logL)
         return loglike
+
 
 def bespoke_inv(A):
 

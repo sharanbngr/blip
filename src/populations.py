@@ -127,7 +127,7 @@ class populations():
             print("Invalid specification of get_type; can be 'resolved' or 'unresolved'.")
             raise
 
-    def gen_summed_spectrum(self,fs,hs,frange,t_obs,plot=True):
+    def gen_summed_spectrum(self,fs,hs,frange,t_obs,plot=False,return_median=False):
         '''
         Function to calculate the foreground spectrum arising from a set of monochromatic strains and associated frequencies.
         
@@ -143,6 +143,7 @@ class populations():
         
         
         ## get strain squared power
+#        hs2 = hs**2
         PSDs_unres = self.get_binary_psd(hs,4*u.yr)
         
         ## get BLIP frequency bins
@@ -160,13 +161,15 @@ class populations():
         
         ## bin
         fg_PSD_binned, edges = np.histogram(fs,bins=bins,weights=PSDs_unres)
-        
+
+        ## get running median if needed
+        if plot or return_median:
+            runmed_binned = medfilt(fg_PSD_binned,kernel_size=11)
+
         ## make plots if desired
         ## note that in BLIP proper, this is called for every segment, and is then ifft'd. 
         ## The true FG spectrum will be the result of splicing these segments together in time domain and taking another fft. Do not expect these to be representative of your expectations of the FG.
-        if plot == True:
-            ## take running median to smooth
-            runmed_binned = medfilt(fg_PSD_binned,kernel_size=11)
+        if plot:
             plt.figure()
             det_PSD = lw.psd.lisa_psd(frange*u.Hz,t_obs=4*u.yr,confusion_noise=None,approximate_R=True)
             response_lw = lw.psd.approximate_response_function(frange,fstar=1e-3)
@@ -183,7 +186,7 @@ class populations():
             # plt.xlim(1e-4,1e-2)
             plt.xlabel('Frquency [Hz]')
             plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-            plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin.png', dpi=150)
+            plt.savefig(self.params['out_dir'] + '/population_injection.png', dpi=150)
             plt.close()
             ## zoom zoom
             plt.figure()
@@ -199,11 +202,17 @@ class populations():
             plt.xlim(2e-4,4e-3)
             plt.xlabel('Frquency [Hz]')
             plt.ylabel('GW Power Spectral Density [Hz$^{-1}$]')
-            plt.savefig(self.params['out_dir'] + '/fg_test_inpop_postbin_zoom.png', dpi=150)
+            plt.savefig(self.params['out_dir'] + '/population_injection_zoom.png', dpi=150)
             plt.close()
-#        np.savetxt(self.params['out_dir'] + '/fg_test_inpop_postbin_runmed.txt', [frange,runmed_binned])
-        return fg_PSD_binned/bin_widths *u.Hz*u.s
-
+        
+        if return_median:
+            spectrum = runmed_binned/bin_widths *u.Hz*u.s
+        else:
+            spectrum =  fg_PSD_binned/bin_widths *u.Hz*u.s
+        
+        return spectrum
+ 
+    
     def gen_summed_map(self,lats,longs,PSDs,nside):
         '''
         Function to get a skymap from a collection of binary sky coordinates and (monochromatic) PSDs.
@@ -224,13 +233,12 @@ class populations():
         ## sum power from all binaries in same pixel
         skymap = np.bincount(pix_idx,weights=PSDs.value,minlength=hp.nside2npix(nside))
         ## set any zero pixels to a very small number to avoid problems with taking the log
-        skymap_copy = skymap
-        skymap_copy[skymap_copy<=0] = 1e-80
+        skymap[skymap<=0] = 1e-80
         ## get log
-        logskymap = np.log10(skymap_copy)
+        logskymap = np.log10(skymap)
         return skymap, logskymap
     
-    def pop2spec(self,popfile,frange,t_obs,SNR_cut=7,plot=True,**read_csv_kwargs):
+    def pop2spec(self,popfile,frange,t_obs,SNR_cut=7,plot=False,return_median=False,**read_csv_kwargs):
         '''
         Function to calculate the foreground spectrum arising from a population catalogue of unresolved DWD binaries.
         
@@ -245,9 +253,10 @@ class populations():
         ## note, for now we are fixing t_obs=4yr for the purpose of determining which systems are unresolved!!
         snrs = self.get_snr(fs*u.Hz,hs,(4*u.yr).to(u.s))
         fs_unres, hs_unres = self.filter_by_snr(fs,snrs,SNR_cut=SNR_cut), self.filter_by_snr(hs,snrs,SNR_cut=SNR_cut)
-        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs,plot=plot).value
+        fg_PSD = self.gen_summed_spectrum(fs_unres,hs_unres,frange,t_obs,return_median=return_median).value
         return fg_PSD
 
+    
     def pop2map(self,popfile,nside,t_obs,fmin,fmax,SNR_cut=7,**read_csv_kwargs):
         '''
         Function to get a skymap from a catalogue of binaries.

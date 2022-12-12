@@ -578,41 +578,53 @@ class geometry(sph_geometry):
         return aet_response_mat
 
 
-    def pixel_mich_response(self, f0, tsegmid, nside=None):
+    ## trying a different approach to the pixel injections
+    ## take pixel skymap as an argument and convolve across sky direction within the response calculation itself
+    ## and only compute sky directions with power
+    ## this is based on Sharan's original point source approach
+    def pixel_mich_response(self, f0, tsegmid, skymap_inj):
         '''
-        Calculate the antenna pattern/detector transfer function in the pixel basis using basic michelson channels.
-        Note that full pixel-basis inference is probably impractical; this should be primarily used for injections.
-        Accordingly, nside will default to 2x the nside set in the params file (as is typical for BLIP injections)
-        Note also that f0 is (pi*L*f)/c and is input as an array.
+        Calculate the Antenna pattern/detector transfer function for a pixel-basis anisotropic SGWB using basic michelson channels.
+        Note that we only evaluate the response to sky directions with power in them. The angular integral is a linear and rectangular in the
+        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array.
         Parameters
         -----------
         f0   : float
             A numpy array of scaled frequencies (see above for def)
-        tsegstart  :  float
-            A numpy array of segment start times
         tsegmid  :  float
             A numpy array of segment midpoints
+        skymap : healpy pixel map
+            A pixel map in healpy ordering of GW power on the sky
         Returns
         ---------
-        response_tess   :   float
-            4D array of covariance matrices for antenna patterns of the three channels, 
-            averaged over polarization, across all frequencies, times, and sky directions.
+        response_mat   :   float
+            4D array of covariance matrices for antenna patterns of the three channels, integrated over sky direction
+            and averaged over polarization, across all frequencies and times.
         '''
-        if nside is None:
-            nside = 2*self.params['nside']
 
-        # Array of pixel indices
-        npix = hp.nside2npix(nside)
-        pix_idx  = np.arange(npix)
+#        npix = hp.nside2npix(self.params['nside'])
         
-        #Angular coordinates of pixel indcides
-        theta, phi = hp.pix2ang(nside, pix_idx)
+        pix_idx = np.flatnonzero(skymap_inj)
+        
+        skymap_nonzero = skymap_inj[pix_idx]
+
+#        inj_map = np.zeros(npix)
+                
+#        # identify the pixel with the point source
+#        ps_id = hp.ang2pix( self.params['nside'] , theta_inj, phi_inj)
+#        inj_map[ps_id-1:ps_id+1] = 1
+#
+#        # Array of pixel indices
+#        pix_idx  = np.arange(npix)
+
+        # Angular coordinates of pixel indices
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
 
         # Take cosine.
         ctheta = np.cos(theta)
 
         # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(nside)
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         # Create 2D array of (x,y,z) unit vectors for every sky direction.
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
@@ -662,12 +674,12 @@ class geometry(sph_geometry):
 
 
         # Initlize arrays for the detector reponse
-        R1 = np.zeros((f0.size,  tsegmid.size, npix), dtype='complex')
-        R2 = np.zeros((f0.size,  tsegmid.size, npix), dtype='complex')
-        R3 = np.zeros((f0.size,  tsegmid.size, npix), dtype='complex')
-        R12 = np.zeros((f0.size, tsegmid.size, npix), dtype='complex')
-        R13 = np.zeros((f0.size, tsegmid.size, npix), dtype='complex')
-        R23 = np.zeros((f0.size, tsegmid.size, npix), dtype='complex')
+        R1 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
+        R2 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
+        R3 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
+        R12 = np.zeros((f0.size, tsegmid.size), dtype='complex')
+        R13 = np.zeros((f0.size, tsegmid.size), dtype='complex')
+        R23 = np.zeros((f0.size, tsegmid.size), dtype='complex')
 
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -696,79 +708,81 @@ class geometry(sph_geometry):
 
             ## Michelson antenna patterns
             ## Calculate Fplus
-            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
-            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
-            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
+            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
+            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
+            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3)) * skymap_nonzero[None, :]
 
             ## Calculate Fcross
-            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
-            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
-            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
+            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3)) * skymap_nonzero[None, :]
 
+            ## Detector response summed over polarization and integrated over sky direction
+            ## The travel time phases for the which are relevent for the cross-channel are
+            ## accounted for in the Fplus and Fcross expressions above.
+            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )
+            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )
+            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )
+            R12[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)
+            R13[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)
+            R23[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)
 
-            ## Detector response for the TDI Channels, summed over polarization
-            F1 = (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2
-            F2 = (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2
-            F3 = (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2
-            F12 = np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2
-            F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
-            F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
-
-            R1[ii, :, :] = 1/(8*np.pi)*F1 #np.einsum('ij, jk', F1, Ylms)
-            R2[ii, :, :] = 1/(8*np.pi)*F2 #np.einsum('ij, jk', F2, Ylms)
-            R3[ii, :, :] = 1/(8*np.pi)*F3 #np.einsum('ij, jk', F3, Ylms)
-            R12[ii, :, :] = 1/(8*np.pi)*F12 #np.einsum('ij, jk', F12, Ylms)
-            R13[ii, :, :] = 1/(8*np.pi)*F13 #np.einsum('ij, jk', F13, Ylms)
-            R23[ii, :, :] = 1/(8*np.pi)*F23 #np.einsum('ij, jk', F23, Ylms)
-            
         response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
+
         return response_mat
    
-    def pixel_xyz_response(self, f0, tsegmid, nside=None):
+   
+
+
+    def pixel_xyz_response(self, f0, tsegmid, skymap_inj):
 
         '''
-        Calcualte the Antenna pattern/ detector transfer function functions to an isotropic SGWB using X, Y and Z TDI
-        channels. Note that full pixel-basis inference is probably impractical; this should be primarily used for injections.
-        Accordingly, nside will default to 2x the nside set in the params file (as is typical for BLIP injections)
-        Note also that f0 is (pi*L*f)/c and is input as an array.
+        Calculate the Antenna pattern/detector transfer function for a pixel-basis anisotropic SGWB using X,Y,Z TDI channels.
+        Note that we only evaluate the response to sky directions with power in them. The angular integral is a linear and rectangular in the
+        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array.
         Parameters
         -----------
         f0   : float
             A numpy array of scaled frequencies (see above for def)
-        Returns
-        ---------
-        R1, R2 and R3   :   float
-            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged over polarization.
-        '''
-        if nside is None:
-            nside = 2*self.params['nside']
-        mich_response_mat = self.pixel_mich_response(f0, tsegmid, nside)
-        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
-
-        return xyz_response_mat   
-
-
-    def pixel_aet_response(self, f0, tsegmid, nside=None):
-    
-        '''
-        Calculate the Antenna pattern/ detector transfer function functions to a GW originating in the direction of (theta, phi) 
-        for the A, E and T TDI channels. Note that full pixel-basis inference is probably impractical; this should be primarily used for injections.
-        Accordingly, nside will default to 2x the nside set in the params file (as is typical for BLIP injections)
-        Note also that f0 is (pi*L*f)/c and is input as an array.
-        Parameters
-        -----------
-        f0   : float
-            A numpy array of scaled frequencies (see above for def)
+        tsegmid  :  float
+            A numpy array of segment midpoints
+        skymap : healpy pixel map
+            A pixel map in healpy ordering of GW power on the sky
         Returns
         ---------
         R1, R2 and R3   :   float
             Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
-        if nside is None:
-            nside = 2*self.params['nside']
-        
-        xyz_response_mat = self.pixel_xyz_response(f0, tsegmid, nside)
+
+        mich_response_mat = self.pixel_mich_response(f0, tsegmid, skymap_inj)
+        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None]))**2
+
+        return xyz_response_mat
+
+
+    def pixel_aet_response(self, f0, tsegmid, skymap_inj):
+
+        '''
+        Calculate the Antenna pattern/detector transfer function for a pixel-basis anisotropic SGWB using A,E,T TDI channels.
+        Note that we only evaluate the response to sky directions with power in them. The angular integral is a linear and rectangular in the
+        cos(theta) and phi space.  Note also that f0 is (pi*L*f)/c and is input as an array.
+        Parameters
+        -----------
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+        tsegmid  :  float
+            A numpy array of segment midpoints
+        skymap : healpy pixel map
+            A pixel map in healpy ordering of GW power on the sky
+        Returns
+        ---------
+        R1, R2 and R3   :   float
+            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
+            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
+        '''
+
+        xyz_response_mat = self.pixel_xyz_response(f0, tsegmid, skymap_inj)
 
         ## Upnack xyz matrix to make assembling the aet matrix easier
         RXX, RYY, RZZ = xyz_response_mat[0, 0], xyz_response_mat[1, 1], xyz_response_mat[2, 2]
@@ -792,4 +806,47 @@ class geometry(sph_geometry):
                                     [np.conj(RAE), REE, RET], \
                                     [np.conj(RAT), np.conj(RET), RTT] ])
 
-        return aet_response_mat
+        return aet_response_mat     
+
+#
+#    def pixel_aet_response(self, f0, tsegmid, skymap_inj):
+#
+#
+#
+#        '''
+#        Calculate Antenna pattern/ detector transfer functions for a GW originating in the direction of (theta, phi) 
+#        for the A, E and T TDI channels of an orbiting LISA. Return the detector responses for + and x polarization. 
+#        Note that f0 is (pi*L*f)/c and is input as an array
+#        Parameters
+#        -----------
+#        f0   : float
+#            A numpy array of scaled frequencies (see above for def)
+#        phi theta  : float
+#            Sky position values.
+#        tsegmid  :  array
+#            A numpy array of the midpoints for each time integration segment.
+#        rs1, rs2, rs3  :  array
+#            Satellite position vectors.
+#        Returns
+#        ---------
+#        RAplus, RAcross, REplus, REcross, RTplus, RTcross   :   arrays
+#            Plus and cross antenna Patterns for the given sky direction for the three channels for each time in midpoints.
+#        '''
+#
+#        self.rs1, self.rs2, self.rs3 = self.lisa_orbits(tsegmid, tsegstart)
+#
+#        R1plus, R1cross, R2plus, R2cross, R3plus, R3cross  = self.orbiting_michelson_response(f0, theta, phi, tsegmid, tsegstart)
+#
+#
+#        ## Calculate antenna patterns for the A, E and T channels
+#        RAplus = (2/3)*np.sin(2*f0)*(2*R1plus - R2plus - R3plus)
+#        REplus = (2/np.sqrt(3))*np.sin(2*f0)*(R3plus - R2plus)
+#        RTplus = (1/3)*np.sin(2*f0)*(R1plus + R3plus + R2plus)
+#
+#        RAcross = (2/3)*np.sin(2*f0)*(2*R1cross - R2cross - R3cross)
+#        REcross = (2/np.sqrt(3))*np.sin(2*f0)*(R3cross - R2cross)
+#        RTcross = (1/3)*np.sin(2*f0)*(R1cross + R3cross + R2cross)
+#
+#        return RAplus, RAcross, REplus, REcross, RTplus, RTcross
+#
+#
