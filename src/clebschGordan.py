@@ -141,7 +141,7 @@ class clebschGordan():
         '''
         Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
-        if self.inj['injtype'] != 'dwd_fg':
+        if not (self.inj['injtype'] == 'astro' and self.inj['inj_basis'] == 'sph_lmax'):
             if blms_in.size != self.blm_size:
                 raise ValueError('The size of the input blm array does not match the size defined by lmax ')
 
