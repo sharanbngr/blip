@@ -594,7 +594,7 @@ def blip(paramsfile='params.ini',resume=False):
         
         
     else:
-        print("Resuming a previous analysis. Regenerating data...")
+        print("Resuming a previous analysis. Reloading data and sampler state...")
 
     if params['sampler'] == 'dynesty':
         # Create engine
@@ -659,7 +659,8 @@ def blip(paramsfile='params.ini',resume=False):
                 pool = Pool(nthread)
             else:
                 pool = None
-            engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/', pool=pool)    
+            engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',
+                                                     pool=pool, checkpoint_interval=params['checkpoint_interval'])    
         else:
 #            pool = None
 #            if nthread > 1:
@@ -680,17 +681,18 @@ def blip(paramsfile='params.ini',resume=False):
                 pool = Pool(nthread)
             else:
                 pool = None    
-            engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',pool=pool)
+            engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',
+                                                                  pool=pool, checkpoint_interval=params['checkpoint_interval'])
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
             t1 = time.time()
-            post_samples, logz, logzerr = nessai_engine.run_engine_with_checkpointing(engine,parameters['all'],model,params['out_dir']+'/nessai_output/',params['checkpoint_interval'],checkpoint_file)
+            post_samples, logz, logzerr = nessai_engine.run_engine_with_checkpointing(engine,parameters,model,params['out_dir']+'/nessai_output/',checkpoint_file)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:
             t1 = time.time()
-            post_samples, logz, logzerr = nessai_engine.run_engine(engine,parameters['all'],model,params['out_dir']+'/nessai_output/')
+            post_samples, logz, logzerr = nessai_engine.run_engine(engine,parameters,model,params['out_dir']+'/nessai_output/')
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
             np.savetxt(params['out_dir']+'/time_elapsed.txt',np.array([t2-t1]))
