@@ -3,9 +3,9 @@ from numpy.lib.recfunctions import structured_to_unstructured as s2us
 from nessai.flowsampler import FlowSampler
 from nessai.model import Model
 from nessai.utils import setup_logger
-from dynesty.utils import resample_equal
+#from dynesty.utils import resample_equal
 import dill
-import time
+#import time
 import shutil, os
 import json
 
@@ -63,15 +63,15 @@ class nessai_engine():
     
     
     @classmethod
-    def define_engine(cls, lisaobj, params, nlive, nthread, seed, output, pool=None, checkpoint_interval=None, resume=False):
+    def define_engine(cls, lisaobj, params, nlive, nthread, seed, output, checkpoint_interval=None, resume=False):
 
         # create multiprocessing pool
         if nthread > 1:
             pool_size = nthread
         else:
-            if pool is not None:
-                print("Warning: Nthread=1 but pool has been defined. This shouldn't happen...")
-            pool = None
+#            if pool is not None:
+#                print("Warning: Nthread=1 but pool has been defined. This shouldn't happen...")
+#            pool = None
             pool_size = None
         
         ## determine parameters
@@ -101,18 +101,18 @@ class nessai_engine():
 
             if params['spectrum_model']=='powerlaw':
                 model = nessai_model(all_parameters,lisaobj.isgwb_pl_log_likelihood,cls.isgwb_pl_prior)
-                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #                
 #                engine = NestedSampler(lisaobj.isgwb_pl_log_likelihood, cls.isgwb_pl_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='broken_powerlaw':
                 model = nessai_model(all_parameters,lisaobj.isgwb_bpl_log_likelihood,cls.isgwb_bpl_prior)
-                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #                engine = NestedSampler(lisaobj.isgwb_bpl_log_likelihood, cls.isgwb_bpl_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='free_broken_powerlaw':
                 model = nessai_model(all_parameters,lisaobj.isgwb_fbpl_log_likelihood,cls.isgwb_fbpl_prior)
-                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #                engine = NestedSampler(lisaobj.isgwb_fbpl_log_likelihood, cls.isgwb_fbpl_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             else:
@@ -141,17 +141,17 @@ class nessai_engine():
             
             if params['spectrum_model']=='powerlaw':
                 model = nessai_model(all_parameters,lisaobj.sph_pl_log_likelihood,cls.sph_pl_prior)
-                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #                engine = NestedSampler(lisaobj.sph_pl_log_likelihood, cls.sph_pl_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='broken_powerlaw':
                 model = nessai_model(all_parameters,lisaobj.sph_bpl_log_likelihood,cls.sph_bpl_prior)
-                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #                engine = NestedSampler(lisaobj.sph_bpl_log_likelihood, cls.sph_bpl_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='free_broken_powerlaw':
                 model = nessai_model(all_parameters,lisaobj.sph_fbpl_log_likelihood,cls.sph_fbpl_prior)
-                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+                engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #                engine = NestedSampler(lisaobj.sph_fbpl_log_likelihood, cls.sph_fbpl_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             else:
@@ -165,7 +165,7 @@ class nessai_engine():
             npar = len(noise_parameters)
             
             model = nessai_model(all_parameters,lisaobj.instr_log_likelihood,cls.instr_prior)
-            engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+            engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #            engine = NestedSampler(lisaobj.instr_log_likelihood,  cls.instr_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
 
@@ -177,7 +177,7 @@ class nessai_engine():
             npar = len(signal_parameters)
 
             model = nessai_model(all_parameters,lisaobj.isgwb_only_log_likelihood,cls.isgwb_only_prior)
-            engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
+            engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval)
 #            engine = NestedSampler(lisaobj.isgwb_only_log_likelihood, cls.isgwb_only_prior,\
 #                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
 
@@ -215,7 +215,7 @@ class nessai_engine():
         
         return engine, parameters
     
-    def load_engine(params,nlive,nthread,seed,output,pool,checkpoint_interval=None):
+    def load_engine(params,nlive,nthread,seed,output,checkpoint_interval=None):
         
         ## load model and parameters from previous checkpoint
         resume_file = params['out_dir']+'/checkpoint.pickle'
@@ -230,13 +230,13 @@ class nessai_engine():
         if nthread > 1:
             pool_size = nthread
         else:
-            if pool is not None:
-                print("Warning: Nthread=1 but pool has been defined. This shouldn't happen...")
-            pool = None
+#            if pool is not None:
+#                print("Warning: Nthread=1 but pool has been defined. This shouldn't happen...")
+#            pool = None
             pool_size = None
 
         ## use nessai's internal checkpointing to reload the engine
-        engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,pool=pool,n_pool=pool_size,checkpoint_interval=checkpoint_interval,
+        engine = FlowSampler(model,nlive=nlive,output=output,seed=seed,stopping=0.1,n_pool=pool_size,checkpoint_interval=checkpoint_interval,
                              resume=True)#,resume_file=params['out_dir']+'/nessai_output/nested_sampler_resume.pkl')
         
         return engine, parameters, model

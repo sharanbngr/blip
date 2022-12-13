@@ -654,13 +654,13 @@ def blip(paramsfile='params.ini',resume=False):
     elif params['sampler'] == 'nessai':
         # Create engine
         if not resume:
-            # multiprocessing
-            if nthread > 1:
-                pool = Pool(nthread)
-            else:
-                pool = None
-            engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',
-                                                     pool=pool, checkpoint_interval=params['checkpoint_interval'])    
+            # nessai handles multiprocessing internally
+#            if nthread > 1:
+##                pool = Pool(nthread)
+#                pool = Pool(processes=Nthread,initializer=initialise_pool_variables,initargs=(model,))
+#            else:
+#                pool = None
+            engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])    
         else:
 #            pool = None
 #            if nthread > 1:
@@ -676,13 +676,12 @@ def blip(paramsfile='params.ini',resume=False):
 #                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
 #                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
 #                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
-            # multiprocessing
-            if nthread > 1:
-                pool = Pool(nthread)
-            else:
-                pool = None    
-            engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',
-                                                                  pool=pool, checkpoint_interval=params['checkpoint_interval'])
+            # nessai handles multiprocessing internally
+#            if nthread > 1:
+#                pool = Pool(nthread)
+#            else:
+#                pool = None    
+            engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
@@ -690,15 +689,14 @@ def blip(paramsfile='params.ini',resume=False):
             post_samples, logz, logzerr = nessai_engine.run_engine_with_checkpointing(engine,parameters,model,params['out_dir']+'/nessai_output/',checkpoint_file)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
+            np.savetxt(params['out_dir']+'/time_elapsed.txt',np.array([t2-t1]))
         else:
             t1 = time.time()
             post_samples, logz, logzerr = nessai_engine.run_engine(engine,parameters,model,params['out_dir']+'/nessai_output/')
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
             np.savetxt(params['out_dir']+'/time_elapsed.txt',np.array([t2-t1]))
-        if nthread > 1:
-            engine.pool.close()
-            engine.pool.join()
+
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
 #        np.savetxt(params['out_dir'] + "/logz.txt", logz)
