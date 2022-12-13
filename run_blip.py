@@ -12,6 +12,7 @@ import time
 from scipy.interpolate import interp1d
 # from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
+from src.nessai_engine import nessai_engine
 #from src.emcee_engine import emcee_engine
 
 class LISA(LISAdata, likelihoods):
@@ -650,8 +651,59 @@ def blip(paramsfile='params.ini',resume=False):
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
 
+    elif params['sampler'] == 'nessai':
+        # Create engine
+        if not resume:
+            # multiprocessing
+            if nthread > 1:
+                pool = Pool(nthread)
+            else:
+                pool = None
+            engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/', pool=pool)    
+        else:
+#            pool = None
+#            if nthread > 1:
+#                print("Warning: Nthread > 1, but multiprocessing is not supported when resuming a run. Pool set to None.")
+#                ## To anyone reading this and wondering why:
+#                ## The pickle calls used by Python's multiprocessing fail when trying to run the sampler after saving/reloading it.
+#                ## This is because pickling the sampler maps all its attributes to their full paths;
+#                ## e.g., dynesty_engine.isgwb_prior is named as src.dynesty_engine.dynesty_engine.isgwb_prior
+#                ## BUT the object itself is still e.g. <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>
+#                ## so we get an error like
+#                ## _pickle.PicklingError: Can't pickle <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>: \
+#                ##                        it's not the same object as src.dynesty_engine.dynesty_engine.isgwb_prior
+#                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
+#                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
+#                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
+            # multiprocessing
+            if nthread > 1:
+                pool = Pool(nthread)
+            else:
+                pool = None    
+            engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',pool=pool)
+        ## run sampler
+        if params['checkpoint']:
+            checkpoint_file = params['out_dir']+'/checkpoint.pickle'
+            t1 = time.time()
+            post_samples, logz, logzerr = nessai_engine.run_engine_with_checkpointing(engine,parameters['all'],model,params['out_dir']+'/nessai_output/',params['checkpoint_interval'],checkpoint_file)
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        else:
+            t1 = time.time()
+            post_samples, logz, logzerr = nessai_engine.run_engine(engine,parameters['all'],model,params['out_dir']+'/nessai_output/')
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+            np.savetxt(params['out_dir']+'/time_elapsed.txt',np.array([t2-t1]))
+        if nthread > 1:
+            engine.pool.close()
+            engine.pool.join()
+        # Save posteriors to file
+        np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
+#        np.savetxt(params['out_dir'] + "/logz.txt", logz)
+#        np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
+    
     else:
-        raise TypeError('Unknown sampler model chosen. Only dynesty & emcee are supported')
+        raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, & emcee are supported')
 
 
     # Save parameters as a pickle
