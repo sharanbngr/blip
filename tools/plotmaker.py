@@ -461,16 +461,17 @@ def plotmaker(params,parameters, inj):
                         val_list.append(np.angle(inj['blms'][idx]))
         elif inj['injtype']=='astro':
             if inj['injbasis'] == 'sph':
-                for lval in range(1, params['lmax'] + 1):
-                    for mval in range(lval + 1):
-        
-                        idx = Alm.getidx(params['lmax'], lval, mval)
-        
-                        if mval == 0:
-                            val_list.append(np.real(inj['astro_blms'][idx]))
-                        else:
-                            val_list.append(np.abs(inj['astro_blms'][idx]))
-                            val_list.append(np.angle(inj['astro_blms'][idx]))
+                pass
+#                for lval in range(1, params['lmax'] + 1):
+#                    for mval in range(lval + 1):
+#        
+#                        idx = Alm.getidx(params['lmax'], lval, mval)
+#        
+#                        if mval == 0:
+#                            val_list.append(np.real(inj['astro_blms'][idx]))
+#                        else:
+#                            val_list.append(np.abs(inj['astro_blms'][idx]))
+#                            val_list.append(np.angle(inj['astro_blms'][idx]))
         
         for param, val in zip(param_list,val_list):
             truevals[param] = val
