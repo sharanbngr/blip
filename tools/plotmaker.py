@@ -273,6 +273,13 @@ def fitmaker(params,parameters,inj):
         alpha_1 = post[:,3]
         log_A2 = post[:,4]
         alpha_2 = post[:,3] - 0.667
+    elif params['spectrum_model'] == 'broken_powerlaw_2':
+        log_Omega0 = post[:,2]
+        alpha_1 = post[:,3]
+        alpha_2 = post[:,4]
+        log_fbreak = post[:,5]
+        fbreak = 10**log_fbreak
+        delta = 0.1
     elif params['spectrum_model']=='free_broken_powerlaw':
         log_A1 = post[:,2]
         alpha_1 = post[:,3]
@@ -293,6 +300,10 @@ def fitmaker(params,parameters,inj):
         elif inj['spectral_inj']=='broken_powerlaw':
             Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
             Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj'] == 'broken_powerlaw_2':
+            delta = 0.1
+            Omegaf = (10**inj['log_omega0'])*(frange/inj['f_break'])**(inj['alpha1']) \
+                    * (0.5*(1+(frange/inj['f_break'])**(1/delta)))**((inj['alpha1']-inj['alpha2'])*delta)
         elif inj['spectral_inj']=='free_broken_powerlaw':
             Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs_inj/params['fref'])**(inj['alpha2']))
             Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
@@ -311,6 +322,8 @@ def fitmaker(params,parameters,inj):
         Omegaf = (10**log_Omega0)*(fs/(params['fref']))**alpha
     elif params['spectrum_model']=='broken_powerlaw' or params['spectrum_model']=='free_broken_powerlaw':
         Omegaf = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
+    elif params['spectrum_model']=='broken_powerlaw_2':
+        Omegaf = (10**log_Omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
     else:
         print("Unknown spectral model. Exiting without creating plots...")
         return
@@ -476,10 +489,13 @@ def plotmaker(params,parameters, inj):
         for param, val in zip(param_list,val_list):
             truevals[param] = val
         
-        if len(truevals) > 0:
-            knowTrue = 1 ## Bit for whether we know the true vals or not
-        else:
-            knowTrue = 0
+        ## temporary
+        knowTrue = 0
+        
+#        if len(truevals) > 0:
+#            knowTrue = 1 ## Bit for whether we know the true vals or not
+#        else:
+#            knowTrue = 0
     else:
         knowTrue = 0
 
@@ -489,7 +505,7 @@ def plotmaker(params,parameters, inj):
 
     if params['out_dir'][-1] != '/':
         params['out_dir'] = params['out_dir'] + '/'
-
+        
     ## Make chainconsumer corner plots
     cc = ChainConsumer()
     cc.add_chain(post, parameters=all_parameters)

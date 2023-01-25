@@ -294,6 +294,10 @@ class LISA(LISAdata, likelihoods):
                 elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
                     Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
                          1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**self.inj['alpha2'])
+                elif self.inj['spectral_inj'] == 'broken_powerlaw_2':
+                    delta = 0.1
+                    Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
+                            * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta)
                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
 
             # Spectrum of the SGWB signal convoluted with the detector response tensor.
@@ -484,6 +488,11 @@ def blip(paramsfile='params.ini',resume=False):
             inj['alpha1']     = float(config.get("inj", "alpha1"))
             inj['log_A1']      = float(config.get("inj", "log_A1"))
             inj['log_A2']      = float(config.get("inj", "log_A2"))
+        elif inj['spectral_inj'] == 'broken_powerlaw_2':
+            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+            inj['alpha1']     = float(config.get("inj", "alpha1"))
+            inj['alpha2']     = float(config.get("inj", "alpha2"))
+            inj['f_break']      = float(config.get("inj", "f_break"))
         elif inj['spectral_inj'] == 'free_broken_powerlaw':
             inj['alpha1']     = float(config.get("inj", "alpha1"))
             inj['alpha2']     = float(config.get("inj", "alpha2"))

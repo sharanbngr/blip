@@ -324,15 +324,14 @@ class likelihoods():
         '''
 
         # unpack priors
-        log_Np, log_Na, log_omega0, alpha_1, alpha_2 = theta
+        log_Np, log_Na, log_omega0, alpha_1, alpha_2, log_fbreak = theta
 
         Np, Na =  10**(log_Np), 10**(log_Na)
 
+        fbreak = 10**log_fbreak
 #        ## fixed pl (asymptotes to alpha=2/3)
 #        alpha_2 = alpha_1 - 0.667
         
-        ## fix break at 1 mHz
-        f_break = 1e-3
         ## fixed smoothing factor
         delta = 0.1
         
@@ -346,7 +345,7 @@ class likelihoods():
         H0 = 2.2*10**(-18)
         
         ## spectral model
-        Omegaf = (10**log_omega0)*(self.fdata/f_break)**(alpha_1) * (0.5*(1+(self.fdata/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
+        Omegaf = (10**log_omega0)*(self.fdata/fbreak)**(alpha_1) * (0.5*(1+(self.fdata/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
@@ -561,6 +560,85 @@ class likelihoods():
 
         # Spectrum of the SGWB
         Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
+
+        ## rm this line later
+        # blm_theta  = np.append([0.0], theta[4:])
+
+        blm_theta  = theta[6:]
+
+        ## Convert the blm parameter space values to alm values.
+        blm_vals = self.blm_params_2_blms(blm_theta)
+        alm_vals = self.blm_2_alm(blm_vals)
+
+        ## normalize
+        alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
+
+        summ_response_mat = np.einsum('ijklm,m', self.response_mat, alm_vals)
+
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
+
+        cov_mat = cov_sgwb + cov_noise
+
+        ## change axis order to make taking an inverse easier
+        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+
+        ## take inverse and determinant
+        inv_cov, det_cov = bespoke_inv(cov_mat)
+        
+
+        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+
+        loglike = np.real(logL)
+        return loglike
+
+    def sph_bpl2_log_likelihood(self, theta):
+
+        '''
+        Calculate likelihood for a power-spectra based spherical harmonic analysis with a broken power law spectral model.
+
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing rescaled samples from the unit cube. The elements are
+            interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element
+            is always alpha and the last two are always Np and Na.
+
+        Returns
+        ---------
+
+        Loglike   :   float
+            The log-likelihood value at the sampled point in the parameter space
+        '''
+
+        # unpack priors
+        log_Np, log_Na, log_omega0, alpha_1, alpha_2, log_fbreak = theta[0],theta[1], theta[2], theta[3], theta[4], theta[5]
+
+        Np, Na =  10**(log_Np), 10**(log_Na)
+
+        fbreak = 10**log_fbreak
+        
+        ## fixed smoothing factor
+        delta = 0.1
+        
+        # Modelled Noise PSD
+        cov_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+
+        ## repeat C_Noise to have the same time-dimension as everything else
+        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.tsegmid.size, axis=3)
+
+        ## Signal PSD
+        H0 = 2.2*10**(-18)
+        
+        ## spectral model
+        Omegaf = (10**log_omega0)*(self.fdata/fbreak)**(alpha_1) * (0.5*(1+(self.fdata/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
+
+        # Spectrum of the SGWB
+        Sgw = Omegaf*(3/(4*self.fdata**3))*(H0/np.pi)**2
+
 
         ## rm this line later
         # blm_theta  = np.append([0.0], theta[4:])
