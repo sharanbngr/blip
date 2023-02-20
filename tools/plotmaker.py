@@ -402,7 +402,7 @@ def fitmaker(params,parameters,inj):
     elif params['spectrum_model']=='truncated_broken_powerlaw':
         Omegaf = 0.5 * (10**log_Omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((fcut-fs)/fscale))
     elif params['spectrum_model']=='truncated_powerlaw':
-        Omegaf = 0.5 *(10**log_Omega0)*(fs/(params['fref']))**alpha * (1+np.tanh((fcut-fs)/fscale))
+        Omegaf = 0.5 *(10**log_Omega0)*(fs/(params['fref']))**alpha * (1+np.tanh((fbreak-fs)/fscale))
     else:
         print("Unknown spectral model. Exiting without creating plots...")
         return
