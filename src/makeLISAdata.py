@@ -483,6 +483,20 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                      1 + (10**self.inj['log_A2'])*(frange/self.params['fref'])**self.inj['alpha2'])
             Omega_1mHz = ((10**self.inj['log_A1'])*(1e-3/self.params['fref'])**self.inj['alpha1'])/(\
                         1 + (10**self.inj['log_A2'])*(1e-3/self.params['fref'])**self.inj['alpha2'])
+        elif self.inj['spectral_inj'] == 'truncated_broken_powerlaw':
+            delta = 0.1
+            Omegaf = (10**self.inj['log_omega0'])*(frange/self.inj['f_break'])**(self.inj['alpha1']) \
+                    * (0.5*(1+(frange/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
+                    * 0.5 * (1 + np.tanh((self.inj['f_cut'] - frange)/self.inj['f_scale']))
+            Omega_1mHz = (10**self.inj['log_omega0'])*(1e-3/self.inj['f_break'])**(self.inj['alpha1']) \
+                    * (0.5*(1+(1e-3/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
+                    * 0.5 * (1 + np.tanh((self.inj['f_cut'] - 1e-3)/self.inj['f_scale']))
+        elif self.inj['spectral_inj'] == 'truncated_powerlaw':
+            Omegaf = (10**self.inj['log_omega0'])*(frange/(self.params['fref']))**self.inj['alpha'] \
+                    * 0.5 * (1 + np.tanh((self.inj['f_cut'] - frange)/self.inj['f_scale']))
+            Omega_1mHz = 10**(self.inj['log_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha']) \
+                    * 0.5 * (1 + np.tanh((self.inj['f_cut'] - 1e-3)/self.inj['f_scale']))
+
         elif self.inj['spectral_inj'] == 'population':
             print("Constructing foreground spectrum from DWD population...")
             ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A

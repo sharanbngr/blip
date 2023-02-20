@@ -58,14 +58,38 @@ def mapmaker(params, post, parameters, saveto=None):
                 log_A2 = sample[4]
                 alpha_2 = sample[3] - 0.667
                 Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+            elif params['spectrum_model']=='broken_powerlaw_2':
+                delta = 0.1
+                log_Omega0 = sample[2]
+                alpha_1 = sample[3]
+                alpha_2 = sample[4]
+                f_break = 10**sample[5]
+                Omega_1mHz = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
             elif params['spectrum_model']=='free_broken_powerlaw':
                 log_A1 = sample[2]
                 alpha_1 = sample[3]
                 log_A2 = sample[4]
                 alpha_2 = sample[5]
                 Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+            elif params['spectrum_model']=='truncated_broken_powerlaw':
+                delta = 0.1
+                log_Omega0 = sample[2]
+                alpha_1 = sample[3]
+                alpha_2 = sample[4]
+                f_break = 10**sample[5]
+                f_cut = f_break
+                f_scale = 10**sample[6]
+                Omega_1mHz = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
+            elif params['spectrum_model']=='truncated_powerlaw':
+                delta = 0.1
+                log_Omega0 = sample[2]
+                alpha = sample[3]
+                f_break = 10**sample[4]
+                f_scale = 10**sample[5]
+                Omega_1mHz = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
             else:
-                print("Unknown spectral model. Defaulting to power law...")
+                if ii==0:
+                    print("Unknown spectral model. Defaulting to power law...")
                 alpha = sample[2]
                 log_Omega0 = sample[3]
                 Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
@@ -162,12 +186,35 @@ def mapmaker(params, post, parameters, saveto=None):
             log_A2 = med_vals[4]
             alpha_2 = med_vals[3] - 0.667
             Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+        elif params['spectrum_model']=='broken_powerlaw_2':
+            delta = 0.1
+            log_Omega0 = med_vals[2]
+            alpha_1 = med_vals[3]
+            alpha_2 = med_vals[4]
+            f_break = 10**med_vals[5]
+            Omega_1mHz_median = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
         elif params['spectrum_model']=='free_broken_powerlaw':
             log_A1 = med_vals[2]
             alpha_1 = med_vals[3]
             log_A2 = med_vals[4]
             alpha_2 = med_vals[5]
             Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+        elif params['spectrum_model']=='truncated_broken_powerlaw':
+            delta = 0.1
+            log_Omega0 = med_vals[2]
+            alpha_1 = med_vals[3]
+            alpha_2 = med_vals[4]
+            f_break = 10**med_vals[5]
+            f_cut = f_break
+            f_scale = 10**med_vals[6]
+            Omega_1mHz_median = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
+        elif params['spectrum_model']=='truncated_powerlaw':
+            delta = 0.1
+            log_Omega0 = med_vals[2]
+            alpha = med_vals[3]
+            f_break = 10**med_vals[4]
+            f_scale = 10**med_vals[5]
+            Omega_1mHz_median = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
         else:
             print("Unknown spectral model. Defaulting to power law...")
             alpha = med_vals[2]
@@ -285,6 +332,23 @@ def fitmaker(params,parameters,inj):
         alpha_1 = post[:,3]
         log_A2 = post[:,4]
         alpha_2 = post[:,5]
+    elif params['spectrum_model'] == 'truncated_broken_powerlaw':
+        log_Omega0 = post[:,2]
+        alpha_1 = post[:,3]
+        alpha_2 = post[:,4]
+        log_fbreak = post[:,5]
+        log_fscale= post[:,6]
+        fbreak = 10**log_fbreak
+        fcut = fbreak
+        fscale = 10**log_fscale
+        delta = 0.1
+    elif params['spectrum_model'] == 'truncated_powerlaw':
+        log_Omega0 = post[:,2]
+        alpha = post[:,3]
+        log_fbreak = post[:,4]
+        log_fscale= post[:,5]
+        fbreak = 10**log_fbreak
+        fscale = 10**log_fscale
     else:
         print("Unknown spectral model. Exiting without creating plots...")
         return
@@ -295,18 +359,29 @@ def fitmaker(params,parameters,inj):
     ## get injected spectrum
     if not params['mldc']:
         if inj['spectral_inj']=='powerlaw':
-            Omegaf_inj =(10**inj['log_omega0'])*(fs_inj/(params['fref']))**inj['alpha']
+            Omegaf_inj = (10**inj['log_omega0'])*(fs_inj/(params['fref']))**inj['alpha']
             Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
         elif inj['spectral_inj']=='broken_powerlaw':
             Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs/params['fref'])**(inj['alpha1']-0.667))
             Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
         elif inj['spectral_inj'] == 'broken_powerlaw_2':
             delta = 0.1
-            Omegaf = (10**inj['log_omega0'])*(frange/inj['f_break'])**(inj['alpha1']) \
-                    * (0.5*(1+(frange/inj['f_break'])**(1/delta)))**((inj['alpha1']-inj['alpha2'])*delta)
+            Omegaf_inj = (10**inj['log_omega0'])*(fs_inj/inj['f_break'])**(inj['alpha1']) \
+                    * (0.5*(1+(fs_inj/inj['f_break'])**(1/delta)))**((inj['alpha1']-inj['alpha2'])*delta)
+            Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2 
         elif inj['spectral_inj']=='free_broken_powerlaw':
             Omegaf_inj = ((10**inj['log_A1'])*(fs_inj/params['fref'])**inj['alpha1'])/(1 + (10**inj['log_A2'])*(fs_inj/params['fref'])**(inj['alpha2']))
             Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj'] == 'truncated_broken_powerlaw':
+            delta = 0.1
+            Omegaf_inj = (10**inj['log_omega0'])*(fs_inj/inj['f_break'])**(inj['alpha1']) \
+                    * (0.5*(1+(fs_inj/inj['f_break'])**(1/delta)))**((inj['alpha1']-inj['alpha2'])*delta) \
+                    * 0.5 * (1+np.tanh((inj['f_cut'] - fs_inj)/inj['f_scale']))
+            Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2 
+        elif inj['spectral_inj'] == 'truncated_powerlaw':
+            Omegaf_inj = (10**inj['log_omega0'])*(fs_inj/(params['fref']))**inj['alpha'] \
+                    * 0.5 * (1+np.tanh((inj['f_cut'] - fs_inj)/inj['f_scale']))
+            Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2 
         elif inj['spectral_inj']=='population':
             pop = populations(params,inj)
             Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj,params['dur']*u.s,return_median=True,names=inj['columns'],sep=inj['delimiter'])*4
@@ -324,6 +399,10 @@ def fitmaker(params,parameters,inj):
         Omegaf = ((10**log_A1)*(fs/params['fref'])**alpha_1)/(1 + (10**log_A2)*(fs/params['fref'])**alpha_2)
     elif params['spectrum_model']=='broken_powerlaw_2':
         Omegaf = (10**log_Omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
+    elif params['spectrum_model']=='truncated_broken_powerlaw':
+        Omegaf = 0.5 * (10**log_Omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((fcut-fs)/fscale))
+    elif params['spectrum_model']=='truncated_powerlaw':
+        Omegaf = 0.5 *(10**log_Omega0)*(fs/(params['fref']))**alpha * (1+np.tanh((fcut-fs)/fscale))
     else:
         print("Unknown spectral model. Exiting without creating plots...")
         return
@@ -375,6 +454,9 @@ def plotmaker(params,parameters, inj):
     ## should eventually be depreciated
     if type(parameters) is dict:
         all_parameters = parameters['all']
+        ## temp fix
+#        if r'$\log_{10} (f_{\mathrm{cut}})$' in all_parameters:
+#            all_parameters.remove(r'$\log_{10} (f_{\mathrm{cut}})$')
     elif type(parameters) is list:
         all_parameters = parameters
     else:
@@ -459,6 +541,22 @@ def plotmaker(params,parameters, inj):
             val_list.append( inj['alpha1'] )
             val_list.append( inj['log_A2'] )
             val_list.append( inj['alpha2'] )
+        elif inj['spectral_inj']=='broken_powerlaw_2':
+            val_list.append( inj['log_omega0'] )
+            val_list.append( inj['alpha1'] )
+            val_list.append( inj['alpha2'] )
+            val_list.append( inj['f_break'] )
+        elif inj['spectral_inj']=='truncated_broken_powerlaw':
+            val_list.append( inj['log_omega0'] )
+            val_list.append( inj['alpha1'] )
+            val_list.append( inj['alpha2'] )
+            val_list.append( inj['f_break'] )
+            val_list.append( inj['f_scale'] )
+        elif inj['spectral_inj']=='truncated_powerlaw':
+            val_list.append( inj['alpha'] )
+            val_list.append( inj['log_omega0'] )
+            val_list.append( inj['f_break'] )
+            val_list.append( inj['f_scale'] )
     
         ## get blms
         if inj['injtype']=='sph_sgwb':
@@ -489,13 +587,13 @@ def plotmaker(params,parameters, inj):
         for param, val in zip(param_list,val_list):
             truevals[param] = val
         
-        ## temporary
-        knowTrue = 0
+#        ## temporary
+#        knowTrue = 0
         
-#        if len(truevals) > 0:
-#            knowTrue = 1 ## Bit for whether we know the true vals or not
-#        else:
-#            knowTrue = 0
+        if len(truevals) > 0:
+            knowTrue = 1 ## Bit for whether we know the true vals or not
+        else:
+            knowTrue = 0
     else:
         knowTrue = 0
 

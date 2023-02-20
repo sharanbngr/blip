@@ -37,6 +37,10 @@ class dynesty_engine():
                 signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$']
             elif params['spectrum_model']=='broken_powerlaw_2':
                 signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
+            elif params['spectrum_model']=='truncated_broken_powerlaw':
+                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            elif params['spectrum_model']=='truncated_powerlaw':
+                signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             elif params['spectrum_model']=='free_broken_powerlaw':
                 signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$',r'$\alpha_2$']
             else:
@@ -59,6 +63,12 @@ class dynesty_engine():
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='broken_powerlaw_2':
                 engine = NestedSampler(lisaobj.isgwb_bpl2_log_likelihood, cls.isgwb_bpl2_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+            elif params['spectrum_model']=='truncated_broken_powerlaw':
+                engine = NestedSampler(lisaobj.isgwb_tbpl_log_likelihood, cls.isgwb_tbpl_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+            elif params['spectrum_model']=='truncated_powerlaw':
+                engine = NestedSampler(lisaobj.isgwb_tpl_log_likelihood, cls.isgwb_tpl_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='free_broken_powerlaw':
                 engine = NestedSampler(lisaobj.isgwb_fbpl_log_likelihood, cls.isgwb_fbpl_prior,\
@@ -92,8 +102,14 @@ class dynesty_engine():
             elif params['spectrum_model']=='broken_powerlaw':
                 engine = NestedSampler(lisaobj.sph_bpl_log_likelihood, cls.sph_bpl_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw':
+            elif params['spectrum_model']=='broken_powerlaw_2':
                 engine = NestedSampler(lisaobj.sph_bpl2_log_likelihood, cls.sph_bpl2_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+            elif params['spectrum_model']=='truncated_broken_powerlaw':
+                engine = NestedSampler(lisaobj.sph_tbpl_log_likelihood, cls.sph_tbpl_prior,\
+                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+            elif params['spectrum_model']=='truncated_powerlaw':
+                engine = NestedSampler(lisaobj.sph_tpl_log_likelihood, cls.sph_tpl_prior,\
                     npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
             elif params['spectrum_model']=='free_broken_powerlaw':
                 engine = NestedSampler(lisaobj.sph_fbpl_log_likelihood, cls.sph_fbpl_prior,\
@@ -364,6 +380,80 @@ class dynesty_engine():
         return [log_Np, log_Na, log_omega0, alpha_1, alpha_2, log_fbreak]
     
     @staticmethod
+    def isgwb_tbpl_prior(theta):
+
+
+        '''
+        Prior function for an isotropic stochastic backgound analysis for a truncated broken power law model
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
+
+        ## The rest are the spectral model priors
+        log_omega0 = -10*theta[2] - 4
+        alpha_1 = 10*theta[3] - 4
+        alpha_2 = 40*theta[4]
+        log_fbreak = -2*theta[5] - 2
+#        log_fcut = theta[6] - 3.3
+        log_fscale = -2*theta[6] - 2
+        
+
+        return [log_Np, log_Na, log_omega0, alpha_1, alpha_2, log_fbreak, log_fscale]
+
+    @staticmethod
+    def isgwb_tpl_prior(theta):
+
+
+        '''
+        Prior function for an isotropic stochastic backgound analysis for a truncated power law model
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
+
+        ## The rest are the spectral model priors
+        log_omega0 = -10*theta[2] - 4
+        alpha = 10*theta[3] - 5
+        log_fbreak = -2*theta[4] - 2
+        log_fscale = -2*theta[5] - 2
+        
+
+        return [log_Np, log_Na, log_omega0, alpha, log_fbreak, log_fscale]
+    
+    @staticmethod
     def isgwb_fbpl_prior(theta):
 
 
@@ -594,7 +684,6 @@ class dynesty_engine():
 
         return theta
 
-
     @staticmethod
     def sph_fbpl_prior(theta):
 
@@ -659,6 +748,131 @@ class dynesty_engine():
 
         return theta
     
+    @staticmethod
+    def sph_tbpl_prior(theta):
+
+        '''
+        Prior for a power spectra based spherical harmonic anisotropic analysis with a truncated broken power law spectral mdoel
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
+
+        ## The rest are the spectral model priors
+        log_omega0 = -10*theta[2] - 4
+        alpha_1 = 10*theta[3] - 4
+        alpha_2 = 40*theta[4]
+        log_fbreak = -2*theta[5] - 2
+        log_fcut = theta[6] - 3.3
+        log_fscale = -1.7*theta[7] - 2.3
+        # Calculate lmax from the size of theta blm arrays. The shape is
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
+        # an independent parameter
+        lmax = np.sqrt( len(theta[8:]) + 1 ) - 1
+
+        if lmax.is_integer():
+            lmax = int(lmax)
+        else:
+            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+
+        # The rest of the priors define the blm parameter space
+        blm_theta = []
+
+        ## counter for the rest of theta
+        cnt = 6
+
+        for lval in range(1, lmax + 1):
+            for mval in range(lval + 1):
+
+                if mval == 0:
+                    blm_theta.append(6*theta[cnt] - 3)
+                    cnt = cnt + 1
+                else:
+                    ## prior on amplitude, phase
+                    blm_theta.append(3* theta[cnt])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    cnt = cnt + 2
+
+        theta = [log_Np, log_Na, log_omega0, alpha_1, alpha_2, log_fbreak, log_fcut, log_fscale] + blm_theta
+
+        return theta
+
+    @staticmethod
+    def sph_tpl_prior(theta):
+
+        '''
+        Prior for a power spectra based spherical harmonic anisotropic analysis with a truncated power law spectral mdoel
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
+
+        ## The rest are the spectral model priors
+        log_omega0 = -10*theta[2] - 4
+        alpha = 10*theta[3] - 5
+        log_fbreak = -2*theta[4] - 2
+        log_fscale = -2*theta[5] - 2
+        # Calculate lmax from the size of theta blm arrays. The shape is
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
+        # an independent parameter
+        lmax = np.sqrt( len(theta[6:]) + 1 ) - 1
+
+        if lmax.is_integer():
+            lmax = int(lmax)
+        else:
+            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+
+        # The rest of the priors define the blm parameter space
+        blm_theta = []
+
+        ## counter for the rest of theta
+        cnt = 6
+
+        for lval in range(1, lmax + 1):
+            for mval in range(lval + 1):
+
+                if mval == 0:
+                    blm_theta.append(6*theta[cnt] - 3)
+                    cnt = cnt + 1
+                else:
+                    ## prior on amplitude, phase
+                    blm_theta.append(3* theta[cnt])
+                    blm_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    cnt = cnt + 2
+
+        theta = [log_Np, log_Na, log_omega0, alpha, log_fbreak, log_fscale] + blm_theta
+
+        return theta    
     
     @staticmethod
     def isgwb_only_prior(self, theta):

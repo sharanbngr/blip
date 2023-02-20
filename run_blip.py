@@ -298,6 +298,15 @@ class LISA(LISAdata, likelihoods):
                     delta = 0.1
                     Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
                             * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta)
+                elif self.inj['spectral_inj'] == 'truncated_broken_powerlaw':
+                    delta = 0.1
+                    Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
+                            * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
+                            * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
+                elif self.inj['spectral_inj'] == 'truncated_powerlaw':
+                    Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**alpha \
+                            * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
+
                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
 
             # Spectrum of the SGWB signal convoluted with the detector response tensor.
@@ -493,6 +502,18 @@ def blip(paramsfile='params.ini',resume=False):
             inj['alpha1']     = float(config.get("inj", "alpha1"))
             inj['alpha2']     = float(config.get("inj", "alpha2"))
             inj['f_break']      = float(config.get("inj", "f_break"))
+        elif inj['spectral_inj'] == 'truncated_broken_powerlaw':
+            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+            inj['alpha1']     = float(config.get("inj", "alpha1"))
+            inj['alpha2']     = float(config.get("inj", "alpha2"))
+            inj['f_break']      = float(config.get("inj", "f_break"))
+            inj['f_cut']      = float(config.get("inj", "f_cut"))
+            inj['f_scale']      = float(config.get("inj", "f_scale"))
+        elif inj['spectral_inj'] == 'truncated_powerlaw':
+            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+            inj['alpha1']     = float(config.get("inj", "alpha"))
+            inj['f_cut']      = float(config.get("inj", "f_cut"))
+            inj['f_scale']      = float(config.get("inj", "f_scale"))
         elif inj['spectral_inj'] == 'free_broken_powerlaw':
             inj['alpha1']     = float(config.get("inj", "alpha1"))
             inj['alpha2']     = float(config.get("inj", "alpha2"))
