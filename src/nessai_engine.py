@@ -89,7 +89,7 @@ class nessai_engine():
             elif params['spectrum_model']=='truncated_broken_powerlaw':
                 signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             elif params['spectrum_model']=='truncated_powerlaw':
-                signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+                signal_parameters = [ r'$\log_{10} (\Omega_0)$',r'$\alpha$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             elif params['spectrum_model']=='free_broken_powerlaw':
                 signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$',r'$\alpha_2$']
             else:
