@@ -104,7 +104,7 @@ class nessai_engine():
                            stopping=0.1,
                            n_pool=pool_size,
                            checkpoint_interval=checkpoint_interval,
-                           reset_flow=16)
+                           reset_flow=params['reset_flow'])
         
         # create the nested sampler objects      
         if params['modeltype']=='isgwb':
@@ -164,8 +164,18 @@ class nessai_engine():
             ## manual neuron configuration
             ## theory behind this # of neurons is that the sph. harm. distributions are generally more complicated than the relatively simple spectral parameters
             ## nessai default is 2*npar neurons; for now allow for a flat 32 neurons (we will probably want to update to a more refined approach later)
-#            n_neurons = min(2*npar,32)
-            n_neurons = npar + 3*len(blm_parameters)
+            if params['nessai_neurons'] is not None:
+                if params['nessai_neurons']=='scale_lean':
+                    n_neurons = min(2*npar,32)
+                elif params['nessai_neurons']=='scale_default':
+                    n_neurons = 2*npar
+                elif params['nessai_neurons']=='scale_greedy':
+                    n_neurons = npar + 3*len(blm_parameters)
+                elif params['nessai_neurons']=='manual':
+                    n_neurons = params['n_neurons']
+            else:
+                n_neurons = 2*npar
+            
             flow_config = {'model_config':dict(n_neurons=n_neurons)}
             sampler_config['flow_config'] = flow_config
             

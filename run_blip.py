@@ -588,13 +588,18 @@ def blip(paramsfile='params.ini',resume=False):
     params['out_dir']            = str(config.get("run_params", "out_dir"))
     params['doPreProc']          = int(config.get("run_params", "doPreProc"))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
-    params['projection'] = str(config.get("run_params", "projection"))
+    params['projection']         = str(config.get("run_params", "projection"))
     params['FixSeed']            = str(config.get("run_params", "FixSeed"))
     params['seed']               = int(config.get("run_params", "seed"))
-    verbose            = int(config.get("run_params", "verbose"))
-    nlive              = int(config.get("run_params", "nlive"))
-    nthread            = int(config.get("run_params", "Nthreads"))
-    # checkpointing (dynesty only for now)
+    verbose                      = int(config.get("run_params", "verbose"))
+    nlive                        = int(config.get("run_params", "nlive"))
+    nthread                      = int(config.get("run_params", "Nthreads"))
+    # nessai flow tuning
+    params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons"))
+    if params['nessai_neurons']=='manual':
+        params['n_neurons']      = int(config.get("run_params", "n_neurons"))
+    params['reset_flow']         = str(config.get("run_params", "reset_flow"))
+    # checkpointing (dynesty+nessai only for now)
     params['checkpoint']            = int(config.get("run_params", "checkpoint"))
     params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
 
