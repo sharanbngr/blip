@@ -11,6 +11,7 @@ from astropy import units as u
 import pickle, argparse
 import logging
 from src.populations import populations
+from src.hierarchical import hierarchy
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
@@ -37,6 +38,10 @@ def mapmaker(params, post, parameters, saveto=None):
 
     # Initialize power skymap
     omega_map = np.zeros(npix)
+    
+    if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+        hierobj = hierarchy(params)
+        hierobj.init_breivik2020_grid()
 
     blmax = params['lmax']
     
@@ -99,8 +104,15 @@ def mapmaker(params, post, parameters, saveto=None):
             alpha = sample[2]
             log_Omega0 = sample[3]
             Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+        
         ## blms.
-        blms = np.append([1], sample[blm_start:])
+        if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+            rh, zh = sample[blm_start], sample[blm_start+1]
+            map_theta = hierobj.breivik2020_mapmaker(rh,zh)
+            sph_theta = hierobj.skymap_pix2sph(map_theta,blmax)
+            blms = np.appand([1], hierobj.blm_decompose(sph_theta))
+        else:
+            blms = np.append([1], sample[blm_start:])
 
         ## Complex array of blm values for both +ve m values
         blm_vals = np.zeros(blm_size, dtype='complex')
@@ -170,7 +182,13 @@ def mapmaker(params, post, parameters, saveto=None):
     med_vals = np.median(post, axis=0)
 
     ## blms.
-    blms_median = np.append([1], med_vals[blm_start:])
+    if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+        rh, zh = med_vals[blm_start], med_vals[blm_start+1]
+        map_theta = hierobj.breivik2020_mapmaker(rh,zh)
+        sph_theta = hierobj.skymap_pix2sph(map_theta,blmax)
+        blms_median = np.appand([1], hierobj.blm_decompose(sph_theta))
+    else:
+        blms_median = np.append([1], med_vals[blm_start:])
 
     # Omega at 1 mHz
     # handle various spectral models, but default to power law
@@ -453,7 +471,10 @@ def plotmaker(params,parameters, inj):
     ## adding this for compatibility with previous runs
     ## should eventually be depreciated
     if type(parameters) is dict:
-        all_parameters = parameters['all']
+        if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+            all_parameters = parameters['noise'] + parameters['signal'] + parameters['hyper']
+        else:
+            all_parameters = parameters['all']
         ## temp fix
 #        if r'$\log_{10} (f_{\mathrm{cut}})$' in all_parameters:
 #            all_parameters.remove(r'$\log_{10} (f_{\mathrm{cut}})$')

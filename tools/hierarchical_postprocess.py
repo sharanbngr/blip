@@ -29,28 +29,31 @@ if __name__ == '__main__':
     # execute parser
     args = parser.parse_args()
 
-
-    paramfile = open(args.rundir + '/config.pickle', 'rb')
-    ## things are loaded from the pickle file in the same order they are put in
-    params = pickle.load(paramfile)
-    inj = pickle.load(paramfile)
-    parameters = pickle.load(paramfile)
+    print("Loading run parameters...")
+    with open(args.rundir + '/config.pickle', 'rb') as paramfile:
+        ## things are loaded from the pickle file in the same order they are put in
+        params = pickle.load(paramfile)
+        inj = pickle.load(paramfile)
+        parameters = pickle.load(paramfile)
     ## initualize the postprocessing class
+    print("Initializing postprocessor...")
     postprocessor = postprocess(args.rundir,params,inj,parameters)
     ## run the sampler
+    print("Starting sampler...")
     sampler = postprocessor.hierarchical_sampler(model=args.model,Nwalkers=args.Nwalkers,Nsamples=args.Nsamples,Nburn=args.Nburn,rng=args.seed,Nthread=args.Nthread)
     ## plot
+    print("Creating plots...")
     chain = sampler.flatchain
     ## model use cases
     knowTrue = False
     if args.model=='breivik2020':
-        npar=2
-        post_parameters = ['$r_h$','$z_h$']
+        npar=3
+        post_parameters = [r'$r_h$',r'$z_h$',r'$\sigma^2$']
         ## deal with older config files and assign true values if known
         if 'fg_type' in inj.keys():
             if inj['fg_type'] == 'breivik2020':
                 knowTrue = True
-                truevals = [inj['rh'],inj['zh']]
+                truevals = {r'$r_h$':inj['rh'],r'$z_h$':inj['zh']}
     else:
         raise TypeError("Unknown model. Currently supported models: 'breivik2020'.")
     cc = ChainConsumer()
@@ -111,7 +114,7 @@ if __name__ == '__main__':
         plt.close()
         np.savetxt(args.outdir+'/postprocessing_samples.txt',chain)
     
-
+    print("Done!")
 
 
 

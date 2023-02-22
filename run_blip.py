@@ -14,6 +14,7 @@ from scipy.interpolate import interp1d
 from src.dynesty_engine import dynesty_engine
 from src.nessai_engine import nessai_engine
 #from src.emcee_engine import emcee_engine
+from src.hierarchical import hierarchy
 
 class LISA(LISAdata, likelihoods):
 
@@ -42,6 +43,12 @@ class LISA(LISAdata, likelihoods):
 
         # Set up the Bayes class
         likelihoods.__init__(self)
+        
+        ## for the hierarchical case, initialize the one-time calculations
+        if 'hierarchy' in self.params.keys() and self.params['hierarchy']=='fg_scale_heights_full':
+            self.hierarchical_engine = hierarchy(self.params)
+#            import pdb; pdb.set_trace()
+            self.hierarchical_engine.init_breivik2020_grid()
 
         # Figure out which response function to use for recoveries
         self.which_response()
@@ -478,6 +485,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart"))
     params['sampler'] = str(config.get("params", "sampler"))
+    params['hierarchy'] = str(config.get("params", "hierarchy"))
 
 
     # Injection Dict

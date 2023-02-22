@@ -4,6 +4,8 @@ from dynesty.utils import resample_equal
 import dill
 import time
 import shutil, os
+#
+#from hierarchical import hierarchy
 
 class dynesty_engine():
 
@@ -92,30 +94,50 @@ class dynesty_engine():
                     else:
                         blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
                         blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-
-            all_parameters = noise_parameters + signal_parameters + blm_parameters
-            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
-            npar = len(all_parameters)
-            if params['spectrum_model']=='powerlaw':
-                engine = NestedSampler(lisaobj.sph_pl_log_likelihood, cls.sph_pl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_bpl_log_likelihood, cls.sph_bpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw_2':
-                engine = NestedSampler(lisaobj.sph_bpl2_log_likelihood, cls.sph_bpl2_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='truncated_broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_tbpl_log_likelihood, cls.sph_tbpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='truncated_powerlaw':
-                engine = NestedSampler(lisaobj.sph_tpl_log_likelihood, cls.sph_tpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='free_broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_fbpl_log_likelihood, cls.sph_fbpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+            
+            if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+                hyperparameters = [r'$r_{h}$',r'$z_{h}$']
+                blm_parameters = []
             else:
-                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
+                hyperparameters = []
+            all_parameters = noise_parameters + signal_parameters + hyperparameters + blm_parameters
+            parameters = {'noise':noise_parameters,'signal':signal_parameters,'hyper':hyperparameters,'blm':blm_parameters,'all':all_parameters}
+            npar = len(all_parameters)
+            
+            ## backward compatibility
+            if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+                if params['spectrum_model']=='truncated_powerlaw':
+                    ## overwrite parameter count since we won't be directly sampling the blms
+                    npar = len(noise_parameters + signal_parameters + hyperparameters)
+#                    cls.hierarchical_engine = hierarchy(params)
+                    engine = NestedSampler(lisaobj.sph_h_tpl_log_likelihood, cls.sph_h_tpl_prior, \
+                                           npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                else:
+                    raise ValueError("The (prototype) hierarchical foreground analysis only currently supports a truncated power law spectral distribution for the at-runtime hierarchical analysis. Sorry!")
+            else:
+                if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_post':
+                    print("Hierarchical foreground analysis will be performed in post-processing. Performing standard spherical harmonic search.")
+            
+                if params['spectrum_model']=='powerlaw':
+                    engine = NestedSampler(lisaobj.sph_pl_log_likelihood, cls.sph_pl_prior,\
+                        npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                elif params['spectrum_model']=='broken_powerlaw':
+                    engine = NestedSampler(lisaobj.sph_bpl_log_likelihood, cls.sph_bpl_prior,\
+                        npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                elif params['spectrum_model']=='broken_powerlaw_2':
+                    engine = NestedSampler(lisaobj.sph_bpl2_log_likelihood, cls.sph_bpl2_prior,\
+                        npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                elif params['spectrum_model']=='truncated_broken_powerlaw':
+                    engine = NestedSampler(lisaobj.sph_tbpl_log_likelihood, cls.sph_tbpl_prior,\
+                        npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                elif params['spectrum_model']=='truncated_powerlaw':
+                    engine = NestedSampler(lisaobj.sph_tpl_log_likelihood, cls.sph_tpl_prior,\
+                        npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                elif params['spectrum_model']=='free_broken_powerlaw':
+                    engine = NestedSampler(lisaobj.sph_fbpl_log_likelihood, cls.sph_fbpl_prior,\
+                        npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                else:
+                    raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, free_broken_powerlaw, broken_powerlaw_2, truncated_broken_powerlaw, and truncated_powerlaw.")
 
         elif params['modeltype']=='noise_only':
 
@@ -874,6 +896,46 @@ class dynesty_engine():
 
         return theta    
     
+    @classmethod
+    def sph_h_tpl_prior(cls,theta):
+
+        '''
+        Prior for a power spectra based spherical harmonic anisotropic analysis with a truncated power law spectral model,
+            incorporating a hierarchical hyperprior on the spatial distribution from the Breivik+2020 parameterized Milky Way model. 
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref for each of the harmonics, Np and Na. The first element is always alpha and the last two are always Np and Na
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        # The first two are the priors on the position and acc noise terms.
+        log_Np = -4*theta[0] - 39
+        log_Na = -4*theta[1] - 46
+
+        ## The rest are the spectral model priors
+        log_omega0 = -10*theta[2] - 4
+        alpha = 10*theta[3] - 5
+        log_fbreak = -2*theta[4] - 2
+        log_fscale = -2*theta[5] - 2
+        
+        ## hyperparameters
+        rh = 2*theta[6] + 2
+        zh = 1.95*theta[7] + 0.05
+        
+        theta = [log_Np, log_Na, log_omega0, alpha, log_fbreak, log_fscale, rh, zh]
+
+        return theta
+    
     @staticmethod
     def isgwb_only_prior(self, theta):
 
@@ -903,12 +965,6 @@ class dynesty_engine():
         log_omega0  = -10*log_omega0 - 4
 
         return (alpha, log_omega0)
-
-
-
-
-
-
 
 
 
