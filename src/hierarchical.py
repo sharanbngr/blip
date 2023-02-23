@@ -320,17 +320,17 @@ class postprocess(LISAdata):
 #        print('New elapse map gen time is {:0.2f} s.'.format(dur))
 #        theta_map, log_theta_map = self.generate_galactic_foreground(rh,zh)
         ## get corresponding blm values
-        theta_sph = self.skymap_pix2sph(theta_map)
+        theta_sph = self.skymap_pix2sph(theta_map,self.params['lmax'])
         theta_blm = self.blm_decompose(theta_sph)
         
         K = blm_samples.shape[0]
-        difflmk = blm_samples - theta_blm.reshape(-1,1)
+        difflmk = blm_samples - np.array(theta_blm).reshape(-1,1).T
         loglike = -np.log(K) + logsumexp((-0.5/s2)*np.einsum('ij,ik->i',difflmk,difflmk))
         ## determine log likelihood
         
         return loglike
     
-    def breivik2020_log_prob(self,theta,post_dist,bounds=np.array([[2,4],[0,2]])):
+    def breivik2020_log_prob(self,theta,post,bounds=np.array([[2,4],[0,2]])):
         '''
         Log probability for the Breivik+2020 model. 
         Prior is uniform on user-specified bounds in kpc; default bounds are reasonable for the Milky Way.
@@ -351,7 +351,7 @@ class postprocess(LISAdata):
         if not np.isfinite(logprior):
             return -np.inf
         ## get likelihood
-        loglike = self.breivik2020_log_likelihood(theta,post_dist)
+        loglike = self.breivik2020_log_likelihood(theta,post)
         
         return logprior+loglike
     
@@ -371,7 +371,10 @@ class postprocess(LISAdata):
         if model == 'breivik2020':
             print("Post-processing with spatial model: Breivik+ (2020). Loading posterior samples and parameterizing...")
             ## load posterior samples and process
-            post = np.loadtxt(self.rundir + "/post_samples.txt")
+            post_full = np.loadtxt(self.rundir + "/post_samples.txt")
+            N_spectral_params = len(self.parameters['noise'] + self.parameters['signal'])
+            post = post_full[:,N_spectral_params:]
+            
 #            post_dist = self.post2dist(post)
             ## Ndim is 2 {rh,zh}
             Ndim = 3

@@ -44,136 +44,144 @@ def mapmaker(params, post, parameters, saveto=None):
         hierobj.init_breivik2020_grid()
 
     blmax = params['lmax']
+    ## skipping this calculation for the hierarchical case for now, as it's very expensive
+    if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+        logger = logging.getLogger()
+        # setting coord back to E, if parameter isn't specified
+        if 'projection' in params.keys():
+            coord = params['projection']
+        else:
+            coord = 'E'
+    else:
+        print("Computing marginalized posterior skymap...")
+        for ii in range(post.shape[0]):
     
-    print("Computing marginalized posterior skymap...")
-    for ii in range(post.shape[0]):
-
-        sample = post[ii, :]
-
-        # Omega at 1 mHz
-        # handle various spectral models, but default to power law
-        if 'spectrum_model' in params.keys():
-            if params['spectrum_model'] == 'powerlaw':
-                alpha = sample[2]
-                log_Omega0 = sample[3]
-                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-            elif params['spectrum_model']=='broken_powerlaw':
-                log_A1 = sample[2]
-                alpha_1 = sample[3]
-                log_A2 = sample[4]
-                alpha_2 = sample[3] - 0.667
-                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
-            elif params['spectrum_model']=='broken_powerlaw_2':
-                delta = 0.1
-                log_Omega0 = sample[2]
-                alpha_1 = sample[3]
-                alpha_2 = sample[4]
-                f_break = 10**sample[5]
-                Omega_1mHz = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
-            elif params['spectrum_model']=='free_broken_powerlaw':
-                log_A1 = sample[2]
-                alpha_1 = sample[3]
-                log_A2 = sample[4]
-                alpha_2 = sample[5]
-                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
-            elif params['spectrum_model']=='truncated_broken_powerlaw':
-                delta = 0.1
-                log_Omega0 = sample[2]
-                alpha_1 = sample[3]
-                alpha_2 = sample[4]
-                f_break = 10**sample[5]
-                f_cut = f_break
-                f_scale = 10**sample[6]
-                Omega_1mHz = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
-            elif params['spectrum_model']=='truncated_powerlaw':
-                delta = 0.1
-                log_Omega0 = sample[2]
-                alpha = sample[3]
-                f_break = 10**sample[4]
-                f_scale = 10**sample[5]
-                Omega_1mHz = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
-            else:
-                if ii==0:
-                    print("Unknown spectral model. Defaulting to power law...")
-                alpha = sample[2]
-                log_Omega0 = sample[3]
-                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-        else:
-            print("Warning: running on older output without specification of spectral model.")
-            print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
-            alpha = sample[2]
-            log_Omega0 = sample[3]
-            Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-        
-        ## blms.
-        if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
-            rh, zh = sample[blm_start], sample[blm_start+1]
-            map_theta = hierobj.breivik2020_mapmaker(rh,zh)
-            sph_theta = hierobj.skymap_pix2sph(map_theta,blmax)
-            blms = np.appand([1], hierobj.blm_decompose(sph_theta))
-        else:
-            blms = np.append([1], sample[blm_start:])
-
-        ## Complex array of blm values for both +ve m values
-        blm_vals = np.zeros(blm_size, dtype='complex')
-
-        ## this is b00, alsways set to 1
-        blm_vals[0] = 1
-        norm, cnt = 1, 1
-
-        for lval in range(1, blmax + 1):
-            for mval in range(lval + 1):
-
-                idx = Alm.getidx(blmax, lval, mval)
-
-                if mval == 0:
-                    blm_vals[idx] = blms[cnt]
-                    cnt = cnt + 1
+            sample = post[ii, :]
+    
+            # Omega at 1 mHz
+            # handle various spectral models, but default to power law
+            if 'spectrum_model' in params.keys():
+                if params['spectrum_model'] == 'powerlaw':
+                    alpha = sample[2]
+                    log_Omega0 = sample[3]
+                    Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+                elif params['spectrum_model']=='broken_powerlaw':
+                    log_A1 = sample[2]
+                    alpha_1 = sample[3]
+                    log_A2 = sample[4]
+                    alpha_2 = sample[3] - 0.667
+                    Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+                elif params['spectrum_model']=='broken_powerlaw_2':
+                    delta = 0.1
+                    log_Omega0 = sample[2]
+                    alpha_1 = sample[3]
+                    alpha_2 = sample[4]
+                    f_break = 10**sample[5]
+                    Omega_1mHz = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
+                elif params['spectrum_model']=='free_broken_powerlaw':
+                    log_A1 = sample[2]
+                    alpha_1 = sample[3]
+                    log_A2 = sample[4]
+                    alpha_2 = sample[5]
+                    Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+                elif params['spectrum_model']=='truncated_broken_powerlaw':
+                    delta = 0.1
+                    log_Omega0 = sample[2]
+                    alpha_1 = sample[3]
+                    alpha_2 = sample[4]
+                    f_break = 10**sample[5]
+                    f_cut = f_break
+                    f_scale = 10**sample[6]
+                    Omega_1mHz = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
+                elif params['spectrum_model']=='truncated_powerlaw':
+                    delta = 0.1
+                    log_Omega0 = sample[2]
+                    alpha = sample[3]
+                    f_break = 10**sample[4]
+                    f_scale = 10**sample[5]
+                    Omega_1mHz = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
                 else:
-                    ## prior on amplitude, phase
-                    blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
-                    cnt = cnt + 2
-
-        norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
-
-        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
-
-        ## add to the omega map
-        omega_map = omega_map + Omega_1mHz * prob_map
-
-    omega_map = omega_map/post.shape[0]
-
-    # setting coord back to E, if parameter isn't specified
-    if 'projection' in params.keys():
-        coord = params['projection']
-    else:
-        coord = 'E'
+                    if ii==0:
+                        print("Unknown spectral model. Defaulting to power law...")
+                    alpha = sample[2]
+                    log_Omega0 = sample[3]
+                    Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+            else:
+                print("Warning: running on older output without specification of spectral model.")
+                print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+                alpha = sample[2]
+                log_Omega0 = sample[3]
+                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+            
+            ## blms.
+            if 'hierarchy' in params.keys() and params['hierarchy']=='fg_scale_heights_full':
+                rh, zh = sample[blm_start], sample[blm_start+1]
+                map_theta = hierobj.breivik2020_mapmaker(rh,zh)
+                sph_theta = hierobj.skymap_pix2sph(map_theta,blmax)
+                blms = np.append([1], hierobj.blm_decompose(sph_theta))
+            else:
+                blms = np.append([1], sample[blm_start:])
     
-    ## HEALpy is really, REALLY noisy sometimes. This stops that.
-    logger = logging.getLogger()
-    logger.setLevel(logging.ERROR)
+            ## Complex array of blm values for both +ve m values
+            blm_vals = np.zeros(blm_size, dtype='complex')
     
-    # generating skymap, switches to specified projection if not 'E'
-    if coord=='E':
-        hp.mollview(omega_map, coord=coord, title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
-    else:
-        hp.mollview(omega_map, coord=['E',coord], title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+            ## this is b00, alsways set to 1
+            blm_vals[0] = 1
+            norm, cnt = 1, 1
+    
+            for lval in range(1, blmax + 1):
+                for mval in range(lval + 1):
+    
+                    idx = Alm.getidx(blmax, lval, mval)
+    
+                    if mval == 0:
+                        blm_vals[idx] = blms[cnt]
+                        cnt = cnt + 1
+                    else:
+                        ## prior on amplitude, phase
+                        blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
+                        cnt = cnt + 2
+    
+            norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
+    
+            prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
+    
+            ## add to the omega map
+            omega_map = omega_map + Omega_1mHz * prob_map
+    
+        omega_map = omega_map/post.shape[0]
+    
+        # setting coord back to E, if parameter isn't specified
+        if 'projection' in params.keys():
+            coord = params['projection']
+        else:
+            coord = 'E'
+        
+        ## HEALpy is really, REALLY noisy sometimes. This stops that.
+        logger = logging.getLogger()
+        logger.setLevel(logging.ERROR)
+        
+        # generating skymap, switches to specified projection if not 'E'
+        if coord=='E':
+            hp.mollview(omega_map, coord=coord, title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+        else:
+            hp.mollview(omega_map, coord=['E',coord], title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
    
-    # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-
-    hp.graticule()
+        # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
     
-    ## switch logging level back to normal so we get our own status updates
-    logger.setLevel(logging.INFO)
+        hp.graticule()
+        
+        ## switch logging level back to normal so we get our own status updates
+        logger.setLevel(logging.INFO)
+        
+        if saveto is not None:
+            plt.savefig(saveto + '/post_skymap.png', dpi=150)
+            logger.info('Saving posterior skymap at ' +  saveto + '/post_skymap.png')
     
-    if saveto is not None:
-        plt.savefig(saveto + '/post_skymap.png', dpi=150)
-        logger.info('Saving posterior skymap at ' +  saveto + '/post_skymap.png')
-
-    else:
-        plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
-        logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/post_skymap.png')
-    plt.close()
+        else:
+            plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
+            logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/post_skymap.png')
+        plt.close()
 
 
     #### ------------ Now plot median value
@@ -186,7 +194,7 @@ def mapmaker(params, post, parameters, saveto=None):
         rh, zh = med_vals[blm_start], med_vals[blm_start+1]
         map_theta = hierobj.breivik2020_mapmaker(rh,zh)
         sph_theta = hierobj.skymap_pix2sph(map_theta,blmax)
-        blms_median = np.appand([1], hierobj.blm_decompose(sph_theta))
+        blms_median = np.append([1], hierobj.blm_decompose(sph_theta))
     else:
         blms_median = np.append([1], med_vals[blm_start:])
 
