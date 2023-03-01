@@ -164,7 +164,7 @@ class populations():
 
         ## get running median if needed
         if plot or return_median:
-            runmed_binned = medfilt(fg_PSD_binned,kernel_size=11)
+            runmed_binned = medfilt(fg_PSD_binned,kernel_size=11) #smr could increase this to tighten median
 
         ## make plots if desired
         ## note that in BLIP proper, this is called for every segment, and is then ifft'd. 

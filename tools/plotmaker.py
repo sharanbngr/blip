@@ -298,6 +298,7 @@ def fitmaker(params,parameters,inj):
         pop = populations(params,inj)
         Sgw_inj = pop.pop2spec(inj['popfile'],fs_inj.flatten(),params['dur']*u.s,return_median=True,names=inj['columns'],sep=inj['delimiter'])*4
         ## filter to analysis band
+        np.savetxt(params['out_dir'] + "/Sgw_inj.txt",Sgw_inj) ##smr saving for snr calculation: injected signal
         fs_inj = fs_inj[ffilt]
         Sgw_inj = Sgw_inj[ffilt]
     else:
