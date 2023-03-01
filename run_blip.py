@@ -240,7 +240,7 @@ class LISA(LISAdata, likelihoods):
         
         # params['out_dir'] = str(config.get("run_params", "out_dir")) #adding to try to let next line run. claimed params wasn't defined. 
 
-        np.savetxt("./Storage/snrtest/test1" + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
+        #np.savetxt("./Storage/snrtest/test1" + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
