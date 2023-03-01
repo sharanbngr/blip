@@ -237,6 +237,9 @@ class LISA(LISAdata, likelihoods):
 
         # Modelled Noise PSD
         C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+        
+        params['out_dir'] = str(config.get("run_params", "out_dir")) #adding to try to let next line run. claimed params wasn't defined. 
+
         np.savetxt(params['out_dir'] + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
 
         # Extract noise auto-power
