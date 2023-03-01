@@ -238,14 +238,14 @@ class LISA(LISAdata, likelihoods):
         # Modelled Noise PSD
         C_noise = self.instr_noise_spectrum(self.fdata,self.f0, Np, Na)
         
-        params['out_dir'] = str(config.get("run_params", "out_dir")) #adding to try to let next line run. claimed params wasn't defined. 
+        # params['out_dir'] = str(config.get("run_params", "out_dir")) #adding to try to let next line run. claimed params wasn't defined. 
 
-        np.savetxt(params['out_dir'] + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
+        np.savetxt("./Storage/snrtest/test1" + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
         
-        np.savetxt(params['out_dir'] + "/S_noise_XX.txt",S1) ##smr saving S1, or S_XX for XYZ, for inj noise
+        np.savetxt("./Storage/snrtest/test1" + "/S_noise_XX.txt",S1) ##smr saving S1, or S_XX for XYZ, for inj noise
 
 
         if self.inj['injtype'] != 'noise_only':
@@ -300,7 +300,7 @@ class LISA(LISAdata, likelihoods):
                 
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :]) #3 by #3 #frequency, #time, #blms
-                np.savetxt(params['out_dir'] + "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
+                np.savetxt("./Storage/snrtest/test1" + "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
                 # save for injection. take the real values of the components
 
                 R2 = np.real(summ_response_mat[1, 1, :, :])
