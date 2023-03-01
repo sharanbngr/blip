@@ -245,7 +245,7 @@ class LISA(LISAdata, likelihoods):
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
         
-        np.savetxt("./Storage/snrtest/test1" + "/S_noise_XX.txt",S1) ##smr saving S1, or S_XX for XYZ, for inj noise
+        np.savetxt("./Storage/11-15/snr/4y-l2" + "/S_noise_XX.txt",S1) ##smr saving S1, or S_XX for XYZ, for inj noise
 
 
         if self.inj['injtype'] != 'noise_only':
@@ -300,7 +300,7 @@ class LISA(LISAdata, likelihoods):
                 
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :]) #3 by #3 #frequency, #time, #blms
-                np.savetxt("./Storage/snrtest/test1" + "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
+                np.savetxt("./Storage/11-15/snr/4y-l2" + "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
                 # save for injection. take the real values of the components
 
                 R2 = np.real(summ_response_mat[1, 1, :, :])
@@ -445,13 +445,21 @@ class LISA(LISAdata, likelihoods):
 
 
 #put function here
-#load samples
-#compute convolution of response function for each sample, output response functions
-#input spherical harmoincs and response
-#convert spherical harms from blms to alms for each sample using cg
-#convolve alms with respones function
-#take sum using lines of code from above
-#
+
+def convolve_sample():
+
+    #load samples
+    post = np.loadtxt("./Storage/11-15/4y-l2/post_samples.txt")
+
+    #compute convolution of response function for each sample, output response functions
+    
+    #input spherical harmoincs and response
+    
+    #convert spherical harms from blms to alms for each sample using cg
+    
+    #convolve alms with respones function
+    
+    #take sum using lines of code from above
 
 
 
