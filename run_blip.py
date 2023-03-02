@@ -240,12 +240,12 @@ class LISA(LISAdata, likelihoods):
         
         # params['out_dir'] = str(config.get("run_params", "out_dir")) #adding to try to let next line run. claimed params wasn't defined. 
 
-        #np.savetxt("./Storage/snrtest/test1" + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
+        #np.savetxt(self.params['out_dir'] + "/C_noise.txt",C_noise) ##smr saving C_noise matrix as a backup. should be XYZ
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
         
-        np.savetxt("./Storage/11-15/snr/4y-l2" + "/S_noise_XX.txt",S1) ##smr saving S1, or S_XX for XYZ, for inj noise
+        np.savetxt(self.params['out_dir'] + "/S_noise_XX.txt",S1) ##smr saving S1, or S_XX for XYZ, for inj noise
 
 
         if self.inj['injtype'] != 'noise_only':
@@ -300,7 +300,7 @@ class LISA(LISAdata, likelihoods):
                 
                 # extra auto-power GW responses
                 R1 = np.real(summ_response_mat[0, 0, :, :]) #3 by #3 #frequency, #time, #blms
-                np.savetxt("./Storage/11-15/snr/4y-l2" + "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
+                np.savetxt(self.params['out_dir']+ "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
                 # save for injection. take the real values of the components
 
                 R2 = np.real(summ_response_mat[1, 1, :, :])
@@ -452,6 +452,7 @@ def convolve_sample():
     post = np.loadtxt("./Storage/11-15/4y-l2/post_samples.txt")
 
     #compute convolution of response function for each sample, output response functions
+
     
     #input spherical harmoincs and response
     
@@ -460,6 +461,39 @@ def convolve_sample():
     #convolve alms with respones function
     
     #take sum using lines of code from above
+
+
+
+    response = self.add_astro_signal(self.f0,self.tsegmid) ##freq by time by alms by 3x3 (not in that order) last one is alms
+    
+    response_convolved = response *self.alms_inj[None,None,None,None,:] ##has alm axis. all freq, all time, every spherical harmonic to lmax. convolving alms
+    #this is the detector response to the distribution of power as it is on the sky. Including- that it is changing over time
+    #injection- only do it once, do what this code is now
+    # multiplication in convolved is element-wise multiplication
+    # in the injection case, let this run before touching anything:
+
+    #sums over axis -1: over the alms
+    # accounted for the fact response is different over time, can account for the fact response changes with direction
+    # can integrate over the sky
+    #summed response matrix
+    summ_response_mat = np.sum(response_convolved,axis=-1)
+
+
+    ## save response matrices. will be a very large file. for recovered signal. 
+    ## save response matrices- below could go wrong
+
+    #loop over all the samples
+    #for each iteration:
+        #compute both green and blue part
+        #calculate Sgw_XX
+    #(make an array of zeros, then enumerate over that array)
+
+    response_convolved = response * self.alms_inj[None,None,None,None,:]
+    # instead of alms_inj, will be the sample vector
+    # will require lots of memory
+
+    #save Sgw_XX (for every sample)
+    return
 
 
 
