@@ -19,6 +19,8 @@ from healpy import Alm
 #import logging
 from scipy.stats import multivariate_normal
 from scipy.special import logsumexp
+from scipy.stats import gaussian_kde
+from scipy.interpolate import interp1d
 import emcee
 import time
 from multiprocessing import Pool
@@ -150,18 +152,19 @@ class postprocess(LISAdata):
     
     def post2dist(self,post):
         '''
-        Function to generate a scipy multivariate normal distribution from BLIP blm posteriors.
-        NOTE: Assumes blm posteriors (as transformed to alms) are normally distributed and only uses their moments to determine the distribution.
-        Assumes alm covariance is diagonal.
+        Function to linear-interpolated KDE approximations of BLIP blm posteriors.
+        Assumes alm covariance is diagonal and only accounts for the 1-D KDEs on each blm (as KDEs are not reliable for spaces w/ high dimensionality)
         
         Arguments:
             post (array)            : blm posterior samples
     
         Returns:
-            dist (scipy mv norm)    : Scipy multivariate normal created from the blm posteriors
+            dist    : Object with method to compute the combined log probability of (b_lm_proposed | b_lm_samples) over all b_lms
         '''
         ## convert posterior samples to blm basis
         blm_samples = self.samples2blm(post)
+        
+        
         ## iterate over blms to get means and variances
         blm_means = []
         blm_vars = []
@@ -294,6 +297,28 @@ class postprocess(LISAdata):
         else:
             return 0
     
+    def breivik2020_bayestack_log_prior(self,theta,bounds=np.array([[2,4],[0.05,2]])):
+        '''
+        Prior for the breivik2020 model. Uniform on user-specified bounds in kpc.
+        Default bounds are reasonable for the Milky Way.
+        For now, we set a uniform prior on the variance, with default bounds of (0,1].
+        
+        Arguments:
+            theta (array)       : [rh,zh], Breivik+2020 radial and vertical scale height
+            bounds (array)      : [[rhmin,rhmax],[zhmin,zhmax]]
+    
+        Returns:
+            logprior (float)              : log prior of theta = {rh,zh}
+        '''
+        ## unpack theta
+        rh,zh = theta
+        if rh < bounds[0,0] or rh > bounds[0,1]:
+            return -np.inf
+        elif zh < bounds[1,0] or zh > bounds[1,1]:
+            return -np.inf
+        else:
+            return 0
+    
     def breivik2020_log_likelihood(self,theta,blm_samples):
         '''
         Likelihood of theta = {rh,zh} given set of BLIP alm posteriors.
@@ -330,6 +355,36 @@ class postprocess(LISAdata):
         
         return loglike
     
+    def breivik2020_bayestack_log_likelihood(self,theta,post_dist):
+        '''
+        Likelihood of theta = {rh,zh} given set of BLIP alm posteriors.
+        NOTE: Assumes blm posteriors (as transformed to alms) are normal and only uses their moments to determine the likelihood.
+        Assumes blm covariance is diagonal.
+        
+        Arguments:
+            rh (float)                   : Breivik+2020 radial scale height
+            zh (float)                   : Breivik+2020 vertical scale height
+            post_dist (scipy mv norm)    : Scipy multivariate normal created from the blm posteriors
+    
+        Returns:
+            loglike (float)              : log likelihood of theta = {rh,zh}
+        '''
+        ## unpack theta
+        rh,zh = theta
+        ## generate skymaps given rh and zh
+#        start = time.time()
+        theta_map = self.breivik2020_mapmaker(rh,zh)
+#        dur = time.time() - start
+#        print('New elapse map gen time is {:0.2f} s.'.format(dur))
+#        theta_map, log_theta_map = self.generate_galactic_foreground(rh,zh)
+        ## get corresponding blm values
+        theta_sph = self.skymap_pix2sph(theta_map,self.params['lmax'])
+        theta_blm = self.blm_decompose(theta_sph)
+        ## determine log likelihood
+        loglike = post_dist.logpdf(theta_blm)
+        
+        return loglike  
+    
     def breivik2020_log_prob(self,theta,post,bounds=np.array([[2,4],[0,2]])):
         '''
         Log probability for the Breivik+2020 model. 
@@ -352,6 +407,31 @@ class postprocess(LISAdata):
             return -np.inf
         ## get likelihood
         loglike = self.breivik2020_log_likelihood(theta,post)
+        
+        return logprior+loglike
+    
+    def breivik2020_bayestack_log_prob(self,theta,post_dist,bounds=np.array([[2,4],[0,2]])):
+        '''
+        Log probability for the Breivik+2020 model. 
+        Prior is uniform on user-specified bounds in kpc; default bounds are reasonable for the Milky Way.
+        Likelihood of theta = {rh,zh} given set of BLIP alm posteriors.
+        NOTE: Assumes blm posteriors (as transformed to alms) are normal and only uses their moments to determine the likelihood.
+        Assumes blm covariance is diagonal.
+        
+        Arguments:
+            theta (array)       : [rh,zh], Breivik+2020 radial and vertical scale height
+            post_dist (scipy mv norm)    : Scipy multivariate normal created from the blm posteriors
+            bounds (array)      : [[rhmin,rhmax],[zhmin,zhmax]]
+    
+        Returns:
+            logp (float)              : log posterior probability of theta = {rh,zh}
+        '''
+        ## check prior
+        logprior = self.breivik2020_bayestack_log_prior(theta,bounds)
+        if not np.isfinite(logprior):
+            return -np.inf
+        ## get likelihood
+        loglike = self.breivik2020_bayestack_log_likelihood(theta,post_dist)
         
         return logprior+loglike
     
@@ -385,6 +465,24 @@ class postprocess(LISAdata):
             theta0 = np.array([rng.uniform(low=bounds[0,0],high=bounds[0,1],size=Nwalkers),rng.uniform(low=bounds[1,0],high=bounds[1,1],size=Nwalkers),rng.uniform(low=bounds[2,0],high=bounds[2,1],size=Nwalkers)]).T
             logprob = self.breivik2020_log_prob
             additional_args = (post,bounds)
+        elif model == 'breivik2020_bayestack':
+            print("Post-processing with spatial model: Breivik+ (2020). Loading posterior samples and parameterizing...")
+            print("Using BAYESTACK-style posterior estimation...")
+            ## load posterior samples and process
+            post_full = np.loadtxt(self.rundir + "/post_samples.txt")
+            N_spectral_params = len(self.parameters['noise'] + self.parameters['signal'])
+            post = post_full[:,N_spectral_params:]
+            
+            post_dist = posterior_approx(post,lmax=self.params['lmax'])
+            ## Ndim is 2 {rh,zh}
+            Ndim = 2
+            ## intialize grid
+            self.init_breivik2020_grid()
+            ## set up uniform priors on [[rmin,rmax],[zmin,zmax]]
+            bounds=np.array([[2,4],[0,2]])
+            theta0 = np.array([rng.uniform(low=bounds[0,0],high=bounds[0,1],size=Nwalkers),rng.uniform(low=bounds[1,0],high=bounds[1,1],size=Nwalkers)]).T
+            logprob = self.breivik2020_bayestack_log_prob
+            additional_args = (post_dist,bounds)
         else:
             raise TypeError("Unknown model. Currently supported models: 'breivik2020'.")
         
@@ -425,6 +523,52 @@ class postprocess(LISAdata):
             print('Time elapsed for sampling: {:0.2f} s.'.format(dur))
             
         return sampler
+
+class posterior_approx():
+    def __init__(self,blm_samples,lmax):
+        
+        ## this sets up the fast linear interpolators for rapid posterior probability evaluation
+        ## the interpolators will be defined on the prior bounds
+        ## and return 0 probability outside
+        cnt = 0
+        amp_range = np.linspace(-3,3,10000)
+        phase_range = np.linspace(np.pi,2*np.pi,10000)
+        logdists = []
+        
+        for lval in range(1, lmax + 1):
+            for mval in range(lval + 1):
+
+                if mval == 0:
+                    kde_lm = gaussian_kde(blm_samples[cnt,:])
+                    kde_lm_eval = kde_lm(amp_range)
+                    logdist_lm = interp1d(amp_range,np.log(kde_lm_eval),fill_value=-np.inf,bounds_error=False)
+                    logdists.append(logdist_lm)
+                    cnt = cnt + 1
+                else:
+                    ## prior on amplitude, phase
+                    kde_lm_amp = gaussian_kde(blm_samples[cnt,:])
+                    kde_lm_amp_eval = kde_lm_amp(amp_range)
+                    logdist_lm_amp = interp1d(amp_range,np.log(kde_lm_amp_eval),fill_value=-np.inf,bounds_error=False)
+                    logdists.append(logdist_lm_amp)
+                    kde_lm_phase = gaussian_kde(blm_samples[cnt+1,:])
+                    kde_lm_phase_eval = kde_lm_phase(phase_range)
+                    logdist_lm_phase = interp1d(amp_range,np.log(kde_lm_phase_eval),fill_value=-np.inf,bounds_error=False)
+                    logdists.append(logdist_lm_phase)
+                    cnt = cnt + 2
+        
+        self.logdists = logdists
+        self.lmax = lmax        
+    
+    
+    
+    def logpdf(self,theta_blm):
+        
+        logp_blm = np.zeros(len(theta_blm))
+        
+        for idx in range(len(theta_blm)):
+            logp_blm[idx] = self.logdists[idx](theta_blm[idx])
+        
+        return np.sum(logp_blm)
 
 
 class hierarchy(LISAdata):

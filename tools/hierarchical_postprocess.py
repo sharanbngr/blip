@@ -54,6 +54,14 @@ if __name__ == '__main__':
             if inj['fg_type'] == 'breivik2020':
                 knowTrue = True
                 truevals = {r'$r_h$':inj['rh'],r'$z_h$':inj['zh']}
+    elif args.model=='breivik2020_bayestack':
+        npar=2
+        post_parameters = [r'$r_h$',r'$z_h$']
+        ## deal with older config files and assign true values if known
+        if 'fg_type' in inj.keys():
+            if inj['fg_type'] == 'breivik2020':
+                knowTrue = True
+                truevals = {r'$r_h$':inj['rh'],r'$z_h$':inj['zh']}
     else:
         raise TypeError("Unknown model. Currently supported models: 'breivik2020'.")
     cc = ChainConsumer()
@@ -109,6 +117,8 @@ if __name__ == '__main__':
         plt.close()
         np.savetxt(args.rundir+'/postprocessing_samples.txt',chain)
     else:
+        if not os.path.exists(args.outdir):
+            os.mkdir(args.outdir)
         plt.savefig(args.outdir  + '/postproc_corners.png', dpi=150)
         print("Posteriors plots printed in " + args.outdir + "/postproc_corners.png")
         plt.close()
