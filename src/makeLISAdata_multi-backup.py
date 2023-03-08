@@ -418,7 +418,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
         return tarr, h1, h2, h3
 
-    def add_sgwb_data(self, tbreak = 0.0,multi='no'):
+    def add_sgwb_data(self, tbreak = 0.0):
 
         cspeed = 3e8 #m/s
 
@@ -449,14 +449,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## Response matrix : shape (3 x 3 x freq x time) if isotropic
         ## set up different use cases
         ## pixel basis computes response in conjunction with skymap, so skip this step
-        if self.inj['injtype'] == 'multi':
-            if multi == 'a':
-                response_mat = self.add_astro_signal_a(f0,tmids)
-            elif multi == 'i':
-                response_mat = self.add_astro_signal_i(f0,tmids)
-            else:
-                raise ValueError("Invalid specification of 'multi' type. Can be 'a' (anisotropic) or 'i' (isotropic).")
-        elif self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'pixel':
+        if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'pixel':
             pass
         else:
             if self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax':
@@ -470,7 +463,14 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         H0 = 2.2*10**(-18) ## in SI units
         
         ## compute spectra and save Omega(1mHz) for later
-        if self.inj['spectral_inj'] == 'powerlaw':
+        if self.inj['injtype'] == 'multi':
+            Omegaf_i = (10**self.inj['log_omega0_i'])*(self.fdata/self.params['fref'])**self.inj['alpha_i']
+            Omegaf_a = (10**self.inj['log_omega0_a']) * (self.fdata/self.params['fref'])**self.inj['alpha_a'] \
+                            * 0.5 * (1+np.tanh((self.inj['f_cut_a']-self.fdata)/self.inj['f_scale_a']))
+            Omega_1mHz_i = (10**self.inj['log_omega0_i'])*(1e-3/self.params['fref'])**self.inj['alpha_i']
+            Omega_1mHz_a = (10**self.inj['log_omega0_a']) * (1e-3/self.params['fref'])**self.inj['alpha_a'] \
+                            * 0.5 * (1+np.tanh((self.inj['f_cut_a']-1e-3)/self.inj['f_scale_a']))
+        elif self.inj['spectral_inj'] == 'powerlaw':
             Omegaf = (10**self.inj['log_omega0'])*(frange/(self.params['fref']))**self.inj['alpha']
             Omega_1mHz = 10**(self.inj['log_omega0']) * (1e-3/self.params['fref'])**(self.inj['alpha'])
         elif self.inj['spectral_inj'] == 'broken_powerlaw':
@@ -514,11 +514,19 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
             raise ValueError("Unknown spectral injection selected. Can be powerlaw, broken_powerlaw, free_broken_powerlaw, or population.")
         
         # Spectrum of the SGWB from Omegaf (population version goes directly to the spectrum from binary strains and frequencies)
-        if self.inj['spectral_inj'] != 'population':
+        # And the multi-SGWB injection differentiates between the isotropic injection and the anisotropic injection
+        if self.inj['injtype'] == 'multi':
+            Sgw_a = (3.0*(H0**2)*Omegaf_a)/(4*np.pi*np.pi*self.fdata**3)
+            Sgw_i = (3.0*(H0**2)*Omegaf_i)/(4*np.pi*np.pi*self.fdata**3)
+        elif self.inj['spectral_inj'] != 'population':
             Sgw = Omegaf*(3/(4*frange**3))*(H0/np.pi)**2    
 
         ## the spectrum of the frequecy domain gaussian for ifft
-        norms = np.sqrt(self.params['fs']*Sgw*N)/2
+        if self.inj['injtype'] == 'multi':
+            norms_a = np.sqrt(self.params['fs']*Sgw_a*N)/2
+            norms_i = np.sqrt(self.params['fs']*Sgw_i*N)/2
+        else:
+            norms = np.sqrt(self.params['fs']*Sgw*N)/2
 
         ## index array for one segment
         t_arr = np.arange(N)
@@ -676,6 +684,67 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
                         plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
                         print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
                         plt.close()
+
+            elif self.inj['injtype'] == 'multi':
+                if ii==0:
+                    ## pick between different anisotropic astrophysical injections
+                    if self.inj['spatial_inj'] == 'breivik2020':
+                        ## toy model foreground
+                        astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
+                    else:
+                        raise ValueError("Multi-SGWB injection protoype currently only supports breivik2020 model galaxy.")
+            
+                    if self.inj['injbasis'] == 'sph':
+                        ## convert to blms
+                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
+                        ## save blms for truevals
+                        self.inj['astro_blms'] = astro_sph
+                        ## extract alms
+                        self.alms_inj = self.blm_2_alm(astro_sph)
+    
+                        ## normalize
+                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+    
+                        ## extrct only the non-negative components
+                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+                        ## response matrix summed over Ylms
+                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+    
+                        # converts alm_inj into a healpix map to be plotted and saved
+                        # Plot with twice the analysis nside for better resolution
+                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+                        
+                    else:
+                        raise ValueError("Multi-SGWB injection protoype currently only supports sph-basis spatial injections.")
+                        
+                    Omegamap_inj = (Omega_1mHz_a + Omega_1mHz_i) * skymap_inj
+                    
+                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
+                    self.skymap_inj = skymap_inj
+    
+                    ## also save the final healpix map to a datafile
+                    np.savetxt(self.params['out_dir'] +"/injected_healpix_skymap.dat",skymap_inj)
+                    
+                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+                    hp.graticule()
+                    
+                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+                    plt.close()
+                    
+                    
+                    hp.mollview(astro_map, title='Simulated astrophysical skymap')
+                    hp.graticule()
+                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+                    plt.close()
+                    if self.inj['injbasis']!='pixel':
+                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
+                        hp.graticule()
+                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+                        plt.close()
+
 
                 ## move frequency to be the zeroth-axis, then cholesky decomp
                 L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))

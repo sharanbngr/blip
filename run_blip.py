@@ -69,15 +69,25 @@ class LISA(LISAdata, likelihoods):
 
         # Generate TDI isotropic signal
         if self.inj['doInj']:
+            if self.inj['injtype'] == 'multi':
+                h1_gw_i, h2_gw_i, h3_gw_i, times = self.add_sgwb_data(multi='i')
+                h1_gw_a, h2_gw_a, h3_gw_a, times = self.add_sgwb_data(multi='a')
+                h1_gw_i, h2_gw_i, h3_gw_i = h1_gw_i[0:N], h2_gw_i[0:N], h3_gw_i[0:N]
+                h1_gw_a, h2_gw_a, h3_gw_a = h1_gw_a[0:N], h2_gw_a[0:N], h3_gw_a[0:N]
 
-            h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
+                # Add gravitational-wave time series to noise time-series
+                self.h1 = self.h1 + h1_gw_i + h1_gw_a
+                self.h2 = self.h2 + h2_gw_i + h2_gw_a
+                self.h3 = self.h3 + h3_gw_i + h3_gw_a
+            else:
+                h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
 
-            h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
-
-            # Add gravitational-wave time series to noise time-series
-            self.h1 = self.h1 + h1_gw
-            self.h2 = self.h2 + h2_gw
-            self.h3 = self.h3 + h3_gw
+                h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
+    
+                # Add gravitational-wave time series to noise time-series
+                self.h1 = self.h1 + h1_gw
+                self.h2 = self.h2 + h2_gw
+                self.h3 = self.h3 + h3_gw
 
         self.timearray = times[0:N]
         if delt != (times[1] - times[0]):
@@ -160,6 +170,16 @@ class LISA(LISAdata, likelihoods):
             self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
+        
+        elif self.params['modeltype']=='multi_sgwb' and self.params['tdi_lev']=='michelson':
+            self.response_mat_a = self.asgwb_mich_response(self.f0, self.tsegmid)
+            self.response_mat_i = self.isgwb_mich_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='multi_sgwb' and self.params['tdi_lev']=='xyz':
+            self.response_mat_a = self.asgwb_xyz_response(self.f0, self.tsegmid)
+            self.response_mat_i = self.isgwb_xyz_response(self.f0, self.tsegmid)
+        elif self.params['modeltype']=='multi_sgwb' and self.params['tdi_lev']=='aet':
+            self.response_mat_a = self.asgwb_aet_response(self.f0, self.tsegmid)
+            self.response_mat_i = self.isgwb_aet_response(self.f0, self.tsegmid)
         elif self.params['modeltype'] == 'noise_only':
             print('Noise only model chosen ...')
         else:
@@ -198,6 +218,16 @@ class LISA(LISAdata, likelihoods):
                 self.add_astro_signal = self.pixel_xyz_response
             else:
                 raise ValueError("Unknown TDI level selected.")
+        elif self.inj['injtype'] == 'multi':
+            if self.params['tdi_lev']=='michelson':
+                self.add_astro_signal_a = self.asgwb_mich_response
+                self.add_astro_signal_i = self.isgwb_mich_response
+            elif self.params['tdi_lev']=='aet':
+                self.add_astro_signal_a = self.asgwb_aet_response
+                self.add_astro_signal_i = self.isgwb_aet_response
+            elif self.params['tdi_lev']=='xyz':
+                self.add_astro_signal_a = self.asgwb_xyz_response
+                self.add_astro_signal_i = self.isgwb_xyz_response
         else:
            raise ValueError('Unknown injection model selected')
 
@@ -259,7 +289,18 @@ class LISA(LISAdata, likelihoods):
                 R1 = np.real(summ_response_mat[0, 0, :, :])
                 R2 = np.real(summ_response_mat[1, 1, :, :])
                 R3 = np.real(summ_response_mat[2, 2, :, :])
-
+            
+            elif self.inj['injtype'] == 'multi':
+                if self.inj['injbasis'] == 'sph':
+                    summ_response_mat_a = np.sum(self.add_astro_signal_a(self.f0,self.tsegmid)*self.alms_inj[None,None,None,None,:],axis=-1)
+                    R1_a = np.real(summ_response_mat_a[0, 0, :, :])
+                    R2_a = np.real(summ_response_mat_a[1, 1, :, :])
+                    R3_a = np.real(summ_response_mat_a[2, 2, :, :])
+                    R1_i = np.real(self.add_astro_signal_i(self.f0, self.tsegmid)[0, 0, :, :])
+                    R2_i = np.real(self.add_astro_signal_i(self.f0, self.tsegmid)[1, 1, :, :])
+                    R3_i = np.real(self.add_astro_signal_i(self.f0, self.tsegmid)[2, 2, :, :])
+                else:
+                    raise ValueError("Multi-SGWB injections only supports sph basis injections for now.")
             else:
                 # extra auto-power GW responses
                 R1 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[0, 0, :, :])
@@ -269,54 +310,74 @@ class LISA(LISAdata, likelihoods):
             
             # Hubble constant
             H0 = 2.2*10**(-18)
-            
-            # Calculate astrophysical power law noise
-            if self.inj['spectral_inj'] == 'population':
-                ## population-derived power spectra
-                Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
-                # Power spectra of the specified DWD population
-                ## need to use the same frequencies as during the data generation process
-                N_spec=int(self.params['fs']*self.params['dur'])
-                fs_spec = np.fft.rfftfreq(N_spec, 1.0/self.params['fs'])[1:]
-                Sgw_fine = self.pop2spec(self.inj['popfile'],fs_spec,self.params['dur']*u.s,plot=False,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
-                ## now downsample to the frequencies at which we've evaluated the response
-                interp = interp1d(fs_spec,Sgw_fine)
-                Sgw = interp(self.fdata)
+            if self.inj['injtype'] == 'multi':
+                Omegaf_i = (10**self.inj['log_omega0_i'])*(self.fdata/self.params['fref'])**self.inj['alpha_i']
+                Omegaf_a = (10**self.inj['log_omega0_a']) * (self.fdata/self.params['fref'])**self.inj['alpha_a'] \
+                                * 0.5 * (1+np.tanh((self.inj['f_cut_a']-self.fdata)/self.inj['f_scale_a']))
+                Sgw_a = (3.0*(H0**2)*Omegaf_a)/(4*np.pi*np.pi*self.fdata**3)
+                Sgw_i = (3.0*(H0**2)*Omegaf_i)/(4*np.pi*np.pi*self.fdata**3)
             else:
-                ## power spectra for analytic cases
-                if self.inj['spectral_inj'] == 'powerlaw':
-                    Omega0, alpha = 10**self.inj['log_omega0'], self.inj['alpha']
-                    Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
-                elif self.inj['spectral_inj'] == 'broken_powerlaw':
-                    alpha_2 = self.inj['alpha1'] - 0.667
-                    Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
-                         1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**alpha_2)
-                elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
-                    Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
-                         1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**self.inj['alpha2'])
-                elif self.inj['spectral_inj'] == 'broken_powerlaw_2':
-                    delta = 0.1
-                    Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
-                            * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta)
-                elif self.inj['spectral_inj'] == 'truncated_broken_powerlaw':
-                    delta = 0.1
-                    Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
-                            * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
-                            * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
-                elif self.inj['spectral_inj'] == 'truncated_powerlaw':
-                    Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**alpha \
-                            * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
-
-                Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
-
-            # Spectrum of the SGWB signal convoluted with the detector response tensor.
-            S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
-
-            # The total noise spectra is the sum of the instrumental + astrophysical
-            S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
-
+                # Calculate astrophysical power law noise
+                if self.inj['spectral_inj'] == 'population':
+                    ## population-derived power spectra
+                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    # Power spectra of the specified DWD population
+                    ## need to use the same frequencies as during the data generation process
+                    N_spec=int(self.params['fs']*self.params['dur'])
+                    fs_spec = np.fft.rfftfreq(N_spec, 1.0/self.params['fs'])[1:]
+                    Sgw_fine = self.pop2spec(self.inj['popfile'],fs_spec,self.params['dur']*u.s,plot=False,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
+                    ## now downsample to the frequencies at which we've evaluated the response
+                    interp = interp1d(fs_spec,Sgw_fine)
+                    Sgw = interp(self.fdata)
+                else:
+                    ## power spectra for analytic cases
+                    if self.inj['spectral_inj'] == 'powerlaw':
+                        Omega0, alpha = 10**self.inj['log_omega0'], self.inj['alpha']
+                        Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
+                    elif self.inj['spectral_inj'] == 'broken_powerlaw':
+                        alpha_2 = self.inj['alpha1'] - 0.667
+                        Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
+                             1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**alpha_2)
+                    elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
+                        Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
+                             1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**self.inj['alpha2'])
+                    elif self.inj['spectral_inj'] == 'broken_powerlaw_2':
+                        delta = 0.1
+                        Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
+                                * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta)
+                    elif self.inj['spectral_inj'] == 'truncated_broken_powerlaw':
+                        delta = 0.1
+                        Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
+                                * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
+                                * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
+                    elif self.inj['spectral_inj'] == 'truncated_powerlaw':
+                        Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**alpha \
+                                * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
+    
+                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
+            
             plt.close()
-            plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+            if self.inj['injtype'] == 'multi':
+                # Spectrum of each SGWB signal convoluted with their respective detector response tensor.
+                S1_gw_a, S2_gw_a, S3_gw_a = Sgw_a[:, None]*R1_a, Sgw_a[:, None]*R2_a, Sgw_a[:, None]*R3_a
+                S1_gw_i, S2_gw_i, S3_gw_i = Sgw_i[:, None]*R1_i, Sgw_i[:, None]*R2_i, Sgw_i[:, None]*R3_i
+                
+                # The total noise spectra is the sum of the instrumental + astrophysical (anisotropic and isotropic alike)
+                S1, S2, S3 = S1[:, None] + S1_gw_a + S1_gw_i, S2[:, None] + S2_gw_a + S2_gw_i, S3[:, None] + S3_gw_a + S3_gw_i
+                
+                plt.loglog(self.fdata, np.mean(S1_gw_a,axis=1), label='Simulated GW spectrum', lw=0.75)
+                plt.loglog(self.fdata, np.mean(S1_gw_i,axis=1), label='Simulated GW spectrum', lw=0.75)
+            else:
+                # Spectrum of the SGWB signal convoluted with the detector response tensor.
+                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
+
+                # The total noise spectra is the sum of the instrumental + astrophysical
+                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
+                
+                plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
+
+            
+            
             plt.loglog(self.fdata, np.mean(S1,axis=1), label='Simulated Total spectrum', lw=0.75)
 
 
@@ -582,6 +643,21 @@ def blip(paramsfile='params.ini',resume=False):
             pass
         else:
             raise TypeError("Unkown spatial injection type. Currently supported: 'breivik2020', 'population', 'sdg', 'ps', 'tps'.")
+    elif inj['injtype'] == 'multi':
+        ## this prototype only supports a Breivik+2020 galaxy with a truncated power law spectrum + a power law isotropic SGWB
+        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
+        inj['injbasis'] = str(config.get("inj", "injbasis"))
+        if inj['spatial_inj'] == 'breivik2020':
+            inj['rh']          = float(config.get("inj", "rh"))
+            inj['zh']          = float(config.get("inj", "zh"))
+        else:
+            raise ValueError("Multi-SGWB analysis prototype only supports a Breivik+2020 anisotropic spatial injection.")
+        inj['log_omega0_a']   = np.log10(float(config.get("inj", "omega0")))
+        inj['alpha_a']     = float(config.get("inj", "alpha"))
+        inj['f_cut_a']      = float(config.get("inj", "f_cut"))
+        inj['f_scale_a']      = float(config.get("inj", "f_scale"))
+        inj['log_omega0_i']   = np.log10(float(config.get("inj", "omega0_i")))
+        inj['alpha_i']       = float(config.get("inj", "alpha_i"))
 
 
     # some run parameters
