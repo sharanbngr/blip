@@ -585,17 +585,19 @@ def plotmaker(params,parameters, inj):
         if inj['injtype']=='astro':
             if inj['injbasis']!='sph':
                 mystery_list.extend(parameters['blm'])
+        if inj['injtype']=='multi':
+            mystery_list.extend(parameters['blm'])
         param_list = [p for p in parameters['all'] if p not in mystery_list]
         
         val_list = [inj['log_Np'],inj['log_Na']]
         
         if inj['injtype'] == 'multi':
-            val_list.append( inj['alpha_a'] )
             val_list.append( inj['log_omega0_a'] )
-            val_list.append( inj['f_cut_a'] )
-            val_list.append( inj['f_scale_a'] )
-            val_list.append( inj['alpha_i'] )
+            val_list.append( inj['alpha_a'] )
+            val_list.append( np.log10(inj['f_cut_a']) )
+            val_list.append( np.log10(inj['f_scale_a']) )
             val_list.append( inj['log_omega0_i'] )
+            val_list.append( inj['alpha_i'] )
         elif inj['spectral_inj']=='powerlaw':
             val_list.append( inj['alpha'] )
             val_list.append( inj['log_omega0'] )
@@ -620,8 +622,8 @@ def plotmaker(params,parameters, inj):
             val_list.append( inj['f_break'] )
             val_list.append( inj['f_scale'] )
         elif inj['spectral_inj']=='truncated_powerlaw':
-            val_list.append( inj['alpha'] )
             val_list.append( inj['log_omega0'] )
+            val_list.append( inj['alpha'] )
             val_list.append( inj['f_break'] )
             val_list.append( inj['f_scale'] )
     
@@ -650,10 +652,12 @@ def plotmaker(params,parameters, inj):
 #                        else:
 #                            val_list.append(np.abs(inj['astro_blms'][idx]))
 #                            val_list.append(np.angle(inj['astro_blms'][idx]))
-        
+        print(param_list)
+        print(val_list)
         for param, val in zip(param_list,val_list):
             truevals[param] = val
-        
+        print(truevals)
+        print(len(truevals))
 #        ## temporary
 #        knowTrue = 0
         
