@@ -87,6 +87,15 @@ def mapmaker(params, post, parameters, saveto=None):
                 f_break = 10**sample[4]
                 f_scale = 10**sample[5]
                 Omega_1mHz = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
+            elif params['spectrum_model']=='multi_atpl_ipl':
+                delta = 0.1
+                log_Omega0_a = sample[2]
+                alpha_a = sample[3]
+                f_cut_a = 10**sample[4]
+                f_scale_a = 10**sample[5]
+#                log_Omega0_i = sample[6]
+#                alpha_i = sample[7]
+                Omega_1mHz = 0.5 * (10**(log_Omega0_a)) * (1e-3/params['fref'])**(alpha_a) * (1+np.tanh((f_cut_a-1e-3)/f_scale_a))
             else:
                 if ii==0:
                     print("Unknown spectral model. Defaulting to power law...")
@@ -215,6 +224,15 @@ def mapmaker(params, post, parameters, saveto=None):
             f_break = 10**med_vals[4]
             f_scale = 10**med_vals[5]
             Omega_1mHz_median = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
+        elif params['spectrum_model']=='multi_atpl_ipl':
+            delta = 0.1
+            log_Omega0_a = med_vals[2]
+            alpha_a = med_vals[3]
+            f_cut_a = 10**med_vals[4]
+            f_scale_a = 10**med_vals[5]
+#                log_Omega0_i = sample[6]
+#                alpha_i = sample[7]
+            Omega_1mHz_median = 0.5 * (10**(log_Omega0_a)) * (1e-3/params['fref'])**(alpha_a) * (1+np.tanh((f_cut_a-1e-3)/f_scale_a))
         else:
             print("Unknown spectral model. Defaulting to power law...")
             alpha = med_vals[2]
@@ -349,6 +367,14 @@ def fitmaker(params,parameters,inj):
         log_fscale= post[:,5]
         fbreak = 10**log_fbreak
         fscale = 10**log_fscale
+    elif params['spectrum_model']=='multi_atpl_ipl':
+        delta = 0.1
+        log_Omega0_a = post[:,2]
+        alpha_a = post[:,3]
+        f_cut_a = 10**post[:,4]
+        f_scale_a = 10**post[:,5]
+        log_Omega0_i = post[:,6]
+        alpha_i = post[:,7]
     else:
         print("Unknown spectral model. Exiting without creating plots...")
         return
@@ -358,7 +384,13 @@ def fitmaker(params,parameters,inj):
     
     ## get injected spectrum
     if not params['mldc']:
-        if inj['spectral_inj']=='powerlaw':
+        if inj['injtype']=='multi':
+            Omegaf_inj_a = (10**inj['log_omega0_a'])*(fs_inj/(params['fref']))**inj['alpha_a'] \
+                    * 0.5 * (1+np.tanh((inj['f_cut_a'] - fs_inj)/inj['f_scale_a']))
+            Sgw_inj_a = Omegaf_inj_a*(3/(4*fs_inj**3))*(H0/np.pi)**2 
+            Omegaf_inj_i = (10**inj['log_omega0_i'])*(fs_inj/(params['fref']))**inj['alpha_i']
+            Sgw_inj_i = Omegaf_inj_i*(3/(4*fs_inj**3))*(H0/np.pi)**2  
+        elif inj['spectral_inj']=='powerlaw':
             Omegaf_inj = (10**inj['log_omega0'])*(fs_inj/(params['fref']))**inj['alpha']
             Sgw_inj = Omegaf_inj*(3/(4*fs_inj**3))*(H0/np.pi)**2  
         elif inj['spectral_inj']=='broken_powerlaw':
@@ -403,22 +435,50 @@ def fitmaker(params,parameters,inj):
         Omegaf = 0.5 * (10**log_Omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((fcut-fs)/fscale))
     elif params['spectrum_model']=='truncated_powerlaw':
         Omegaf = 0.5 *(10**log_Omega0)*(fs/(params['fref']))**alpha * (1+np.tanh((fbreak-fs)/fscale))
+    elif params['spectrum_model']=='multi_atpl_ipl':
+        Omegaf_a = 0.5 *(10**log_Omega0_a)*(fs/(params['fref']))**alpha_a * (1+np.tanh((f_cut_a-fs)/f_scale_a))
+        Omegaf_i = (10**log_Omega0_i)*(fs/(params['fref']))**alpha_i
     else:
         print("Unknown spectral model. Exiting without creating plots...")
         return
     
-    Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
+    if params['modeltype'] == 'multi':
+        Sgw_a = Omegaf_a*(3/(4*fs**3))*(H0/np.pi)**2
 
-    ## median and 95% C.I.
-    Sgw_median = np.median(Sgw,axis=1)
-    Sgw_upper95 = np.quantile(Sgw,0.975,axis=1)
-    Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
+        ## median and 95% C.I.
+        Sgw_median_a = np.median(Sgw_a,axis=1)
+        Sgw_upper95_a = np.quantile(Sgw_a,0.975,axis=1)
+        Sgw_lower95_a = np.quantile(Sgw_a,0.025,axis=1)
+        
+        Sgw_i = Omegaf_i*(3/(4*fs**3))*(H0/np.pi)**2
+
+        ## median and 95% C.I.
+        Sgw_median_i = np.median(Sgw_i,axis=1)
+        Sgw_upper95_i = np.quantile(Sgw_i,0.975,axis=1)
+        Sgw_lower95_i = np.quantile(Sgw_i,0.025,axis=1)
+        
+        plt.figure()
+        if not params['mldc']:
+            plt.loglog(fs_inj,Sgw_inj_i,label='Injected Isotropic Spectrum',color='darkorange',ls='--')
+        plt.loglog(fs,Sgw_median_i,label='Median Recovered Isotropic Spectrum',color='darkorange')
+        plt.fill_between(fs.flatten(),Sgw_lower95_i,Sgw_upper95_i,alpha=0.5,label='Isotropic 95% C.I.',color='moccasin')
+        if not params['mldc']:
+            plt.loglog(fs_inj,Sgw_inj_a,label='Injected Anisotropic Spectrum',color='maroon',ls='--')
+        plt.loglog(fs,Sgw_median_a,label='Median Recovered Anisotropic Spectrum',color='maroon')
+        plt.fill_between(fs.flatten(),Sgw_lower95_a,Sgw_upper95_a,alpha=0.5,label='Anisotropic 95% C.I.',color='lightpink')
+    else:
+        Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
     
-    plt.figure()
-    if not params['mldc']:
-        plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue')
-    plt.loglog(fs,Sgw_median,label='Median Recovered Spectrum',color='darkorange')
-    plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.5,label='95% C.I.',color='moccasin')
+        ## median and 95% C.I.
+        Sgw_median = np.median(Sgw,axis=1)
+        Sgw_upper95 = np.quantile(Sgw,0.975,axis=1)
+        Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
+        
+        plt.figure()
+        if not params['mldc']:
+            plt.loglog(fs_inj,Sgw_inj,label='Injected Spectrum',color='steelblue')
+        plt.loglog(fs,Sgw_median,label='Median Recovered Spectrum',color='darkorange')
+        plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.5,label='95% C.I.',color='moccasin')
     plt.legend()
     plt.title("Fit vs. Injection")
     plt.xlabel('Frequency [Hz]')
@@ -529,7 +589,14 @@ def plotmaker(params,parameters, inj):
         
         val_list = [inj['log_Np'],inj['log_Na']]
         
-        if inj['spectral_inj']=='powerlaw':
+        if inj['injtype'] == 'multi':
+            val_list.append( inj['alpha_a'] )
+            val_list.append( inj['log_omega0_a'] )
+            val_list.append( inj['f_cut_a'] )
+            val_list.append( inj['f_scale_a'] )
+            val_list.append( inj['alpha_i'] )
+            val_list.append( inj['log_omega0_i'] )
+        elif inj['spectral_inj']=='powerlaw':
             val_list.append( inj['alpha'] )
             val_list.append( inj['log_omega0'] )
         elif inj['spectral_inj']=='broken_powerlaw':

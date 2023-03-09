@@ -1022,14 +1022,14 @@ class likelihoods():
         alm_vals = alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
 
         ## anisotropic response matrix, integrated across spherical harmonics
-        summ_response_mat_a = np.einsum('ijklm,m', self.response_mat, alm_vals)
+        summ_response_mat_a = np.einsum('ijklm,m', self.response_mat_a, alm_vals)
         
         ## The noise spectrum of the GW signal. Written down here as a full
         ## covariance matrix axross all the channels.
         cov_asgwb = Sgw_a[None, None, :, None]*summ_response_mat_a
 
         ## isotropic response matrix
-        cov_isgwb = Sgw_i[None, None, :, None]*self.response_mat
+        cov_isgwb = Sgw_i[None, None, :, None]*self.response_mat_i
 
         cov_mat = cov_asgwb + cov_isgwb + cov_noise
 

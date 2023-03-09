@@ -472,12 +472,12 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         ## compute spectra and save Omega(1mHz) for later
         if self.inj['injtype'] == 'multi':
             if multi == 'a':
-                Omegaf = (10**self.inj['log_omega0_a']) * (self.fdata/self.params['fref'])**self.inj['alpha_a'] \
-                                * 0.5 * (1+np.tanh((self.inj['f_cut_a']-self.fdata)/self.inj['f_scale_a']))
+                Omegaf = (10**self.inj['log_omega0_a']) * (frange/self.params['fref'])**self.inj['alpha_a'] \
+                                * 0.5 * (1+np.tanh((self.inj['f_cut_a']-frange)/self.inj['f_scale_a']))
                 Omega_1mHz = (10**self.inj['log_omega0_a']) * (1e-3/self.params['fref'])**self.inj['alpha_a'] \
                                 * 0.5 * (1+np.tanh((self.inj['f_cut_a']-1e-3)/self.inj['f_scale_a']))
             elif multi == 'i':
-                Omegaf = (10**self.inj['log_omega0_i'])*(self.fdata/self.params['fref'])**self.inj['alpha_i']
+                Omegaf = (10**self.inj['log_omega0_i'])*(frange/self.params['fref'])**self.inj['alpha_i']
                 Omega_1mHz = (10**self.inj['log_omega0_i'])*(1e-3/self.params['fref'])**self.inj['alpha_i']
             else:
                 raise ValueError("Invalid specification of multi. Can be 'a' (anisotropic) or 'i' (isotropic).")

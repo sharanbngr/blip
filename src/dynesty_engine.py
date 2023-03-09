@@ -44,7 +44,7 @@ class dynesty_engine():
             elif params['spectrum_model']=='free_broken_powerlaw':
                 signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$',r'$\alpha_2$']
             elif params['spectrum_model']=='multi_atpl_ipl':
-                [r'$\log_{10} (\Omega_{0,\mathrm{A}})$',r'$\alpha_{\mathrm{A}}$', r'$\log_{10} (f_{\mathrm{break,A}})$',r'$\log_{10} (f_{\mathrm{scale,A}})$',r'$\log_{10} (\Omega_{0,\mathrm{I}})$',r'$\alpha_{\mathrm{I}}$']
+                signal_parameters = [r'$\log_{10} (\Omega_{0,\mathrm{A}})$',r'$\alpha_{\mathrm{A}}$', r'$\log_{10} (f_{\mathrm{break,A}})$',r'$\log_{10} (f_{\mathrm{scale,A}})$',r'$\log_{10} (\Omega_{0,\mathrm{I}})$',r'$\alpha_{\mathrm{I}}$']
             else:
                 raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
         else:
@@ -119,7 +119,7 @@ class dynesty_engine():
             else:
                 raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
 
-        elif params['modeltype']=='multi_sgwb':
+        elif params['modeltype']=='multi':
 
             print("Doing a combination isotropic + anisotropic stochastic analysis...")
 

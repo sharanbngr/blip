@@ -171,13 +171,13 @@ class LISA(LISAdata, likelihoods):
         elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
             self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
         
-        elif self.params['modeltype']=='multi_sgwb' and self.params['tdi_lev']=='michelson':
+        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='michelson':
             self.response_mat_a = self.asgwb_mich_response(self.f0, self.tsegmid)
             self.response_mat_i = self.isgwb_mich_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='multi_sgwb' and self.params['tdi_lev']=='xyz':
+        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='xyz':
             self.response_mat_a = self.asgwb_xyz_response(self.f0, self.tsegmid)
             self.response_mat_i = self.isgwb_xyz_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='multi_sgwb' and self.params['tdi_lev']=='aet':
+        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='aet':
             self.response_mat_a = self.asgwb_aet_response(self.f0, self.tsegmid)
             self.response_mat_i = self.isgwb_aet_response(self.f0, self.tsegmid)
         elif self.params['modeltype'] == 'noise_only':
@@ -293,12 +293,13 @@ class LISA(LISAdata, likelihoods):
             elif self.inj['injtype'] == 'multi':
                 if self.inj['injbasis'] == 'sph':
                     summ_response_mat_a = np.sum(self.add_astro_signal_a(self.f0,self.tsegmid)*self.alms_inj[None,None,None,None,:],axis=-1)
+                    response_mat_i = self.add_astro_signal_i(self.f0, self.tsegmid)
                     R1_a = np.real(summ_response_mat_a[0, 0, :, :])
                     R2_a = np.real(summ_response_mat_a[1, 1, :, :])
                     R3_a = np.real(summ_response_mat_a[2, 2, :, :])
-                    R1_i = np.real(self.add_astro_signal_i(self.f0, self.tsegmid)[0, 0, :, :])
-                    R2_i = np.real(self.add_astro_signal_i(self.f0, self.tsegmid)[1, 1, :, :])
-                    R3_i = np.real(self.add_astro_signal_i(self.f0, self.tsegmid)[2, 2, :, :])
+                    R1_i = np.real(response_mat_i[0, 0, :, :])
+                    R2_i = np.real(response_mat_i[1, 1, :, :])
+                    R3_i = np.real(response_mat_i[2, 2, :, :])
                 else:
                     raise ValueError("Multi-SGWB injections only supports sph basis injections for now.")
             else:
@@ -351,7 +352,7 @@ class LISA(LISAdata, likelihoods):
                                 * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
                                 * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
                     elif self.inj['spectral_inj'] == 'truncated_powerlaw':
-                        Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**alpha \
+                        Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**self.inj['alpha'] \
                                 * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
     
                     Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
@@ -365,8 +366,8 @@ class LISA(LISAdata, likelihoods):
                 # The total noise spectra is the sum of the instrumental + astrophysical (anisotropic and isotropic alike)
                 S1, S2, S3 = S1[:, None] + S1_gw_a + S1_gw_i, S2[:, None] + S2_gw_a + S2_gw_i, S3[:, None] + S3_gw_a + S3_gw_i
                 
-                plt.loglog(self.fdata, np.mean(S1_gw_a,axis=1), label='Simulated GW spectrum', lw=0.75)
-                plt.loglog(self.fdata, np.mean(S1_gw_i,axis=1), label='Simulated GW spectrum', lw=0.75)
+                plt.loglog(self.fdata, np.mean(S1_gw_a,axis=1), label='Simulated anisotropic GW spectrum', lw=0.75)
+                plt.loglog(self.fdata, np.mean(S1_gw_i,axis=1), label='Simulated isotropic GW spectrum', lw=0.75)
             else:
                 # Spectrum of the SGWB signal convoluted with the detector response tensor.
                 S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
@@ -384,8 +385,12 @@ class LISA(LISAdata, likelihoods):
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
+        ## multi-SGWB injection plot gets squished due to truncated pl
+        if self.inj['injtype'] == 'multi':
+            ymin = 0.5 * S1_gw_i.min()
+            plt.ylim(bottom=ymin)
         ## population injection drops to zero inside frequency range and squishes the plot
-        if self.inj['spectral_inj'] == 'population':
+        elif self.inj['spectral_inj'] == 'population':
             ymin = 0.5*S1_gw[S1_gw>1e-50].min()
             plt.ylim(bottom=ymin)
         plt.legend()
@@ -434,6 +439,8 @@ class LISA(LISAdata, likelihoods):
 
         if self.inj['injtype'] == 'noise_only':
             Sx = C_noise[ii, jj, :]
+        elif self.inj['injtype'] == 'multi':
+            Sx = C_noise[ii, jj, :, None] + Sgw_i[:,None]*response_mat_i[ii,jj,:,0] + Sgw_a*summ_response_mat_a[ii, jj, :, 0]
         elif self.inj['injtype'] == 'sph_sgwb' or self.inj['injtype'] == 'astro':
             Sx = C_noise[ii, jj, :] + Sgw*summ_response_mat[ii, jj, :, 0]
         else:
@@ -572,7 +579,7 @@ def blip(paramsfile='params.ini',resume=False):
             inj['f_scale']      = float(config.get("inj", "f_scale"))
         elif inj['spectral_inj'] == 'truncated_powerlaw':
             inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-            inj['alpha1']     = float(config.get("inj", "alpha"))
+            inj['alpha']     = float(config.get("inj", "alpha"))
             inj['f_cut']      = float(config.get("inj", "f_cut"))
             inj['f_scale']      = float(config.get("inj", "f_scale"))
         elif inj['spectral_inj'] == 'free_broken_powerlaw':
@@ -652,10 +659,10 @@ def blip(paramsfile='params.ini',resume=False):
             inj['zh']          = float(config.get("inj", "zh"))
         else:
             raise ValueError("Multi-SGWB analysis prototype only supports a Breivik+2020 anisotropic spatial injection.")
-        inj['log_omega0_a']   = np.log10(float(config.get("inj", "omega0")))
-        inj['alpha_a']     = float(config.get("inj", "alpha"))
-        inj['f_cut_a']      = float(config.get("inj", "f_cut"))
-        inj['f_scale_a']      = float(config.get("inj", "f_scale"))
+        inj['log_omega0_a']   = np.log10(float(config.get("inj", "omega0_a")))
+        inj['alpha_a']     = float(config.get("inj", "alpha_a"))
+        inj['f_cut_a']      = float(config.get("inj", "f_cut_a"))
+        inj['f_scale_a']      = float(config.get("inj", "f_scale_a"))
         inj['log_omega0_i']   = np.log10(float(config.get("inj", "omega0_i")))
         inj['alpha_i']       = float(config.get("inj", "alpha_i"))
 
@@ -671,10 +678,11 @@ def blip(paramsfile='params.ini',resume=False):
     nlive                        = int(config.get("run_params", "nlive"))
     nthread                      = int(config.get("run_params", "Nthreads"))
     # nessai flow tuning
-    params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons"))
-    if params['nessai_neurons']=='manual':
-        params['n_neurons']      = int(config.get("run_params", "n_neurons"))
-    params['reset_flow']         = str(config.get("run_params", "reset_flow"))
+    if params['sampler'] == 'nessai':
+        params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons"))
+        if params['nessai_neurons']=='manual':
+            params['n_neurons']      = int(config.get("run_params", "n_neurons"))
+        params['reset_flow']         = str(config.get("run_params", "reset_flow"))
     # checkpointing (dynesty+nessai only for now)
     params['checkpoint']            = int(config.get("run_params", "checkpoint"))
     params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
