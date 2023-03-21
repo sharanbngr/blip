@@ -311,7 +311,7 @@ class LISA(LISAdata, likelihoods):
                             * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
                             * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
                 elif self.inj['spectral_inj'] == 'truncated_powerlaw':
-                    Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**alpha \
+                    Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**self.inj['alpha'] \
                             * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
 
                 Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
