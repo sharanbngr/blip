@@ -519,7 +519,7 @@ def blip(paramsfile='params.ini',resume=False):
             inj['f_scale']      = float(config.get("inj", "f_scale"))
         elif inj['spectral_inj'] == 'truncated_powerlaw':
             inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-            inj['alpha1']     = float(config.get("inj", "alpha"))
+            inj['alpha']     = float(config.get("inj", "alpha"))
             inj['f_cut']      = float(config.get("inj", "f_cut"))
             inj['f_scale']      = float(config.get("inj", "f_scale"))
         elif inj['spectral_inj'] == 'free_broken_powerlaw':
