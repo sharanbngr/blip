@@ -659,7 +659,7 @@ class hierarchy(LISAdata):
         ## use stored grid to convert density to power and filter nearby resolved DWDs
         DWD_unresolved_powers = DWD_density*self.dist_adj
         ## Bin
-        DWD_FG_mapG = np.bincount(self.pixels,weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(2*self.params['nside']))
+        DWD_FG_mapG = np.bincount(self.pixels,weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(self.params['nside']))
         ## Transform into the ecliptic
         DWD_FG_map = self.rGE.rotate_map_pixel(DWD_FG_mapG)
         
