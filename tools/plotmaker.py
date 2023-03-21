@@ -587,6 +587,7 @@ def plotmaker(params,parameters, inj):
             val_list.append( inj['f_break'] )
             val_list.append( inj['f_scale'] )
     
+    
         ## get blms
         if inj['injtype']=='sph_sgwb':
             for lval in range(1, params['lmax'] + 1):
@@ -612,6 +613,11 @@ def plotmaker(params,parameters, inj):
 #                        else:
 #                            val_list.append(np.abs(inj['astro_blms'][idx]))
 #                            val_list.append(np.angle(inj['astro_blms'][idx]))
+        
+        if ('hierarchy' in params.keys()) and (params['hierarchy']=='fg_scale_heights_full'):
+            if (inj['injtype']=='astro') and (inj['spatial_inj']=='breivik2020'):
+                val_list.append(inj['rh'])
+                val_list.append(inj['zh'])
         
         for param, val in zip(param_list,val_list):
             truevals[param] = val

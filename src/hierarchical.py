@@ -582,88 +582,133 @@ class hierarchy(LISAdata):
     
 #    @classmethod
 #    def define_hierarchy(cls,lisaobj,params):
-    def init_breivik2020_grid(self,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8):
+#    def init_breivik2020_grid(self,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8):
+#        '''
+#        Function to initialize a grid on which to generate simple parameterized density models of the galactic DWD distribution.
+#        
+#        Arguments:
+#            grid_spec (str)     :   Determines the nature of grid_res (below). Can be 'interval' or 'npoints'. 
+#                                    If 'interval', grid_res is the dx=dy=dz grid interval in kpc.
+#                                    If 'npoints', grid_res is the number of number of points along x and y.
+#                                    (Note that the number of points along z will be scaled to keep dx=dy=dz if gal_rad and gal_height are different.)
+#            grid_res (float)    :   Grid resolution as defined above. If grid_spec='npoints', type must be int.
+#            gal_rad (float)     :   Max galactic radius of the grid in kpc. Grid will be definded on -gal_rad <= x,y <= +gal_rad.
+#            gal_height (float)  :   Max galactic height of the grid in kpc. Grid will be definded on -gal_height <= z <= +gal_height.
+#            
+#        '''
+#        ## create grid *in cartesian coordinates*
+#        ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
+#        ## set to 4x max default radial/vertical scale height, respectively (corresponds to "edge" density ~1/10 of central density)
+#        ## distances in kpc
+#        if grid_spec=='interval':
+#            resolution = grid_res
+#            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
+#            xs = np.arange(-gal_rad,gal_rad,resolution)
+#            ys = np.arange(-gal_rad,gal_rad,resolution)
+#            zs = np.arange(-gal_height,gal_height,resolution)
+#        elif grid_spec=='npoints':
+#            if type(grid_res) is not int:
+#                raise TypeError("If grid_spec is 'npoints', grid_res must be an integer.")
+#            resolution = gal_rad*2 / grid_res
+#            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
+#            xs = np.linspace(-gal_rad,gal_rad,grid_res)
+#            ys = np.linspace(-gal_rad,gal_rad,grid_res)
+#            zs = np.arange(-gal_height,gal_height,resolution)
+#        
+#        ## generate meshgrid
+#        x, y, z = np.meshgrid(xs,ys,zs)
+#        self.z = z
+#        self.r = np.sqrt(x**2 + y**2)
+#        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
+#        gc = cc.SkyCoord(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc, frame='galactocentric')
+#        SSBc = gc.transform_to(cc.Galactic)
+#        ## 1/D^2 with filtering to avoid nearby, presumeably resolved, DWDs
+#        self.dist_adj = (np.array(SSBc.distance)>2)*(np.array(SSBc.distance))**-2
+#        ## make pixel grid
+#        self.pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True).flatten()
+#        self.rGE = hp.rotator.Rotator(coord=['G','E'])
+#        
+#        return    
+    
+    def init_breivik2020_grid(self):
         '''
-        Function to initialize a grid on which to generate simple parameterized density models of the galactic DWD distribution.
+        Function to amortize all possible calculations for a hierarchical galactic foreground spatial prior based on the Breivik2020 galaxy model.
         
-        Arguments:
-            grid_spec (str)     :   Determines the nature of grid_res (below). Can be 'interval' or 'npoints'. 
-                                    If 'interval', grid_res is the dx=dy=dz grid interval in kpc.
-                                    If 'npoints', grid_res is the number of number of points along x and y.
-                                    (Note that the number of points along z will be scaled to keep dx=dy=dz if gal_rad and gal_height are different.)
-            grid_res (float)    :   Grid resolution as defined above. If grid_spec='npoints', type must be int.
-            gal_rad (float)     :   Max galactic radius of the grid in kpc. Grid will be definded on -gal_rad <= x,y <= +gal_rad.
-            gal_height (float)  :   Max galactic height of the grid in kpc. Grid will be definded on -gal_height <= z <= +gal_height.
-            
+        Calculates all quantities analytically transformed into the SSB frame in spherical coordinates, and integrates over the (rh,zh)-independent bulge density.
+        
+        Resolution is the analysis resolution on the sky and 0.33 kpc in Rprime.
         '''
-        ## create grid *in cartesian coordinates*
-        ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
-        ## set to 4x max default radial/vertical scale height, respectively (corresponds to "edge" density ~1/10 of central density)
-        ## distances in kpc
-        if grid_spec=='interval':
-            resolution = grid_res
-            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
-            xs = np.arange(-gal_rad,gal_rad,resolution)
-            ys = np.arange(-gal_rad,gal_rad,resolution)
-            zs = np.arange(-gal_height,gal_height,resolution)
-        elif grid_spec=='npoints':
-            if type(grid_res) is not int:
-                raise TypeError("If grid_spec is 'npoints', grid_res must be an integer.")
-            resolution = gal_rad*2 / grid_res
-            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
-            xs = np.linspace(-gal_rad,gal_rad,grid_res)
-            ys = np.linspace(-gal_rad,gal_rad,grid_res)
-            zs = np.arange(-gal_height,gal_height,resolution)
-        
-        ## generate meshgrid
-        x, y, z = np.meshgrid(xs,ys,zs)
-        self.z = z
-        self.r = np.sqrt(x**2 + y**2)
-        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
-        gc = cc.SkyCoord(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc, frame='galactocentric')
-        SSBc = gc.transform_to(cc.Galactic)
-        ## 1/D^2 with filtering to avoid nearby, presumeably resolved, DWDs
-        self.dist_adj = (np.array(SSBc.distance)>2)*(np.array(SSBc.distance))**-2
-        ## make pixel grid
-        self.pixels = hp.ang2pix(self.params['nside'],np.array(SSBc.l),np.array(SSBc.b),lonlat=True).flatten()
+        ## sky resolution
+        npix = hp.nside2npix(self.params['nside'])
+        ## grid in R' with 0.33 kpc resolution
+        gridspec = 120
+        self.Rprime = np.linspace(2,40,gridspec)[:,None]
+        self.Rprime2 = self.Rprime**2
+        self.delta_Rprime = self.Rprime[1] - self.Rprime[0]
+        ## skymap & angles
+        pix_idx = np.arange(npix)
+        theta, phi = hp.pix2ang(self.params['nside'],pix_idx)
+    #     print(np.min(theta),np.max(theta))
+    #     print(np.min(phi),np.max(phi))
+        # theta = -(theta - np.pi/2)
+        # phi = phi - np.pi
+        theta = theta[None,:]
+        phi = phi[None,:]
+        ## amortize angular computations
+        stheta = np.sin(theta)
+        ctheta = np.cos(theta)
+        s2theta = stheta**2
+        cphi = np.cos(phi)
+        ## set constants
+        ## for astropy conventions see https://astropy-cjhang.readthedocs.io/en/latest/api/astropy.coordinates.Galactocentric.html#astropy.coordinates.Galactocentric
+        r_s = 8.3 ## distance from sun to galactic center in kpc, following astropy convention
+        z_s = 0.027 ## distance of sun above galactic midplane, following astropy convention
+        r_cut = 2.1 #kpc
+        r0 = 0.075 #kpc
+        alpha = 1.8
+        q = 0.5
+        ## one-time bulge computation
+        bulge_dense = np.exp(-np.abs(self.Rprime2*s2theta + r_s**2 - 2*self.Rprime*r_s*cphi*stheta)/r_cut**2) \
+                    / (1 + (1/r0)*(np.abs(self.Rprime2*s2theta + r_s**2 - 2*self.Rprime*r_s*cphi*stheta) + (1/q**2)*(self.Rprime*ctheta + z_s)**2))**alpha
+        self.bulge_map = self.delta_Rprime * np.sum(bulge_dense / self.Rprime2,axis=0)
+        ## non-rh/zh dependent quantities in the disk distribution can also be computed just once
+        self.rarg = np.sqrt(self.Rprime2*s2theta + r_s**2 - 2*self.Rprime*r_s*cphi*stheta)
+        self.zarg = np.abs(self.Rprime*ctheta + z_s)
+        ## get the galactic -> ecliptic rotator
         self.rGE = hp.rotator.Rotator(coord=['G','E'])
-        
-        return    
     
     def breivik2020_mapmaker(self,rh,zh):
         '''
         This is a streamlined version of makeLISAdata.generate_galactic_foreground(), sacrificing compactness for speed.
         Requires initialization via init_breivik2020_grid(), above.
         
+        v2: Instead of performing all calculations on a cartesian grid, transforming, and binning, we now calculate the model as analytically transformed into spherical coordinates in the SSB frame.
+        All non rh/zh-dependent quantities are calculated once & amortized in init_breivik2020_grid(), so as to do as few calculations at runtime as possible.
+        This version is much less transparent to a reader, but gives a ~30x speedup at similar grid resolutions.
+        
         Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
         rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
         The distribution is azimuthally symmetric in the galactocentric frame.
         
+        Arguments
+        -----------
+        rh, zh : float
+            Model radial/vertical scale height parameters, respectively.
+        
         Returns
-        ---------
+        -----------
         DWD_FG_map : float
             Healpy GW power skymap of the DWD galactic foreground.
         
         '''
-        ## Calculate density distribution
-        r = self.r
-        z = self.z
-        rho_c = 1 # some fiducial central density
-        r_cut = 2.1 #kpc
-        r0 = 0.075 #kpc
-        alpha = 1.8
-        q = 0.5
-        disk_density = rho_c*np.exp(-r/rh)*np.exp(-np.abs(z)/zh) 
-        bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
-        DWD_density = disk_density + bulge_density
-        ## use stored grid to convert density to power and filter nearby resolved DWDs
-        DWD_unresolved_powers = DWD_density*self.dist_adj
-        ## Bin
-        DWD_FG_mapG = np.bincount(self.pixels,weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(self.params['nside']))
-        ## Transform into the ecliptic
-        DWD_FG_map = self.rGE.rotate_map_pixel(DWD_FG_mapG)
+        ## Calculate disk density in SSB frame with amortized arguments
+        disk_dense = np.exp(-self.rarg/rh) * np.exp(-self.zarg/zh)
+        disk_map = self.delta_Rprime * np.sum(disk_dense / self.Rprime2,axis=0)
+        galactic_map = disk_map + self.bulge_map
+        ## transform to ecliptic and return
+        ecliptic_map = self.rGE.rotate_map_pixel(galactic_map)
         
-        return DWD_FG_map
+        return ecliptic_map
     
     
     def blm_decompose(self,blm_samples):
