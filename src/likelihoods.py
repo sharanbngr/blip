@@ -27,6 +27,7 @@ class likelihoods():
         for ii in range(self.rbar.shape[0]):
             for jj in range(self.rbar.shape[1]):
                 self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
+    
 
 
 
@@ -64,6 +65,8 @@ class likelihoods():
         ## covariance matrix axross all the channels.
         ## change axis order to make taking an inverse easier
         cov_sgwb = Sgw[:, None, None, None]*np.moveaxis(self.response_mat, [-2, -1, -3], [0, 1, 2])
+        
+        cov_mat = cov_sgwb
 
         ## take inverse and determinant
         inv_cov, det_cov = bespoke_inv(cov_mat)
