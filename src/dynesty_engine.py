@@ -24,153 +24,167 @@ class dynesty_engine():
                 print("Warning: Nthread=1 but pool has been defined. This shouldn't happen...")
             pool = None
             pool_size = None
-
-        ## determine parameters
-        if params['modeltype'] !='isgwb_only':
-            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-        else:
-            noise_parameters = []
-        if params['modeltype'] !='noise_only':
-            if params['spectrum_model']=='powerlaw':
-                signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-            elif params['spectrum_model']=='broken_powerlaw':
-                signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$']
-            elif params['spectrum_model']=='broken_powerlaw_2':
-                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
-            elif params['spectrum_model']=='truncated_broken_powerlaw':
-                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
-            elif params['spectrum_model']=='truncated_powerlaw':
-                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha$', r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
-            elif params['spectrum_model']=='free_broken_powerlaw':
-                signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$',r'$\alpha_2$']
-            elif params['spectrum_model']=='multi_atpl_ipl':
-                signal_parameters = [r'$\log_{10} (\Omega_{0,\mathrm{A}})$',r'$\alpha_{\mathrm{A}}$', r'$\log_{10} (f_{\mathrm{break,A}})$',r'$\log_{10} (f_{\mathrm{scale,A}})$',r'$\log_{10} (\Omega_{0,\mathrm{I}})$',r'$\alpha_{\mathrm{I}}$']
-            else:
-                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
-        else:
-            signal_parameters = []
         
-        # create the nested sampler objects      
-        if params['modeltype']=='isgwb':
-
-            print("Doing an isotropic stochastic analysis...")
-            all_parameters = noise_parameters + signal_parameters
-            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':[],'all':all_parameters}
-            npar = len(all_parameters)
-            if params['spectrum_model']=='powerlaw':
-                engine = NestedSampler(lisaobj.isgwb_pl_log_likelihood, cls.isgwb_pl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw':
-                engine = NestedSampler(lisaobj.isgwb_bpl_log_likelihood, cls.isgwb_bpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw_2':
-                engine = NestedSampler(lisaobj.isgwb_bpl2_log_likelihood, cls.isgwb_bpl2_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='truncated_broken_powerlaw':
-                engine = NestedSampler(lisaobj.isgwb_tbpl_log_likelihood, cls.isgwb_tbpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='truncated_powerlaw':
-                engine = NestedSampler(lisaobj.isgwb_tpl_log_likelihood, cls.isgwb_tpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='free_broken_powerlaw':
-                engine = NestedSampler(lisaobj.isgwb_fbpl_log_likelihood, cls.isgwb_fbpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            else:
-                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
-            
-
-        elif params['modeltype']=='sph_sgwb':
-
-            print("Doing a spherical harmonic stochastic analysis ...")
-
-            # add the basic parameters first
-            blm_parameters = []
-            # add the blms
-            for lval in range(1, params['lmax'] + 1):
-                for mval in range(lval + 1):
-
-                    if mval == 0:
-                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
-                    else:
-                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-
-            all_parameters = noise_parameters + signal_parameters + blm_parameters
-            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
-            npar = len(all_parameters)
-            if params['spectrum_model']=='powerlaw':
-                engine = NestedSampler(lisaobj.sph_pl_log_likelihood, cls.sph_pl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_bpl_log_likelihood, cls.sph_bpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='broken_powerlaw_2':
-                engine = NestedSampler(lisaobj.sph_bpl2_log_likelihood, cls.sph_bpl2_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='truncated_broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_tbpl_log_likelihood, cls.sph_tbpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='truncated_powerlaw':
-                engine = NestedSampler(lisaobj.sph_tpl_log_likelihood, cls.sph_tpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            elif params['spectrum_model']=='free_broken_powerlaw':
-                engine = NestedSampler(lisaobj.sph_fbpl_log_likelihood, cls.sph_fbpl_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            else:
-                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
-
-        elif params['modeltype']=='multi':
-
-            print("Doing a combination isotropic + anisotropic stochastic analysis...")
-
-            # add the basic parameters first
-            blm_parameters = []
-            # add the blms
-            for lval in range(1, params['lmax'] + 1):
-                for mval in range(lval + 1):
-
-                    if mval == 0:
-                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
-                    else:
-                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
-
-            all_parameters = noise_parameters + signal_parameters + blm_parameters
-            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
-            npar = len(all_parameters)
-            if params['spectrum_model']=='multi_atpl_ipl':
-                engine = NestedSampler(lisaobj.multi_log_likelihood, cls.multi_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
-            else:
-                raise ValueError("Currently only multi_atpl_ipl (truncated power law anisotropic search + power law isotropic search) is supported.")
-
-        elif params['modeltype']=='noise_only':
-
-            print("Doing an instrumental noise only analysis ...")
-            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
-            parameters = {'noise':noise_parameters,'signal':[],'blm':[],'all':noise_parameters}
-            npar = len(noise_parameters)
-
-            engine = NestedSampler(lisaobj.instr_log_likelihood,  cls.instr_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
-
-        elif params['modeltype'] =='isgwb_only':
-
-            print("Doing an isgwb signal only analysis ...")
-            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
-            parameters = {'noise':[],'signal':signal_parameters,'blm':[],'all':signal_parameters}
-            npar = len(signal_parameters)
-
-            engine = NestedSampler(lisaobj.isgwb_only_log_likelihood, cls.isgwb_only_prior,\
-                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
-
-        else:
-            raise ValueError('Unknown recovery model selected')
-
+        
+        
+        engine = NestedSampler(lisaobj.Model.likelihood, lisaobj.Model.prior, lisaobj.Model.Npar,\
+                    bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+        
+        
         # print npar
-        print("npar = " + str(npar))
+        print("Npar = " + str(lisaobj.Model.Npar))
 
-        return engine, parameters
+        return engine, lisaobj.Model.parameters
+#        
+#        
+#        
+#        
+#        ## determine parameters
+#        if params['modeltype'] !='isgwb_only':
+#            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+#        else:
+#            noise_parameters = []
+#        if params['modeltype'] !='noise_only':
+#            if params['spectrum_model']=='powerlaw':
+#                signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+#            elif params['spectrum_model']=='broken_powerlaw':
+#                signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$']
+#            elif params['spectrum_model']=='broken_powerlaw_2':
+#                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
+#            elif params['spectrum_model']=='truncated_broken_powerlaw':
+#                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha_1$',r'$\alpha_2$',r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+#            elif params['spectrum_model']=='truncated_powerlaw':
+#                signal_parameters = [r'$\log_{10} (\Omega_0)$',r'$\alpha$', r'$\log_{10} (f_{\mathrm{break}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+#            elif params['spectrum_model']=='free_broken_powerlaw':
+#                signal_parameters = [r'$\log_{10} (A_1)$',r'$\alpha_1$',r'$\log_{10} (A_2)$',r'$\alpha_2$']
+#            elif params['spectrum_model']=='multi_atpl_ipl':
+#                signal_parameters = [r'$\log_{10} (\Omega_{0,\mathrm{A}})$',r'$\alpha_{\mathrm{A}}$', r'$\log_{10} (f_{\mathrm{break,A}})$',r'$\log_{10} (f_{\mathrm{scale,A}})$',r'$\log_{10} (\Omega_{0,\mathrm{I}})$',r'$\alpha_{\mathrm{I}}$']
+#            else:
+#                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
+#        else:
+#            signal_parameters = []
+#        
+#        # create the nested sampler objects      
+#        if params['modeltype']=='isgwb':
+#
+#            print("Doing an isotropic stochastic analysis...")
+#            all_parameters = noise_parameters + signal_parameters
+#            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':[],'all':all_parameters}
+#            npar = len(all_parameters)
+#            if params['spectrum_model']=='powerlaw':
+#                engine = NestedSampler(lisaobj.isgwb_pl_log_likelihood, cls.isgwb_pl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='broken_powerlaw':
+#                engine = NestedSampler(lisaobj.isgwb_bpl_log_likelihood, cls.isgwb_bpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='broken_powerlaw_2':
+#                engine = NestedSampler(lisaobj.isgwb_bpl2_log_likelihood, cls.isgwb_bpl2_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='truncated_broken_powerlaw':
+#                engine = NestedSampler(lisaobj.isgwb_tbpl_log_likelihood, cls.isgwb_tbpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='truncated_powerlaw':
+#                engine = NestedSampler(lisaobj.isgwb_tpl_log_likelihood, cls.isgwb_tpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='free_broken_powerlaw':
+#                engine = NestedSampler(lisaobj.isgwb_fbpl_log_likelihood, cls.isgwb_fbpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            else:
+#                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
+#            
+#
+#        elif params['modeltype']=='sph_sgwb':
+#
+#            print("Doing a spherical harmonic stochastic analysis ...")
+#
+#            # add the basic parameters first
+#            blm_parameters = []
+#            # add the blms
+#            for lval in range(1, params['lmax'] + 1):
+#                for mval in range(lval + 1):
+#
+#                    if mval == 0:
+#                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+#                    else:
+#                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+#                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+#
+#            all_parameters = noise_parameters + signal_parameters + blm_parameters
+#            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
+#            npar = len(all_parameters)
+#            if params['spectrum_model']=='powerlaw':
+#                engine = NestedSampler(lisaobj.sph_pl_log_likelihood, cls.sph_pl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='broken_powerlaw':
+#                engine = NestedSampler(lisaobj.sph_bpl_log_likelihood, cls.sph_bpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='broken_powerlaw_2':
+#                engine = NestedSampler(lisaobj.sph_bpl2_log_likelihood, cls.sph_bpl2_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='truncated_broken_powerlaw':
+#                engine = NestedSampler(lisaobj.sph_tbpl_log_likelihood, cls.sph_tbpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='truncated_powerlaw':
+#                engine = NestedSampler(lisaobj.sph_tpl_log_likelihood, cls.sph_tpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            elif params['spectrum_model']=='free_broken_powerlaw':
+#                engine = NestedSampler(lisaobj.sph_fbpl_log_likelihood, cls.sph_fbpl_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            else:
+#                raise ValueError("Unknown specification of spectral model. Available options: powerlaw, broken_powerlaw, and free_broken_powerlaw.")
+#
+#        elif params['modeltype']=='multi':
+#
+#            print("Doing a combination isotropic + anisotropic stochastic analysis...")
+#
+#            # add the basic parameters first
+#            blm_parameters = []
+#            # add the blms
+#            for lval in range(1, params['lmax'] + 1):
+#                for mval in range(lval + 1):
+#
+#                    if mval == 0:
+#                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+#                    else:
+#                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+#                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+#
+#            all_parameters = noise_parameters + signal_parameters + blm_parameters
+#            parameters = {'noise':noise_parameters,'signal':signal_parameters,'blm':blm_parameters,'all':all_parameters}
+#            npar = len(all_parameters)
+#            if params['spectrum_model']=='multi_atpl_ipl':
+#                engine = NestedSampler(lisaobj.multi_log_likelihood, cls.multi_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+#            else:
+#                raise ValueError("Currently only multi_atpl_ipl (truncated power law anisotropic search + power law isotropic search) is supported.")
+#
+#        elif params['modeltype']=='noise_only':
+#
+#            print("Doing an instrumental noise only analysis ...")
+#            noise_parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+#            parameters = {'noise':noise_parameters,'signal':[],'blm':[],'all':noise_parameters}
+#            npar = len(noise_parameters)
+#
+#            engine = NestedSampler(lisaobj.instr_log_likelihood,  cls.instr_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
+#
+#        elif params['modeltype'] =='isgwb_only':
+#
+#            print("Doing an isgwb signal only analysis ...")
+#            signal_parameters = [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+#            parameters = {'noise':[],'signal':signal_parameters,'blm':[],'all':signal_parameters}
+#            npar = len(signal_parameters)
+#
+#            engine = NestedSampler(lisaobj.isgwb_only_log_likelihood, cls.isgwb_only_prior,\
+#                    npar, bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size,  rstate = randst)
+#
+#        else:
+#            raise ValueError('Unknown recovery model selected')
+#
+#        # print npar
+#        print("npar = " + str(npar))
+#
+#        return engine, parameters
     
     def load_engine(params,randst,pool):
         ## load engine from previous checkpoint

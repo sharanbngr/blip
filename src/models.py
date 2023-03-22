@@ -1,4 +1,5 @@
 import numpy as np
+from matplotlib import pyplot as plt
 
 from src.geometry import geometry
 from src.sph_geometry import sph_geometry
@@ -8,7 +9,7 @@ from src.instrNoise import instrNoise
 
 
 
-class submodel(geometry,sph_geometry):
+class submodel(geometry,sph_geometry,instrNoise):
     '''
     Modular class that can represent either an injection or an analysis model. Will have different attributes depending on use case.
     
@@ -16,10 +17,11 @@ class submodel(geometry,sph_geometry):
     
     New models (injection or analysis) should be added here.
     '''
-    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,submodel_args=None,injection=False):
+    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False):
         ## preliminaries
         self.params = params
         self.inj = inj
+        self.armlength = 2.5e9 ## armlength in meters
         self.fs = fs
         self.f0= f0
         self.time_dim = tsegmid.size
@@ -29,16 +31,17 @@ class submodel(geometry,sph_geometry):
         if submodel_name == 'noise':
             self.parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
             self.Npar = 2
+            self.fancyname = "Instrumental Noise Spectrum"
             # Figure out which instrumental noise spectra to use
             if self.params['tdi_lev']=='aet':
                 self.instr_noise_spectrum = self.aet_noise_spectrum
-                self.gen_noise_spectrum = self.gen_aet_noise
+#                self.gen_noise_spectrum = self.gen_aet_noise
             elif self.params['tdi_lev']=='xyz':
                 self.instr_noise_spectrum = self.xyz_noise_spectrum
-                self.gen_noise_spectrum = self.gen_xyz_noise
+#                self.gen_noise_spectrum = self.gen_xyz_noise
             elif self.params['tdi_lev']=='michelson':
                 self.instr_noise_spectrum = self.mich_noise_spectrum
-                self.gen_noise_spectrum = self.gen_michelson_noise
+#                self.gen_noise_spectrum = self.gen_michelson_noise
             else:
                 raise ValueError("Unknown specification of 'tdi_lev'; can be 'michelson', 'xyz', or 'aet'.")
             
@@ -93,8 +96,13 @@ class submodel(geometry,sph_geometry):
                 self.response = self.isgwb_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            
+            ## plotting stuff
+            self.fancyname = "Isotropic SGWB"
+            self.subscript = "_{I}"
 
             if not injection:
+                ## prior transform
                 self.prior = self.isotropic_prior
             
         elif self.spatial_model_name == 'sph':
@@ -107,17 +115,13 @@ class submodel(geometry,sph_geometry):
         
         ## compute response matrix
         self.response_mat = self.response(f0,tsegmid)
-        
-        
-        ## assignment of spectrum
-        
-        
-        
-        
+
         
         
         if not injection:               
             self.Npar = len(self.parameters)
+            ## covariance calculation
+            self.cov = self.compute_cov_gw
             
             
     
@@ -165,8 +169,7 @@ class submodel(geometry,sph_geometry):
         pass
         
         
-    @staticmethod
-    def instr_prior(theta):
+    def instr_noise_prior(self,theta):
 
 
         '''
@@ -196,8 +199,7 @@ class submodel(geometry,sph_geometry):
 
         return [log_Np, log_Na]
     
-    @staticmethod
-    def powerlaw_prior(theta):
+    def powerlaw_prior(self,theta):
 
 
         '''
@@ -219,15 +221,14 @@ class submodel(geometry,sph_geometry):
 
 
         # Unpack: Theta is defined in the unit cube
-        log_Np, log_Na, alpha, log_omega0 = theta
+        alpha, log_omega0 = theta
 
         # Transform to actual priors
         alpha       =  10*alpha-5
         log_omega0  = -10*log_omega0 - 4
-        log_Np      = -5*log_Np - 39
-        log_Na      = -5*log_Na - 46
+        
 
-        return [log_Np, log_Na, alpha, log_omega0]
+        return [alpha, log_omega0]
     
     #############################
     ## Covariance Calculations ##
@@ -268,7 +269,7 @@ class Model(likelihoods):
     '''
     Class to house all model attributes in a modular fashion.
     '''
-    def __init__(self,params,inj,fs,f0,tsegmid):
+    def __init__(self,params,inj,fs,f0,tsegmid,rmat):
         
         '''
         Model() parses a Model string from the params file. This is of the form of an arbitrary number of "+"-delimited submodel types.
@@ -281,20 +282,22 @@ class Model(likelihoods):
         ## separate into submodels
         submodel_names = params['model'].split('+')
         
-        ## noise
-        if 'noise' in submodel_names:
-            ## do something probably
-            pass
-        
         ## initialize submodels
         self.submodels = []
+        self.Npar = 0
+        self.parameters = {}
+        all_parameters = []
         for submodel_name in submodel_names:
-            self.submodels.append(submodel(params,inj,submodel_name))
+            sm = submodel(params,inj,submodel_name,fs,f0,tsegmid)
+            self.submodels.append(sm)
+            self.Npar += sm.Npar
+            self.parameters[submodel_name] = sm.parameters
+            all_parameters += sm.parameters
+        self.parameters['all'] = all_parameters
         
-        
-        
-        
-        pass
+        ## assign reference to data for use in likelihood
+        self.rmat = rmat
+
     
 
     def prior(self,unit_theta):
@@ -329,6 +332,7 @@ class Model(likelihoods):
         ## then need to compute each submodel's contribution to the covariance matrix
         
         start_idx = 0
+        import pdb;pdb.set_trace()
         for i, sm in enumerate(self.submodels):
             theta_i = theta[start_idx:(start_idx+sm.Npar)]
             start_idx += sm.Npar
@@ -352,12 +356,29 @@ class Model(likelihoods):
     
     
     
-    def plot_model(self,fs):
+    def plot_model(self,fs,save=True):
+        
+        plt.figure()
+        
+        
         pass
     
 
     
 class Injection(geometry,sph_geometry,populations):
+    
+    
+    
+    
+    
+    
+    
+#    def plot_injection_spectra(self,fs,save=True):
+#        
+#        plt.figure()
+#        
+#        
+#        pass
     pass
 
 

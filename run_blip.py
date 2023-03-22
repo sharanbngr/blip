@@ -3,6 +3,7 @@ import numpy as np
 import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
 from src.likelihoods import likelihoods
+from src.models import Model
 from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 import matplotlib.pyplot as plt
@@ -15,7 +16,7 @@ from src.dynesty_engine import dynesty_engine
 from src.nessai_engine import nessai_engine
 #from src.emcee_engine import emcee_engine
 
-class LISA(LISAdata, likelihoods):
+class LISA(LISAdata, Model):
 
     '''
     Generic class for getting data and setting up the prior space
@@ -42,6 +43,7 @@ class LISA(LISAdata, likelihoods):
 
         # Set up the Bayes class
         likelihoods.__init__(self)
+        self.Model = Model(params,inj,self.fdata,self.f0,self.tsegmid,self.rmat)
 
         # Figure out which response function to use for recoveries
         self.which_response()
@@ -538,6 +540,9 @@ def blip(paramsfile='params.ini',resume=False):
     params['datatype'] = str(config.get("params", "datatype"))
     params['datafile']  = str(config.get("params", "datafile"))
     params['fref'] = float(config.get("params", "fref"))
+    
+    params['model'] = str(config.get("params", "model"))
+    
     params['modeltype'] = str(config.get("params", "modeltype"))
     params['spectrum_model'] = str(config.get("params", "spectrum_model"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
