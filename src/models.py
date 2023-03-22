@@ -129,7 +129,7 @@ class submodel(geometry,sph_geometry,instrNoise):
     #############################
     ##    Spectral Functions   ##
     #############################
-    def powerlaw_spectrum(self,fs,log_omega0,alpha):
+    def powerlaw_spectrum(self,fs,alpha,log_omega0):
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
     
@@ -279,6 +279,8 @@ class Model(likelihoods):
             and a (spherical harmonic model for) an anisotropic SGWB with a truncated power law spectrum.
         '''
         
+        self.params = params
+        
         ## separate into submodels
         submodel_names = params['model'].split('+')
         
@@ -297,6 +299,7 @@ class Model(likelihoods):
         
         ## assign reference to data for use in likelihood
         self.rmat = rmat
+        
 
     
 
@@ -332,14 +335,13 @@ class Model(likelihoods):
         ## then need to compute each submodel's contribution to the covariance matrix
         
         start_idx = 0
-        import pdb;pdb.set_trace()
         for i, sm in enumerate(self.submodels):
             theta_i = theta[start_idx:(start_idx+sm.Npar)]
             start_idx += sm.Npar
             if i==0:
                 cov_mat = sm.cov(theta_i)
             else:
-                cov_mat += sm.cov(theta_i)
+                cov_mat = cov_mat + sm.cov(theta_i)
 
         ## change axis order to make taking an inverse easier
         cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
