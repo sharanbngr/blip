@@ -17,7 +17,7 @@ class submodel(geometry,sph_geometry,instrNoise):
     
     New models (injection or analysis) should be added here.
     '''
-    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False):
+    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix=''):
         ## preliminaries
         self.params = params
         self.inj = inj
@@ -26,10 +26,12 @@ class submodel(geometry,sph_geometry,instrNoise):
         self.f0= f0
         self.time_dim = tsegmid.size
         self.name = submodel_name
+        if injection:
+            self.truevals = {}
             
         ## handle & return noise case in bespoke fashion, as it is quite different from the signal models
         if submodel_name == 'noise':
-            self.parameters = [r'$\log_{10} (Np)$', r'$\log_{10} (Na)$']
+            self.parameters = [r'$\log_{10} (Np)$'+suffix, r'$\log_{10} (Na)$'+suffix]
             self.Npar = 2
             self.fancyname = "Instrumental Noise Spectrum"
             # Figure out which instrumental noise spectra to use
@@ -44,11 +46,15 @@ class submodel(geometry,sph_geometry,instrNoise):
 #                self.gen_noise_spectrum = self.gen_michelson_noise
             else:
                 raise ValueError("Unknown specification of 'tdi_lev'; can be 'michelson', 'xyz', or 'aet'.")
-            
-            ## prior transform
-            self.prior = self.instr_noise_prior
-            ## covariance calculation
-            self.cov = self.compute_cov_noise
+            if not injection:
+                ## prior transform
+                self.prior = self.instr_noise_prior
+                ## covariance calculation
+                self.cov = self.compute_cov_noise
+            else:
+                ## truevals
+                self.truevals[r'$\log_{10} (Np)$'] = self.inj['log_Np']
+                self.truevals[r'$\log_{10} (Na)$'] = self.inj['log_Na']
             
             return
         
@@ -61,21 +67,6 @@ class submodel(geometry,sph_geometry,instrNoise):
         ###################################################
         ###            BUILD NEW MODELS HERE            ###
         ###################################################
-#        ## check if custom submodel has been passed
-#        if submodel_args is not None:
-#            print("Generating user-provided submodel...")
-#            ## NB - need to put some checks in here to make sure the dictionary has all the required keys
-#            print("Provided submodel dictionary is:")
-#            print(submodel_args)
-#        else:
-#            submodel_args = {}
-#            submodel_args['parameters'] = []
-#            
-#            ## built-in submodels
-#            if submodel_name == 'powerlaw_isgwb':
-#                submodel_args['spectrum'] = 'powerlaw'
-#                submodel_args['sky_dist'] = 'isotropic'       
-        
         
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
@@ -83,6 +74,9 @@ class submodel(geometry,sph_geometry,instrNoise):
             self.omegaf = self.powerlaw_spectrum
             if not injection:
                 self.spectral_prior = self.powerlaw_prior
+            else:
+                self.truevals[r'$\alpha$'] = self.inj['alpha']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
@@ -123,7 +117,17 @@ class submodel(geometry,sph_geometry,instrNoise):
             ## covariance calculation
             self.cov = self.compute_cov_gw
             
+        ## add suffix to parameter names and trueval keys, if desired
+        ## (we need this in the multi-model or duplicate model case)
+        if suffix != '':
+            if injection:
+                updated_truevals = {parameter+suffix:self.truevals[parameter] for parameter in self.parameters}
+                self.truevals = updated_truevals
+            updated_parameters = [parameter+suffix for parameter in self.parameters]
+            self.parameters = updated_parameters
             
+        
+        return
     
 
     #############################
@@ -282,16 +286,16 @@ class Model(likelihoods):
         self.params = params
         
         ## separate into submodels
-        submodel_names = params['model'].split('+')
+        self.submodel_names = params['model'].split('+')
         
         ## initialize submodels
-        self.submodels = []
+        self.submodels = {}
         self.Npar = 0
         self.parameters = {}
         all_parameters = []
-        for submodel_name in submodel_names:
+        for submodel_name in self.submodel_names:
             sm = submodel(params,inj,submodel_name,fs,f0,tsegmid)
-            self.submodels.append(sm)
+            self.submodels[submodel_name] = sm
             self.Npar += sm.Npar
             self.parameters[submodel_name] = sm.parameters
             all_parameters += sm.parameters
@@ -368,23 +372,123 @@ class Model(likelihoods):
 
     
 class Injection(geometry,sph_geometry,populations):
+    '''
+    Class to house all model attributes in a modular fashion.
+    '''
+    def __init__(self,params,inj,fs,f0,tsegmid):
+        self.params = params
+        self.inj = inj
+        
+        ## separate into components
+        base_component_names = inj['injection'].split('+')
+        
+        ## check for and differentiate duplicate injections
+        ## this will append 1 (then 2, then 3, etc.) to any duplicate component names
+        ## we will also generate appropriate variable suffixes to use in plots, etc..
+        self.component_names = catch_duplicates(base_component_names)
+        suffixes = gen_suffixes(base_component_names)
+                        
+        ## initialize components
+        self.components = {}
+        self.truevals = {}
+        for component_name, suffix in zip(self.component_names,suffixes):
+            cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
+            self.components[component_name] = cm
+            self.truevals.update(cm.truevals)
+    
+        
     
     
-    
-    
-    
-    
-    
-#    def plot_injection_spectra(self,fs,save=True):
+    def plot_injected_spectra(self,component_name,ax=None,convolved=False,legend=False):
+        '''
+        Wrapper to plot the injected spectrum component on the specified matplotlib axes (or current axes if unspecified).
+        '''
+        
+        ## set axes
+        if ax is None:
+            ax = plt.gca()
+        
+#        ## get truevals
+#        Sgw_trueargs = [self.components[component_name].truevals[par] for par in self.components[component_name].parameters]
+#        ## compute spectrum
+#        if not convolved:
+#            Sgw = self.components[component_name].compute_Sgw(fs,Sgw_trueargs)
 #        
-#        plt.figure()
 #        
-#        
-#        pass
-    pass
+#        if convolved:
+#            PSD = Sgw[None,None,:None]
+        
+        pass
 
 
 
+
+def catch_duplicates(names):
+    '''
+    Function to catch duplicate names so we don't overwrite keys while building a Model or Injection
+    
+    Arguments
+    ---------------
+    names (list of str) : model or injection submodel names
+    
+    Returns
+    ---------------
+    names (list of str) : model or injection submodel names, with duplicates numbered
+    '''
+    original_names = names.copy()
+    duplicate_check = {name:names.count(name) for name in names}
+    for key in duplicate_check.keys():
+        if duplicate_check[key] > 1:
+            cnt = 1
+            for i, original_name in enumerate(original_names):
+                if original_name == key:
+                    names[i] = original_name + str(cnt)
+    
+    return names
+
+def gen_suffixes(names):
+    '''
+    Function to generate appropriate parameter suffixes so repeated parameters are clearly linked to their respective submodel configurations.
+    
+    Arguments
+    ---------------
+    names (list of str) : model or injection submodel names
+    
+    Returns
+    ---------------
+    suffixes (list of str) : parameter suffixes for each respective model or injection submodel
+    '''
+    ## grab the spatial designation (or just 'noise' for the noise case)
+    end_lst = [name.split('_')[-1] for name in names]
+    ## if we just have noise and a lone signal, we don't need to do this.
+    if ('noise' in end_lst) and len(end_lst)==2:
+        suffixes = ['','']
+        return suffixes
+    ## set up our building blocks and model counts for iterative numbering
+    shorthand = {'noise':{'abbrv':'','count':1},
+                 'isgwb':{'abbrv':'I','count':1},
+                 'sph':{'abbrv':'A','count':1},
+                 'hierarchical':{'abbrv':'H','count':1} }
+    
+    suffixes = ['  $\mathrm{[' for i in range(len(names))]
+    
+    ## find duplicates and count them
+    dupc = {end:end_lst.count(end) for end in end_lst}
+    
+    ## generate the suffixes by assigning the abbreviated notation and numbering as necessary
+    for i, (end,suff) in enumerate(zip(end_lst,suffixes)):
+        if end == 'noise':
+            if dupc[end] > 1:
+                raise ValueError("Multiple noise injections/models is not supported.")
+            else:
+                suffixes[i] = ''
+        elif dupc[end] == 1:
+            suffixes[i] = suff + shorthand[end]['abbrv'] + ']}$'
+        else:
+            suffixes[i] = suff + shorthand[end]['abbrv'] + '_' + str(shorthand[end]['count']) + ']}$'
+            shorthand[end]['count'] += 1
+
+    return suffixes
 
 def bespoke_inv(A):
 
