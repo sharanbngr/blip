@@ -1,6 +1,6 @@
 import numpy as np
 from matplotlib import pyplot as plt
-
+from scipy.interpolate import interp1d
 from src.geometry import geometry
 from src.sph_geometry import sph_geometry
 from src.populations import populations
@@ -37,13 +37,16 @@ class submodel(geometry,sph_geometry,instrNoise):
             # Figure out which instrumental noise spectra to use
             if self.params['tdi_lev']=='aet':
                 self.instr_noise_spectrum = self.aet_noise_spectrum
-#                self.gen_noise_spectrum = self.gen_aet_noise
+                if injection:
+                    self.gen_noise_spectrum = self.gen_aet_noise
             elif self.params['tdi_lev']=='xyz':
                 self.instr_noise_spectrum = self.xyz_noise_spectrum
-#                self.gen_noise_spectrum = self.gen_xyz_noise
+                if injection:
+                    self.gen_noise_spectrum = self.gen_xyz_noise
             elif self.params['tdi_lev']=='michelson':
                 self.instr_noise_spectrum = self.mich_noise_spectrum
-#                self.gen_noise_spectrum = self.gen_michelson_noise
+                if injection:
+                    self.gen_noise_spectrum = self.gen_michelson_noise
             else:
                 raise ValueError("Unknown specification of 'tdi_lev'; can be 'michelson', 'xyz', or 'aet'.")
             if not injection:
@@ -72,6 +75,7 @@ class submodel(geometry,sph_geometry,instrNoise):
         if self.spectral_model_name == 'powerlaw':
             self.parameters = self.parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
             self.omegaf = self.powerlaw_spectrum
+            self.fancyname = "Power Law SGWB"
             if not injection:
                 self.spectral_prior = self.powerlaw_prior
             else:
@@ -92,7 +96,7 @@ class submodel(geometry,sph_geometry,instrNoise):
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
             ## plotting stuff
-            self.fancyname = "Isotropic SGWB"
+            self.fancyname = "Isotropic "+self.fancyname
             self.subscript = "_{I}"
 
             if not injection:
@@ -322,7 +326,8 @@ class Model(likelihoods):
         theta = []
         start_idx = 0
         
-        for sm in self.submodels:
+        for sm_name in self.submodel_names:
+            sm = self.submodels[sm_name]
             theta += sm.prior(unit_theta[start_idx:(start_idx+sm.Npar)])
             start_idx += sm.Npar
         
@@ -339,7 +344,8 @@ class Model(likelihoods):
         ## then need to compute each submodel's contribution to the covariance matrix
         
         start_idx = 0
-        for i, sm in enumerate(self.submodels):
+        for i, sm_name in enumerate(self.submodel_names):
+            sm = self.submodels[sm_name]
             theta_i = theta[start_idx:(start_idx+sm.Npar)]
             start_idx += sm.Npar
             if i==0:
@@ -379,6 +385,10 @@ class Injection(geometry,sph_geometry,populations):
         self.params = params
         self.inj = inj
         
+        self.frange = fs
+        self.f0 = f0
+        self.tsegmid = tsegmid
+        
         ## separate into components
         base_component_names = inj['injection'].split('+')
         
@@ -386,6 +396,8 @@ class Injection(geometry,sph_geometry,populations):
         ## this will append 1 (then 2, then 3, etc.) to any duplicate component names
         ## we will also generate appropriate variable suffixes to use in plots, etc..
         self.component_names = catch_duplicates(base_component_names)
+        ## it's useful to have a version of this without the detector noise
+        self.sgwb_component_names = [name for name in self.component_names if name!='noise']
         suffixes = gen_suffixes(base_component_names)
                         
         ## initialize components
@@ -399,7 +411,30 @@ class Injection(geometry,sph_geometry,populations):
         
     
     
-    def plot_injected_spectra(self,component_name,ax=None,convolved=False,legend=False):
+    
+    def compute_convolved_spectra(self,component_name,fs_new=None,channel='1',return_fs=False):
+        '''
+        Wrapper to convolve the frozen response with the frozen injected GW spectra for the desire channels.
+        '''
+        
+        c_idx = int(channel) - 1
+        PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * np.real(self.components[component_name].response_mat[c_idx,c_idx,:,:]),axis=1)
+        
+        if fs_new is not None:
+            PSD_interp = interp1d(self.frange,PSD)
+            PSD = PSD_interp(fs_new)
+            fs = fs_new
+        else:
+            fs = self.frange
+        
+        if return_fs:
+            return fs, PSD
+        else:
+            return PSD
+        
+    
+    
+    def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channel='1',return_PSD=False,scale='log',**plt_kwargs):
         '''
         Wrapper to plot the injected spectrum component on the specified matplotlib axes (or current axes if unspecified).
         '''
@@ -408,17 +443,41 @@ class Injection(geometry,sph_geometry,populations):
         if ax is None:
             ax = plt.gca()
         
-#        ## get truevals
-#        Sgw_trueargs = [self.components[component_name].truevals[par] for par in self.components[component_name].parameters]
-#        ## compute spectrum
-#        if not convolved:
-#            Sgw = self.components[component_name].compute_Sgw(fs,Sgw_trueargs)
-#        
-#        
-#        if convolved:
-#            PSD = Sgw[None,None,:None]
+        ## get frozen injected spectra at original injection frequencies and convolve with detector response if desired
+        if convolved:
+            PSD = self.compute_convolved_spectra(component_name,channel=channel)
+        else:
+            PSD = self.components[component_name].frozen_spectra
         
-        pass
+        ## downsample (or upsample, but why) if desired
+        if fs_new is not None:
+            PSD_interp = interp1d(self.frange,PSD)
+            PSD = PSD_interp(fs_new)
+            fs = fs_new
+        else:
+            fs = self.frange
+        
+        if legend:
+            label = self.components[component_name].fancyname
+            if plt_kwargs is None:
+                plt_kwargs = {}
+                plt_kwargs['label'] = label
+            else:
+                if 'label' not in plt_kwargs.keys():
+                    plt_kwargs['label'] = label
+        
+        if scale=='log':
+            ax.loglog(fs,PSD,**plt_kwargs)
+        elif scale=='linear':
+            ax.plot(fs,PSD,**plt_kwargs)
+        else:
+            raise ValueError("We only support linear and log plots, there is no secret third option!")
+        
+        
+        if return_PSD:
+            return PSD
+        else:
+            return
 
 
 
