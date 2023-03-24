@@ -584,7 +584,7 @@ def plotmaker(params,parameters, inj):
         elif inj['spectral_inj']=='truncated_powerlaw':
             val_list.append( inj['alpha'] )
             val_list.append( inj['log_omega0'] )
-            val_list.append( inj['f_break'] )
+            val_list.append( inj['f_cut'] )
             val_list.append( inj['f_scale'] )
     
     
