@@ -299,7 +299,8 @@ class LISA(LISAdata, likelihoods):
                     summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
                 
                 # extra auto-power GW responses
-                R1 = np.real(summ_response_mat[0, 0, :, :]) #3 by #3 #frequency, #time, #blms
+                R1 = np.real(summ_response_mat[0, 0, :, :]) #R is 3 by 3 by frequency by time, in that order. blms summed over already.
+                #R1 is 1 x frequency x time
                 np.savetxt(self.params['out_dir']+ "/response1_inj.txt",R1) ##smr saving response function for inj signal for snr
                 # save for injection. take the real values of the components
 
