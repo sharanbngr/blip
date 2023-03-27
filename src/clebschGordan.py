@@ -1,7 +1,7 @@
 import numpy as np
 from healpy import Alm
 from sympy.physics.quantum.cg import CG
-from collections import OrderedDict
+#from collections import OrderedDict
 
 
 class clebschGordan():
@@ -10,8 +10,18 @@ class clebschGordan():
     Class with methods for manipulating clebsch-gordon coeffcients.
     '''
 
-    def __init__(self):
-        self.blmax = self.params['lmax']
+    def __init__(self,blmax=None,inj_sph=False):
+        ## allow for use within or without BLIP
+        if blmax is not None:
+            self.blmax = blmax
+        else:
+            try:
+                self.blmax = self.params['lmax']
+            except AttributeError:
+                raise AttributeError("No available params attribute. If you wish to initialize a clebschGordan instance outside of the main pipeline workflow, you need to specify blmax.")
+        self.inj_sph = inj_sph
+        
+        
         self.almax = 2*self.blmax
 
         ## size of arrays: for blms its only non-negative m values but for alms it is all of them
@@ -35,7 +45,8 @@ class clebschGordan():
             self.bl_idx[ii], self.bm_idx[ii] = self.idxtoalm(self.blmax, ii)
         
         ## independent injection lmax case
-        if self.inj['injtype']=='astro' and self.inj['injbasis']=='sph_lmax':
+        if inj_sph:
+#        if self.inj['injtype']=='astro' and self.inj['injbasis']=='sph_lmax':
             self.inj_blmax = self.inj['inj_lmax']
             self.inj_almax = 2*self.inj_blmax
     
@@ -141,7 +152,8 @@ class clebschGordan():
         '''
         Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
-        if not (self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax'):
+#        if not (self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax'):
+        if not self.inj_sph:
             if blms_in.size != self.blm_size:
                 raise ValueError('The size of the input blm array does not match the size defined by lmax ')
 
@@ -169,7 +181,7 @@ class clebschGordan():
         ## counter for blm_vals
         cnt = 0
 
-        for lval in range(1, self.params['lmax'] + 1):
+        for lval in range(1, self.blmax + 1):
             for mval in range(lval + 1):
 
                 idx = Alm.getidx(self.blmax, lval, mval)
