@@ -6,6 +6,7 @@ from src.likelihoods import likelihoods
 from src.models import Model, Injection
 from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
+from tools.plotmaker import fitmaker
 import matplotlib
 import matplotlib.pyplot as plt
 from astropy import units as u
@@ -55,6 +56,15 @@ class LISA(LISAdata, Model):
             self.plot_spectra()
         else:
             self.diag_spectra()
+        
+        ## save the Model and Injection as needed
+        with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
+            pickle.dump(self.Model, outfile)
+        
+        if not params['mldc']:
+            with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
+                pickle.dump(self.Injection, outfile)
+            
 
     def makedata(self):
 
@@ -311,9 +321,11 @@ class LISA(LISAdata, Model):
 #        matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(color=["mediumorchid", "teal", "goldenrod","slategray","navy"])
         
         plt.close()
+        ymins = []
         for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channel='1',return_PSD=True,lw=0.75)
-            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channel='2'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channel='3')
+            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75)
+            ymins.append(S1_gw.min())
+            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
 #        
 #        if self.inj['injtype'] != 'noise_only':
@@ -438,6 +450,12 @@ class LISA(LISAdata, Model):
 #        elif self.inj['spectral_inj'] == 'population':
 #            ymin = 0.5*S1_gw[S1_gw>1e-50].min()
 #            plt.ylim(bottom=ymin)
+        
+        ## avoid plot squishing due to signal spectra with cutoffs, etc.
+        ymin = np.min(ymins)
+        if ymin < 1e-43:
+            plt.ylim(bottom=1e-43)
+        
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
@@ -482,6 +500,23 @@ class LISA(LISAdata, Model):
 
         ## FIX LATER
         
+        ii, jj = 2,0
+        IJ = str(ii+1)+str(jj+1)
+        
+        Sx = C_noise[ii,jj,:]
+        
+        ymins = []
+        iymins = []
+        for component_name in self.Injection.sgwb_component_names:
+            if component_name != 'noise':
+#                Sx_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels=IJ,return_PSD=True,lw=0.75)
+                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ,imaginary=True)
+                ymins.append(np.real(Sx_gw).min())
+                iymins.append(np.imag(Sx_gw).min())
+                Sx = Sx + Sx_gw
+#        
+        CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
+        
 #        ii, jj = 2, 0
 #
 #        if self.inj['injtype'] == 'noise_only':
@@ -495,34 +530,34 @@ class LISA(LISAdata, Model):
 #
 #        CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
 #
-#        plt.subplot(2, 1, 1)
-#        if len(Sx.shape) == 1:
-#            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
-#        else:
-#            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
-#        plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
-#        plt.xlabel('f in Hz')
-#        plt.ylabel('Power in 1/Hz')
-#        plt.legend()
-#        plt.ylim([1e-44, 5e-40])
-#        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-#        plt.grid()
-#
-#        plt.subplot(2, 1, 2)
-#        if len(Sx.shape) == 1:
-#            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
-#        else:
-#            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
-#        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
-#        plt.xlabel('f in Hz')
-#        plt.ylabel(' Power in 1/Hz')
-#        plt.legend()
-#        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
-#        plt.ylim([1e-44, 5e-40])
-#        plt.grid()
-#        plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
-#        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
-#        plt.close()
+        plt.subplot(2, 1, 1)
+        if len(Sx.shape) == 1:
+            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        else:
+            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel('Power in 1/Hz')
+        plt.legend()
+        plt.ylim([1e-44, 5e-40])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.grid()
+
+        plt.subplot(2, 1, 2)
+        if len(Sx.shape) == 1:
+            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        else:
+            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+        plt.xlabel('f in Hz')
+        plt.ylabel(' Power in 1/Hz')
+        plt.legend()
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.ylim([1e-44, 5e-40])
+        plt.grid()
+        plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
+        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
+        plt.close()
         
     def plot_spectra(self):
         '''
@@ -890,7 +925,17 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(parameters, outfile)
 
     print("\nMaking posterior Plots ...")
-    plotmaker(params, parameters, inj)
+    plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    ## TO-DO: FIX THIS
+    ## need to figure out a flag for when to call mapmaker
+#    if 'healpy_proj' in params.keys():
+#        mapmaker(post, params, parameters, inj, Model, Injection, coord=params['healpy_proj'])
+#    else:
+#        mapmaker(post, params, parameters, inj, Model, Injection)
+        
+        
+        
 #    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
 #        print("\nMaking posterior skymap ...")
 #        mapmaker(params, post_samples, parameters, coord=params['projection'])

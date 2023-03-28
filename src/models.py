@@ -33,7 +33,9 @@ class submodel(geometry,sph_geometry,instrNoise):
         if submodel_name == 'noise':
             self.parameters = [r'$\log_{10} (Np)$'+suffix, r'$\log_{10} (Na)$'+suffix]
             self.Npar = 2
-            self.fancyname = "Instrumental Noise Spectrum"
+            ## for plotting
+            self.fancyname = "Instrumental Noise"
+            self.color = 'dimgrey'
             # Figure out which instrumental noise spectra to use
             if self.params['tdi_lev']=='aet':
                 self.instr_noise_spectrum = self.aet_noise_spectrum
@@ -58,6 +60,8 @@ class submodel(geometry,sph_geometry,instrNoise):
                 ## truevals
                 self.truevals[r'$\log_{10} (Np)$'] = self.inj['log_Np']
                 self.truevals[r'$\log_{10} (Na)$'] = self.inj['log_Na']
+                ## save the frozen noise spectra
+                self.frozen_spectra = self.instr_noise_spectrum(self.fs,self.f0,Np=10**self.inj['log_Np'],Na=10**self.inj['log_Na'])
             
             return
         
@@ -70,6 +74,13 @@ class submodel(geometry,sph_geometry,instrNoise):
         ###################################################
         ###            BUILD NEW MODELS HERE            ###
         ###################################################
+        
+        ## color dictionary, for plotting. 
+#        color_dict = {'powerlaw_isgwb':'darkorange',
+#                      }
+        
+        
+        
         
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
@@ -98,12 +109,15 @@ class submodel(geometry,sph_geometry,instrNoise):
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
             self.subscript = "_{I}"
+            self.color='darkorange'
 
             if not injection:
                 ## prior transform
                 self.prior = self.isotropic_prior
             
         elif self.spatial_model_name == 'sph':
+            
+#            self.blm_start = ...
             pass
         
         elif self.spatial_model_name == 'hierarchical':
@@ -292,13 +306,22 @@ class Model(likelihoods):
         ## separate into submodels
         self.submodel_names = params['model'].split('+')
         
+        ## separate into submodels
+        base_component_names = params['model'].split('+')
+        
+        ## check for and differentiate duplicate injections
+        ## this will append 1 (then 2, then 3, etc.) to any duplicate submodel names
+        ## we will also generate appropriate variable suffixes to use in plots, etc..
+        self.submodel_names = catch_duplicates(base_component_names)
+        suffixes = gen_suffixes(base_component_names)
+        
         ## initialize submodels
         self.submodels = {}
         self.Npar = 0
         self.parameters = {}
         all_parameters = []
-        for submodel_name in self.submodel_names:
-            sm = submodel(params,inj,submodel_name,fs,f0,tsegmid)
+        for submodel_name, suffix in zip(self.submodel_names,suffixes):
+            sm = submodel(params,inj,submodel_name,fs,f0,tsegmid,suffix=suffix)
             self.submodels[submodel_name] = sm
             self.Npar += sm.Npar
             self.parameters[submodel_name] = sm.parameters
@@ -412,17 +435,21 @@ class Injection(geometry,sph_geometry,populations):
     
     
     
-    def compute_convolved_spectra(self,component_name,fs_new=None,channel='1',return_fs=False):
+    def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
         '''
-        Wrapper to convolve the frozen response with the frozen injected GW spectra for the desire channels.
+        Wrapper to convolve the frozen response with the frozen injected GW spectra for the desired channels.
         '''
         
-        c_idx = int(channel) - 1
-        PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * np.real(self.components[component_name].response_mat[c_idx,c_idx,:,:]),axis=1)
+        ## split the channel indicators
+        c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
+        if not imaginary:
+            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * np.real(self.components[component_name].response_mat[c1_idx,c2_idx,:,:]),axis=1)
+        else:
+            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * 1j * np.imag(self.components[component_name].response_mat[c1_idx,c2_idx,:,:]),axis=1)
         
         if fs_new is not None:
-            PSD_interp = interp1d(self.frange,PSD)
-            PSD = PSD_interp(fs_new)
+            PSD_interp = interp1d(self.frange,np.log10(PSD))
+            PSD = 10**PSD_interp(fs_new)
             fs = fs_new
         else:
             fs = self.frange
@@ -431,10 +458,9 @@ class Injection(geometry,sph_geometry,populations):
             return fs, PSD
         else:
             return PSD
-        
+
     
-    
-    def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channel='1',return_PSD=False,scale='log',**plt_kwargs):
+    def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,**plt_kwargs):
         '''
         Wrapper to plot the injected spectrum component on the specified matplotlib axes (or current axes if unspecified).
         '''
@@ -443,19 +469,38 @@ class Injection(geometry,sph_geometry,populations):
         if ax is None:
             ax = plt.gca()
         
+        ## set fmin/max to specified values, or default to the ones in params
+        if flim is not None:
+            fmin = flim[0]
+            fmax = flim[1]
+        else:
+            fmin = self.params['fmin']
+            fmax = self.params['fmax']
+        
         ## get frozen injected spectra at original injection frequencies and convolve with detector response if desired
         if convolved:
-            PSD = self.compute_convolved_spectra(component_name,channel=channel)
+            if component_name == 'noise':
+                raise ValueError("Cannot convolve noise spectra with the detector GW response - this is not physical. (Set convolved=False in the function call!)")
+            PSD = self.compute_convolved_spectra(component_name,channels=channels)
         else:
             PSD = self.components[component_name].frozen_spectra
+            ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
+            ## generically capture anything that looks like a covariance matrix for future-proofing
+            if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
+                I, J = int(channels[0]) - 1, int(channels[1]) - 1
+                PSD = PSD[I,J,:]
+            
         
         ## downsample (or upsample, but why) if desired
+        ## do the interpolation in log-space for better low-f fidelity
         if fs_new is not None:
-            PSD_interp = interp1d(self.frange,PSD)
-            PSD = PSD_interp(fs_new)
+            PSD_interp = interp1d(self.frange,np.log10(PSD))
+            PSD = 10**PSD_interp(fs_new)
             fs = fs_new
         else:
             fs = self.frange
+        
+        filt = (fs>fmin)*(fs<fmax)
         
         if legend:
             label = self.components[component_name].fancyname
@@ -467,9 +512,9 @@ class Injection(geometry,sph_geometry,populations):
                     plt_kwargs['label'] = label
         
         if scale=='log':
-            ax.loglog(fs,PSD,**plt_kwargs)
+            ax.loglog(fs[filt],PSD[filt],**plt_kwargs)
         elif scale=='linear':
-            ax.plot(fs,PSD,**plt_kwargs)
+            ax.plot(fs[filt],PSD[filt],**plt_kwargs)
         else:
             raise ValueError("We only support linear and log plots, there is no secret third option!")
         
@@ -501,7 +546,7 @@ def catch_duplicates(names):
             cnt = 1
             for i, original_name in enumerate(original_names):
                 if original_name == key:
-                    names[i] = original_name + str(cnt)
+                    names[i] = original_name + '-' + str(cnt)
     
     return names
 
