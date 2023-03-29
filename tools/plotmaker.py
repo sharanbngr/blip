@@ -374,6 +374,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         start_idx = 0
     
     model_legend_elements = []
+    ymins = []
     ## loop over submodels
     signal_model_names = [sm_name for sm_name in Model.submodel_names if sm_name!='noise']
     for i, sm_name in enumerate(signal_model_names):
@@ -392,8 +393,9 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         Sgw_median = np.median(Sgw,axis=1)
         Sgw_upper95 = np.quantile(Sgw,0.975,axis=1)
         Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
+        ymins.append(Sgw_median.min())
+        ymins.append(Sgw_lower95.min())
         ## plot
-        ## TO-DO : figure out a way to have this pair off colors w/ lighter versions for each submodel
         plt.loglog(fs,Sgw_median,color=sm.color)
         plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.25,color=sm.color)
         
@@ -403,12 +405,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
             if component_name != 'noise':
                 Injection.plot_injected_spectra(component_name,legend=False,color=Injection.components[component_name].color,ls='--')
     
-#    ax = plt.gca()
-#    notation_legend = ax.legend(handles=notation_legend_elements,loc='upper left',bbox_to_anchor=(1,1.025))
-#    ax.add_artist(notation_legend)
-#    model_legend = ax.legend(handles=model_legend_elements,loc='upper left',bbox_to_anchor=(1,0.8))
-#    ax.add_artist(model_legend)
-    
+    ## avoid plot squishing due to signal spectra with cutoffs, etc.
+    ymin = np.min(ymins)
+    if ymin < 1e-43:
+        plt.ylim(bottom=1e-43)
     ax = plt.gca()
     model_legend = ax.legend(handles=model_legend_elements,loc='upper right')
     ax.add_artist(model_legend)
@@ -426,6 +426,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
     ## plot our recovered convolved spectra if desired
     if plot_convolved:
         model_legend_elements = []
+        ymins = []
         plt.figure()
 #        ifs = Injection.components['noise'].fs
 #        ifilt = (ifs>params['fmin'])*(ifs<params['fmax'])
@@ -476,8 +477,9 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
             Sgw_median = np.median(Sgw,axis=0)
             Sgw_upper95 = np.quantile(Sgw,0.975,axis=0)
             Sgw_lower95 = np.quantile(Sgw,0.025,axis=0)
+            ymins.append(Sgw_median.min())
+            ymins.append(Sgw_lower95.min())
             ## plot
-            ## TO-DO : figure out a way to have this pair off colors w/ lighter versions for each submodel
             plt.loglog(fdata,Sgw_median,color=sm.color)
             plt.fill_between(fdata,Sgw_lower95,Sgw_upper95,alpha=0.25,color=sm.color)
             
@@ -491,6 +493,11 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
                     Injection.plot_injected_spectra(component_name,channels='22',ls='--',color=Injection.components[component_name].color)
                 else:
                     Injection.plot_injected_spectra(component_name,convolved=True,ls='--',color=Injection.components[component_name].color)
+        
+        ## avoid plot squishing due to signal spectra with cutoffs, etc.
+        ymin = np.min(ymins)
+        if ymin < 1e-43:
+            plt.ylim(bottom=1e-43)
         
         ax = plt.gca()
         model_legend = ax.legend(handles=model_legend_elements,loc='upper right')

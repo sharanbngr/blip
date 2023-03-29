@@ -49,7 +49,7 @@ class LISA(LISAdata, Model):
         self.Model = Model(params,inj,self.fdata,self.f0,self.tsegmid,self.rmat)
 
         # Figure out which response function to use for recoveries
-        self.which_response()
+#        self.which_response()
 
         # Make some simple diagnostic plots to contrast spectra
         if self.params['mldc']:
@@ -184,97 +184,97 @@ class LISA(LISAdata, Model):
             pass
 
 
-    def which_noise_spectrum(self):
+#    def which_noise_spectrum(self):
+#
+#        # Figure out which instrumental noise spectra to use
+#        if self.params['tdi_lev']=='aet':
+#            self.instr_noise_spectrum = self.aet_noise_spectrum
+#            self.gen_noise_spectrum = self.gen_aet_noise
+#        elif self.params['tdi_lev']=='xyz':
+#            self.instr_noise_spectrum = self.xyz_noise_spectrum
+#            self.gen_noise_spectrum = self.gen_xyz_noise
+#        elif self.params['tdi_lev']=='michelson':
+#            self.instr_noise_spectrum = self.mich_noise_spectrum
+#            self.gen_noise_spectrum = self.gen_michelson_noise
 
-        # Figure out which instrumental noise spectra to use
-        if self.params['tdi_lev']=='aet':
-            self.instr_noise_spectrum = self.aet_noise_spectrum
-            self.gen_noise_spectrum = self.gen_aet_noise
-        elif self.params['tdi_lev']=='xyz':
-            self.instr_noise_spectrum = self.xyz_noise_spectrum
-            self.gen_noise_spectrum = self.gen_xyz_noise
-        elif self.params['tdi_lev']=='michelson':
-            self.instr_noise_spectrum = self.mich_noise_spectrum
-            self.gen_noise_spectrum = self.gen_michelson_noise
+#    def which_response(self):
+#
+#        # Calculate reponse function to use for analysis
+#        if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
+#            self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
+#
+#        elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
+#            self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
+#
+#        elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
+#            self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
+#
+#        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
+#            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
+#        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
+#            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
+#        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
+#            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
+#        
+#        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='michelson':
+#            self.response_mat_a = self.asgwb_mich_response(self.f0, self.tsegmid)
+#            self.response_mat_i = self.isgwb_mich_response(self.f0, self.tsegmid)
+#        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='xyz':
+#            self.response_mat_a = self.asgwb_xyz_response(self.f0, self.tsegmid)
+#            self.response_mat_i = self.isgwb_xyz_response(self.f0, self.tsegmid)
+#        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='aet':
+#            self.response_mat_a = self.asgwb_aet_response(self.f0, self.tsegmid)
+#            self.response_mat_i = self.isgwb_aet_response(self.f0, self.tsegmid)
+#        elif self.params['modeltype'] == 'noise_only':
+#            print('Noise only model chosen ...')
+#        else:
+#            raise ValueError('Unknown recovery model selected')
 
-    def which_response(self):
-
-        # Calculate reponse function to use for analysis
-        if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
-            self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
-
-        elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
-            self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
-
-        elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
-            self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
-
-        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
-            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
-            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
-        
-        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='michelson':
-            self.response_mat_a = self.asgwb_mich_response(self.f0, self.tsegmid)
-            self.response_mat_i = self.isgwb_mich_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='xyz':
-            self.response_mat_a = self.asgwb_xyz_response(self.f0, self.tsegmid)
-            self.response_mat_i = self.isgwb_xyz_response(self.f0, self.tsegmid)
-        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='aet':
-            self.response_mat_a = self.asgwb_aet_response(self.f0, self.tsegmid)
-            self.response_mat_i = self.isgwb_aet_response(self.f0, self.tsegmid)
-        elif self.params['modeltype'] == 'noise_only':
-            print('Noise only model chosen ...')
-        else:
-            raise ValueError('Unknown recovery model selected')
-
-    def which_astro_signal(self):
-
-        # Figure out which antenna patterns to use
-        if self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.isgwb_aet_response
-        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.isgwb_xyz_response
-        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.isgwb_mich_response
-        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
-            self.add_astro_signal = self.asgwb_mich_response
-        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-            self.add_astro_signal = self.asgwb_aet_response
-        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
-            self.add_astro_signal = self.asgwb_xyz_response
-        elif self.inj['injtype']=='astro' and (self.inj['injbasis']=='sph' or self.inj['injbasis']=='sph_lmax'):
-            if self.params['tdi_lev']=='michelson':
-                self.add_astro_signal = self.asgwb_mich_response
-            elif self.params['tdi_lev']=='aet':
-                self.add_astro_signal = self.asgwb_aet_response
-            elif self.params['tdi_lev']=='xyz':
-                self.add_astro_signal = self.asgwb_xyz_response
-            else:
-                raise ValueError("Unknown TDI level selected.")
-        elif self.inj['injtype']=='astro' and self.inj['injbasis']=='pixel':
-            if self.params['tdi_lev']=='michelson':
-                self.add_astro_signal = self.pixel_mich_response
-            elif self.params['tdi_lev']=='aet':
-                self.add_astro_signal = self.pixel_aet_response
-            elif self.params['tdi_lev']=='xyz':
-                self.add_astro_signal = self.pixel_xyz_response
-            else:
-                raise ValueError("Unknown TDI level selected.")
-        elif self.inj['injtype'] == 'multi':
-            if self.params['tdi_lev']=='michelson':
-                self.add_astro_signal_a = self.asgwb_mich_response
-                self.add_astro_signal_i = self.isgwb_mich_response
-            elif self.params['tdi_lev']=='aet':
-                self.add_astro_signal_a = self.asgwb_aet_response
-                self.add_astro_signal_i = self.isgwb_aet_response
-            elif self.params['tdi_lev']=='xyz':
-                self.add_astro_signal_a = self.asgwb_xyz_response
-                self.add_astro_signal_i = self.isgwb_xyz_response
-        else:
-           raise ValueError('Unknown injection model selected')
+#    def which_astro_signal(self):
+#
+#        # Figure out which antenna patterns to use
+#        if self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='aet':
+#            self.add_astro_signal = self.isgwb_aet_response
+#        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
+#            self.add_astro_signal = self.isgwb_xyz_response
+#        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
+#            self.add_astro_signal = self.isgwb_mich_response
+#        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
+#            self.add_astro_signal = self.asgwb_mich_response
+#        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
+#            self.add_astro_signal = self.asgwb_aet_response
+#        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
+#            self.add_astro_signal = self.asgwb_xyz_response
+#        elif self.inj['injtype']=='astro' and (self.inj['injbasis']=='sph' or self.inj['injbasis']=='sph_lmax'):
+#            if self.params['tdi_lev']=='michelson':
+#                self.add_astro_signal = self.asgwb_mich_response
+#            elif self.params['tdi_lev']=='aet':
+#                self.add_astro_signal = self.asgwb_aet_response
+#            elif self.params['tdi_lev']=='xyz':
+#                self.add_astro_signal = self.asgwb_xyz_response
+#            else:
+#                raise ValueError("Unknown TDI level selected.")
+#        elif self.inj['injtype']=='astro' and self.inj['injbasis']=='pixel':
+#            if self.params['tdi_lev']=='michelson':
+#                self.add_astro_signal = self.pixel_mich_response
+#            elif self.params['tdi_lev']=='aet':
+#                self.add_astro_signal = self.pixel_aet_response
+#            elif self.params['tdi_lev']=='xyz':
+#                self.add_astro_signal = self.pixel_xyz_response
+#            else:
+#                raise ValueError("Unknown TDI level selected.")
+#        elif self.inj['injtype'] == 'multi':
+#            if self.params['tdi_lev']=='michelson':
+#                self.add_astro_signal_a = self.asgwb_mich_response
+#                self.add_astro_signal_i = self.isgwb_mich_response
+#            elif self.params['tdi_lev']=='aet':
+#                self.add_astro_signal_a = self.asgwb_aet_response
+#                self.add_astro_signal_i = self.isgwb_aet_response
+#            elif self.params['tdi_lev']=='xyz':
+#                self.add_astro_signal_a = self.asgwb_xyz_response
+#                self.add_astro_signal_i = self.isgwb_xyz_response
+#        else:
+#           raise ValueError('Unknown injection model selected')
 
     def diag_spectra(self):
 
@@ -323,7 +323,7 @@ class LISA(LISAdata, Model):
         plt.close()
         ymins = []
         for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75)
+            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
             ymins.append(S1_gw.min())
             S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
@@ -436,12 +436,12 @@ class LISA(LISAdata, Model):
 
             
             
-            plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75)
+            plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
 
         # noise budget plot
-        plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75)
-        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75 )
+        plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75,color='slategrey')
+        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
         ## multi-SGWB injection plot gets squished due to truncated pl
 #        if self.inj['injtype'] == 'multi':
 #            ymin = 0.5 * S1_gw_i.min()
@@ -465,8 +465,8 @@ class LISA(LISAdata, Model):
         plt.close()
 
 
-        plt.loglog(self.fdata, S3, label='required')
-        plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6)
+        plt.loglog(self.fdata, S3, label='required',color='mediumvioletred')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6,color='slategrey')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
@@ -483,7 +483,7 @@ class LISA(LISAdata, Model):
         ## lets also plot psd residue.
         rel_res_mean = (data_PSD3 - S3)/S3
 
-        plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue')
+        plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel(' Rel. residue')
         plt.ylim([-1.50, 1.50])
@@ -532,10 +532,10 @@ class LISA(LISAdata, Model):
 #
         plt.subplot(2, 1, 1)
         if len(Sx.shape) == 1:
-            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
+            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')' )
-        plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+        plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
         plt.legend()
@@ -545,10 +545,10 @@ class LISA(LISAdata, Model):
 
         plt.subplot(2, 1, 2)
         if len(Sx.shape) == 1:
-            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
+            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')' )
-        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6)
+            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+        plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
         plt.legend()
@@ -574,9 +574,9 @@ class LISA(LISAdata, Model):
         # Get desired frequencies for the PSD
         data_PSD1,data_PSD2, data_PSD3 = data_PSD1[idx], data_PSD2[idx], data_PSD3[idx]
         
-        plt.loglog(psdfreqs, data_PSD1,label='PSD (1)', alpha=0.6)
-        plt.loglog(psdfreqs, data_PSD2,label='PSD (2)', alpha=0.6)
-        plt.loglog(psdfreqs, data_PSD3,label='PSD (3)', alpha=0.6)
+        plt.loglog(psdfreqs, data_PSD1,label='PSD (1)', alpha=0.6, color='slategrey')
+        plt.loglog(psdfreqs, data_PSD2,label='PSD (2)', alpha=0.6, color='rosybrown')
+        plt.loglog(psdfreqs, data_PSD3,label='PSD (3)', alpha=0.6, color='mediumseagreen')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
@@ -623,8 +623,8 @@ def blip(paramsfile='params.ini',resume=False):
     
     params['model'] = str(config.get("params", "model"))
     
-    params['modeltype'] = str(config.get("params", "modeltype"))
-    params['spectrum_model'] = str(config.get("params", "spectrum_model"))
+#    params['modeltype'] = str(config.get("params", "modeltype"))
+#    params['spectrum_model'] = str(config.get("params", "spectrum_model"))
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))

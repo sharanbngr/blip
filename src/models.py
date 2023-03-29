@@ -169,20 +169,77 @@ class submodel(geometry,sph_geometry,instrNoise):
     ##    Spectral Functions   ##
     #############################
     def powerlaw_spectrum(self,fs,alpha,log_omega0):
+        '''
+        Function to calculate a simple power law spectrum.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        alpha (float)        : slope of the power law
+        log_omega0 (float)   : power law amplitude in units of log dimensionless GW energy density at f_ref
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        '''
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
     
     def broken_powerlaw_spectrum(self,fs,alpha_1,log_omega0,alpha_2,log_fbreak):
+        '''
+        Function to calculate a broken power law spectrum.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        alpha_1 (float)      : slope of the first power law
+        log_omega0 (float)   : power law amplitude of the first power law in units of log dimensionless GW energy density at f_ref
+        alpha_2 (float)      : slope of the second power law
+        log_fbreak (float)   : log of the break frequency ("knee") in Hz
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting broken power law spectrum
+        '''
         delta = 0.1
         fbreak = 10**log_fbreak
-        return (10**log_omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
+        norm = (fbreak/self.params['fref'])**alpha_1 / 1.25989194 ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
+        return norm * (10**log_omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
     
     def truncated_powerlaw_spectrum(self,fs,alpha,log_omega0,log_fcut,log_fscale):
+        '''
+        Function to calculate a tanh-truncated power law spectrum.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        alpha (float)        : slope of the power law
+        log_omega0 (float)   : power law amplitude of the power law in units of log dimensionless GW energy density at f_ref (if left un-truncated)
+        log_fcut (float)     : log of the cut frequency ("knee") in Hz
+        log_fscale           : log of the cutoff scale factor in Hz
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting truncated power law spectrum
+        '''
         fcut = 10**log_fcut
         fscale = 10**log_fscale
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
     
     def compute_Sgw(self,fs,omegaf_args):
+        '''
+        Wrapper function to generically calculate the associated stochastic gravitational wave PSD (S_gw)
+            for a spectral model given in terms of the dimensionless GW energy density Omega(f)
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        omegaf_args (list)   : list of arguments for the relevant Omega(f) function
+        
+        Returns
+        -----------
+        Sgw (array of floats) : the resulting GW PSD
+        '''
         H0 = 2.2*10**(-18)
         Omegaf = self.omegaf(fs,*omegaf_args)
         Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
@@ -317,7 +374,7 @@ class submodel(geometry,sph_geometry,instrNoise):
         ---------
 
         theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, log_fcut, and log_fscale
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), and log(f_scale)
 
         '''
 
@@ -420,7 +477,7 @@ class Model(likelihoods):
 
     def prior(self,unit_theta):
         '''
-        Function to interatively perform prior draws for each submodel in the proper order
+        Unified prior function to interatively perform prior draws for each submodel in the proper order
         
         Arguments
         ----------------
@@ -445,11 +502,17 @@ class Model(likelihoods):
     
     
     def likelihood(self,theta):
+        '''
+        Unified likelihood function to compare the combined covariance contributions of a generic set of noise/SGWB models to the data.
         
-        ## need to cleverly unpack the priors
+        Arguments
+        ----------------
+        theta (list) : transformed prior draws for all submodels in sequence
         
-        ## then need to compute each submodel's contribution to the covariance matrix
-        
+        Returns
+        ----------------
+        loglike (float) : resulting joint log likelihood
+        '''
         start_idx = 0
         for i, sm_name in enumerate(self.submodel_names):
             sm = self.submodels[sm_name]
@@ -473,22 +536,22 @@ class Model(likelihoods):
 
         return loglike
     
-    
-    
-    def plot_model(self,fs,save=True):
-        
-        plt.figure()
-        
-        
-        pass
+
     
 
     
 class Injection(geometry,sph_geometry,populations):
     '''
-    Class to house all model attributes in a modular fashion.
+    Class to house all injection attributes in a modular fashion.
     '''
     def __init__(self,params,inj,fs,f0,tsegmid):
+        '''
+        Injection() parses a Injection string from the params file. This is of the form of an arbitrary number of "+"-delimited submodel types.
+        Each submodel should be defined as "[spectral]_[spatial]", save for the noise model, which is just "noise".
+        
+        e.g., "noise+powerlaw_isgwb+truncated-powerlaw_sph" defines an injection with noise, an isotropic SGWB with a power law spectrum,
+            and a (spherical harmonic description of) an anisotropic SGWB with a truncated power law spectrum.
+        '''
         self.params = params
         self.inj = inj
         
