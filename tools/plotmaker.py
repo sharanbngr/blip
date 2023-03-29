@@ -352,7 +352,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
     
     notation_legend_elements = [Line2D([0], [0], color='k', ls='--', label='Injection'),
                                 Line2D([0], [0], color='k', ls='-', label='Median Fit'),
-                                Patch(color='k',alpha=0.5,label='95% C.I.')]
+                                Patch(color='k',alpha=0.25,label='$95\%$ C.I.')]
     
     
     ## get frequencies

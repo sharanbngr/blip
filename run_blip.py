@@ -632,132 +632,159 @@ def blip(paramsfile='params.ini',resume=False):
     params['tstart'] = float(config.get("params", "tstart"))
     params['sampler'] = str(config.get("params", "sampler"))
 
+    ## see if we need to initialize the spherical harmonic subroutines
+    sph_check = [element for sublist in params['model'].split('+') for element in sublist.split('_')]
+
 
     # Injection Dict
-    inj['doInj']       = int(config.get("inj", "doInj"))
+    inj['doInj']         = int(config.get("inj", "doInj"))
     
-    inj['injection']       = str(config.get("inj", "injection"))
-    
-    inj['injtype']     = str(config.get("inj", "injtype"))
-    
-    inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
-    inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
-    
-    
-#    inj.extend(parameter_collector(inj['injection']))
-    ## need to write parameter_collector (in models.py) that automatically looks for the relevant parameters in the params file given the model
-    
-    
-    ## spectral parameters
-    if inj['injtype'] != 'noise_only':
-        inj['spectral_inj']     = str(config.get("inj", "spectral_inj"))
-        if inj['spectral_inj'] == 'powerlaw':
-            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-            inj['alpha']       = float(config.get("inj", "alpha"))
-        elif inj['spectral_inj'] == 'broken_powerlaw':
-            inj['alpha1']     = float(config.get("inj", "alpha1"))
-            inj['log_A1']      = float(config.get("inj", "log_A1"))
-            inj['log_A2']      = float(config.get("inj", "log_A2"))
-        elif inj['spectral_inj'] == 'broken_powerlaw_2':
-            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-            inj['alpha1']     = float(config.get("inj", "alpha1"))
-            inj['alpha2']     = float(config.get("inj", "alpha2"))
-            inj['f_break']      = float(config.get("inj", "f_break"))
-        elif inj['spectral_inj'] == 'truncated_broken_powerlaw':
-            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-            inj['alpha1']     = float(config.get("inj", "alpha1"))
-            inj['alpha2']     = float(config.get("inj", "alpha2"))
-            inj['f_break']      = float(config.get("inj", "f_break"))
-            inj['f_cut']      = float(config.get("inj", "f_cut"))
-            inj['f_scale']      = float(config.get("inj", "f_scale"))
-        elif inj['spectral_inj'] == 'truncated_powerlaw':
-            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-            inj['alpha']     = float(config.get("inj", "alpha"))
-            inj['f_cut']      = float(config.get("inj", "f_cut"))
-            inj['f_scale']      = float(config.get("inj", "f_scale"))
-        elif inj['spectral_inj'] == 'free_broken_powerlaw':
-            inj['alpha1']     = float(config.get("inj", "alpha1"))
-            inj['alpha2']     = float(config.get("inj", "alpha2"))
-            inj['log_A1']      = float(config.get("inj", "log_A1"))
-            inj['log_A2']      = float(config.get("inj", "log_A2"))
-        elif inj['spectral_inj'] == 'population' :
-            inj['popfile']     = str(config.get("inj","popfile"))
-            inj['SNRcut']      = float(config.get("inj","SNRcut"))
-            colnames = str(config.get("inj","columns"))
-            colnames = colnames.split(',')
-            inj['columns'] = colnames
-            delimiter = str(config.get("inj","delimiter"))
-            if delimiter == 'space':
-                delimiter = ' '
-            elif delimiter == 'tab':
-                delimiter = '\t'
-            inj['delimiter'] = delimiter
+    if inj['doInj']:
+        inj['injection'] = str(config.get("inj", "injection"))
+        
+        ## get the injection truevals, passed as a dict
+        truevals = eval(str(config.get("inj","truevals")))
+        ## some quantities we want to use as log values, so convert them
+        log_list = ["Np","Na","omega0","fbreak","fcut","fscale"]
+        for item in truevals.keys():
+            if item in log_list:
+                new_name = "log_"+item
+                inj[new_name] = np.log10(float(truevals[item]))
+            else:
+                inj[item] = float(truevals[item])
+        ## add injections to the spherical harmonic check if needed
+        sph_check = sph_check + [element for sublist in inj['injection'].split('+') for element in sublist.split('_')]
+        
+    ## set sph flags
+    params['sph_flag'] = ('sph' in sph_check) or ('hierarchical' in sph_check)
+    inj['astro_flag'] = 'astro' in sph_check
+        
+#    
+#    
+#    inj['injtype']     = str(config.get("inj", "injtype"))
+#    
+#    inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
+#    inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
+#    
+#    
+##    inj.extend(parameter_collector(inj['injection']))
+#    ## need to write parameter_collector (in models.py) that automatically looks for the relevant parameters in the params file given the model
+#    
+#    
+#    ## spectral parameters
+#    
+#    
+#    
+#    
+#    if inj['injtype'] != 'noise_only':
+#        inj['spectral_inj']     = str(config.get("inj", "spectral_inj"))
+#        if inj['spectral_inj'] == 'powerlaw':
+#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+#            inj['alpha']       = float(config.get("inj", "alpha"))
+#        elif inj['spectral_inj'] == 'broken_powerlaw':
+#            inj['alpha1']     = float(config.get("inj", "alpha1"))
+#            inj['log_A1']      = float(config.get("inj", "log_A1"))
+#            inj['log_A2']      = float(config.get("inj", "log_A2"))
+#        elif inj['spectral_inj'] == 'broken_powerlaw_2':
+#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+#            inj['alpha1']     = float(config.get("inj", "alpha1"))
+#            inj['alpha2']     = float(config.get("inj", "alpha2"))
+#            inj['f_break']      = float(config.get("inj", "f_break"))
+#        elif inj['spectral_inj'] == 'truncated_broken_powerlaw':
+#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+#            inj['alpha1']     = float(config.get("inj", "alpha1"))
+#            inj['alpha2']     = float(config.get("inj", "alpha2"))
+#            inj['f_break']      = float(config.get("inj", "f_break"))
+#            inj['f_cut']      = float(config.get("inj", "f_cut"))
+#            inj['f_scale']      = float(config.get("inj", "f_scale"))
+#        elif inj['spectral_inj'] == 'truncated_powerlaw':
+#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
+#            inj['alpha']     = float(config.get("inj", "alpha"))
+#            inj['f_cut']      = float(config.get("inj", "f_cut"))
+#            inj['f_scale']      = float(config.get("inj", "f_scale"))
+#        elif inj['spectral_inj'] == 'free_broken_powerlaw':
+#            inj['alpha1']     = float(config.get("inj", "alpha1"))
+#            inj['alpha2']     = float(config.get("inj", "alpha2"))
+#            inj['log_A1']      = float(config.get("inj", "log_A1"))
+#            inj['log_A2']      = float(config.get("inj", "log_A2"))
+#        elif inj['spectral_inj'] == 'population' :
+#            inj['popfile']     = str(config.get("inj","popfile"))
+#            inj['SNRcut']      = float(config.get("inj","SNRcut"))
+#            colnames = str(config.get("inj","columns"))
+#            colnames = colnames.split(',')
+#            inj['columns'] = colnames
+#            delimiter = str(config.get("inj","delimiter"))
+#            if delimiter == 'space':
+#                delimiter = ' '
+#            elif delimiter == 'tab':
+#                delimiter = '\t'
+#            inj['delimiter'] = delimiter
     ## spatial parameters
     ## direct spherical harmonic injections
-    if inj['injtype'] ==  'sph_sgwb':
-        blm_vals = config.get("inj", "blms")
-        blm_vals = blm_vals.split(',')
-        num_blms = int(0.5*(params['lmax'] + 1) * (params['lmax'] + 2))
-        blms = np.zeros(num_blms, dtype='complex')
-        for ii in range(num_blms):
-            blms[ii] = complex(blm_vals[ii])
-        inj['blms'] = blms
-    ## astrophysical injections
-    elif inj['injtype'] == 'astro':
-        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
-        inj['injbasis'] = str(config.get("inj", "injbasis"))
-        if inj['injbasis'] == 'sph_lmax':
-            inj['inj_lmax'] = int(config.get("inj", "inj_lmax"))
-        if inj['spatial_inj'] == 'breivik2020':
-            inj['rh']          = float(config.get("inj", "rh"))
-            inj['zh']          = float(config.get("inj", "zh"))
-        ## only need to load these parameters is spectral inj isn't also population
-        elif inj['spatial_inj'] == 'population':
-            if inj['spectral_inj'] != 'population':
-                inj['popfile']     = str(config.get("inj","popfile"))
-                inj['SNRcut']      = float(config.get("inj","SNRcut"))
-                colnames = str(config.get("inj","columns"))
-                colnames = colnames.split(',')
-                inj['columns'] = colnames
-                delimiter = str(config.get("inj","delimiter"))
-                if delimiter == 'space':
-                    delimiter = ' '
-                elif delimiter == 'tab':
-                    delimiter = '\t'
-                inj['delimiter'] = delimiter
-        elif inj['spatial_inj'] == 'sdg':
-            inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
-            inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
-            inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
-            inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
-            inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
-        elif inj['spatial_inj'] == 'point_source':
-            inj['theta'] = float(config.get("inj", "theta"))
-            inj['phi'] = float(config.get("inj", "phi"))
-        elif inj['spatial_inj'] == 'two_point':
-            inj['theta_1'] = float(config.get("inj", "theta_1"))
-            inj['phi_1'] = float(config.get("inj", "phi_1"))
-            inj['theta_2'] = float(config.get("inj", "theta_2"))
-            inj['phi_2'] = float(config.get("inj", "phi_2"))
-        elif inj['spatial_inj']:
-            pass
-        else:
-            raise TypeError("Unkown spatial injection type. Currently supported: 'breivik2020', 'population', 'sdg', 'ps', 'tps'.")
-    elif inj['injtype'] == 'multi':
-        ## this prototype only supports a Breivik+2020 galaxy with a truncated power law spectrum + a power law isotropic SGWB
-        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
-        inj['injbasis'] = str(config.get("inj", "injbasis"))
-        if inj['spatial_inj'] == 'breivik2020':
-            inj['rh']          = float(config.get("inj", "rh"))
-            inj['zh']          = float(config.get("inj", "zh"))
-        else:
-            raise ValueError("Multi-SGWB analysis prototype only supports a Breivik+2020 anisotropic spatial injection.")
-        inj['log_omega0_a']   = np.log10(float(config.get("inj", "omega0_a")))
-        inj['alpha_a']     = float(config.get("inj", "alpha_a"))
-        inj['f_cut_a']      = float(config.get("inj", "f_cut_a"))
-        inj['f_scale_a']      = float(config.get("inj", "f_scale_a"))
-        inj['log_omega0_i']   = np.log10(float(config.get("inj", "omega0_i")))
-        inj['alpha_i']       = float(config.get("inj", "alpha_i"))
+#    if inj['injtype'] ==  'sph_sgwb':
+#        blm_vals = config.get("inj", "blms")
+#        blm_vals = blm_vals.split(',')
+#        num_blms = int(0.5*(params['lmax'] + 1) * (params['lmax'] + 2))
+#        blms = np.zeros(num_blms, dtype='complex')
+#        for ii in range(num_blms):
+#            blms[ii] = complex(blm_vals[ii])
+#        inj['blms'] = blms
+#    ## astrophysical injections
+#    elif inj['injtype'] == 'astro':
+#        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
+#        inj['injbasis'] = str(config.get("inj", "injbasis"))
+#        if inj['injbasis'] == 'sph_lmax':
+#            inj['inj_lmax'] = int(config.get("inj", "inj_lmax"))
+#        if inj['spatial_inj'] == 'breivik2020':
+#            inj['rh']          = float(config.get("inj", "rh"))
+#            inj['zh']          = float(config.get("inj", "zh"))
+#        ## only need to load these parameters is spectral inj isn't also population
+#        elif inj['spatial_inj'] == 'population':
+#            if inj['spectral_inj'] != 'population':
+#                inj['popfile']     = str(config.get("inj","popfile"))
+#                inj['SNRcut']      = float(config.get("inj","SNRcut"))
+#                colnames = str(config.get("inj","columns"))
+#                colnames = colnames.split(',')
+#                inj['columns'] = colnames
+#                delimiter = str(config.get("inj","delimiter"))
+#                if delimiter == 'space':
+#                    delimiter = ' '
+#                elif delimiter == 'tab':
+#                    delimiter = '\t'
+#                inj['delimiter'] = delimiter
+#        elif inj['spatial_inj'] == 'sdg':
+#            inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
+#            inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
+#            inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
+#            inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
+#            inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
+#        elif inj['spatial_inj'] == 'point_source':
+#            inj['theta'] = float(config.get("inj", "theta"))
+#            inj['phi'] = float(config.get("inj", "phi"))
+#        elif inj['spatial_inj'] == 'two_point':
+#            inj['theta_1'] = float(config.get("inj", "theta_1"))
+#            inj['phi_1'] = float(config.get("inj", "phi_1"))
+#            inj['theta_2'] = float(config.get("inj", "theta_2"))
+#            inj['phi_2'] = float(config.get("inj", "phi_2"))
+#        elif inj['spatial_inj']:
+#            pass
+#        else:
+#            raise TypeError("Unkown spatial injection type. Currently supported: 'breivik2020', 'population', 'sdg', 'ps', 'tps'.")
+#    elif inj['injtype'] == 'multi':
+#        ## this prototype only supports a Breivik+2020 galaxy with a truncated power law spectrum + a power law isotropic SGWB
+#        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
+#        inj['injbasis'] = str(config.get("inj", "injbasis"))
+#        if inj['spatial_inj'] == 'breivik2020':
+#            inj['rh']          = float(config.get("inj", "rh"))
+#            inj['zh']          = float(config.get("inj", "zh"))
+#        else:
+#            raise ValueError("Multi-SGWB analysis prototype only supports a Breivik+2020 anisotropic spatial injection.")
+#        inj['log_omega0_a']   = np.log10(float(config.get("inj", "omega0_a")))
+#        inj['alpha_a']     = float(config.get("inj", "alpha_a"))
+#        inj['f_cut_a']      = float(config.get("inj", "f_cut_a"))
+#        inj['f_scale_a']      = float(config.get("inj", "f_scale_a"))
+#        inj['log_omega0_i']   = np.log10(float(config.get("inj", "omega0_i")))
+#        inj['alpha_i']       = float(config.get("inj", "alpha_i"))
 
 
     # some run parameters

@@ -205,216 +205,218 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
 
         ## Loop over splice segments
         for ii in range(self.Injection.nsplice):
+            ## move frequency to be the zeroth-axis, then cholesky decomp
+            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(injmodel.response_mat[:, :, :, ii], -1, 0))
 
-            if self.inj['injtype'] == 'isgwb':
-                ## move frequency to be the zeroth-axis, then cholesky decomp
-                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(injmodel.response_mat[:, :, :, ii], -1, 0))
-
-            elif self.inj['injtype'] == 'sph_sgwb':
-
-                if ii == 0:
-
-                    ## need to set up a few things before doing the spherical harmonic inj
-
-                    ## extract alms
-                    self.alms_inj = self.blm_2_alm(self.inj['blms'])
-
-                    ## normalize
-                    self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
-
-                    ## extrct only the non-negative components
-                    alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
-
-                    ## response matrix summed over Ylms
-                    summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
-
-                    # converts alm_inj into a healpix max to be plotted and saved
-                    # Plot with twice the analysis nside for better resolution
-                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
-
-                    Omegamap_inj = Omega_1mHz * skymap_inj
-
-                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
-                    hp.graticule()
-                    
-                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-                    plt.close()
-                    
-
-                ## move frequency to be the zeroth-axis, then cholesky decomp
-                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
-
-            elif self.inj['injtype'] == 'astro':
-                if ii==0:
-                    ## pick between different anisotropic astrophysical injections
-                    if self.inj['spatial_inj'] == 'breivik2020':
-                        ## toy model foreground
-                        astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
-                    elif self.inj['spatial_inj'] == 'population':
-                        ## generate skymap
-                        print("Constructing skymap from DWD population...")
-                        astro_map, log_astro_map = self.pop2map(self.inj['popfile'],self.params['nside'],self.params['dur']*u.s,
-                                                                  self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
-                    elif self.inj['spatial_inj'] == 'sdg':
-                        astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
-                    elif self.inj['spatial_inj'] == 'point_source':
-                        astro_map, log_astro_map = self.generate_point_source(self.inj['theta'],self.inj['phi'])
-                    elif self.inj['spatial_inj'] == 'two_point':
-                        astro_map, log_astro_map = self.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'])
-                    elif self.inj['spatial_inj'] == 'isotropic':
-                        astro_map = np.ones(hp.nside2npix(self.params['nside']))
-                    else:
-                        raise ValueError("Unsupported spatial injection. Currentlys supported: breivik2020, sdg, population, point_source, two_point_source.")
-            
-                    if self.inj['injbasis'] == 'sph':
-                        ## convert to blms
-                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
-                        ## save blms for truevals
-                        self.inj['astro_blms'] = astro_sph
-                        ## extract alms
-                        self.alms_inj = self.blm_2_alm(astro_sph)
-    
-                        ## normalize
-                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
-    
-                        ## extrct only the non-negative components
-                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
-                        ## response matrix summed over Ylms
-                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
-    
-                        # converts alm_inj into a healpix map to be plotted and saved
-                        # Plot with twice the analysis nside for better resolution
-                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
-                        
-                    elif self.inj['injbasis'] == 'sph_lmax':
-                        ## version with injection lmax decoupled from analysis lmax
-                        
-                        ## convert to blms
-                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.inj['inj_lmax'])
-                        ## save blms for truevals
-                        self.inj['astro_blms'] = astro_sph
-                        ## extract alms
-                        self.alms_inj = self.inj_blm_2_alm(astro_sph)
-    
-                        ## normalize
-                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
-                        
-                        ## get almax from blmax
-                        almax_inj = 2*self.inj['inj_lmax']
-                        ## extract only the non-negative components
-                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(almax_inj)]
-                        ## response matrix summed over Ylms
-                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
-    
-                        # converts alm_inj into a healpix map to be plotted and saved
-                        # Plot with twice the analysis nside for better resolution
-                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
-                    elif self.inj['injbasis'] == 'pixel':
-                        print("Warning: pixel-basis injections are still under development, results may be erroneous.")
-                        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
-                        skymap_inj = astro_map/(np.sum(astro_map)*(dOmega/(8*np.pi)))
-                        summ_response_mat = self.add_astro_signal(f0,tmids,skymap_inj)                     
-                        
-                    Omegamap_inj = Omega_1mHz * skymap_inj
-                    
-                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
-                    self.skymap_inj = skymap_inj
-    
-                    ## also save the final healpix map to a datafile
-                    np.savetxt(self.params['out_dir'] +"/injected_healpix_skymap.dat",skymap_inj)
-                    
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
-                    hp.graticule()
-                    
-                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-                    plt.close()
-                    
-                    
-                    hp.mollview(astro_map, title='Simulated astrophysical skymap')
-                    hp.graticule()
-                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
-                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
-                    plt.close()
-                    if self.inj['injbasis']!='pixel':
-                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
-                        hp.graticule()
-                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
-                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
-                        plt.close()
-
-                ## move frequency to be the zeroth-axis, then cholesky decomp
-                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
-            
-            elif self.inj['injtype'] == 'multi':
-                if ii==0 and multi=='a':
-                    ## pick between different anisotropic astrophysical injections
-                    if self.inj['spatial_inj'] == 'breivik2020':
-                        ## toy model foreground
-                        astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
-                    else:
-                        raise ValueError("Multi-SGWB injection protoype currently only supports breivik2020 model galaxy.")
-            
-                    if self.inj['injbasis'] == 'sph':
-                        ## convert to blms
-                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
-                        ## save blms for truevals
-                        self.inj['astro_blms'] = astro_sph
-                        ## extract alms
-                        self.alms_inj = self.blm_2_alm(astro_sph)
-    
-                        ## normalize
-                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
-    
-                        ## extrct only the non-negative components
-                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
-                        ## response matrix summed over Ylms
-                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
-    
-                        # converts alm_inj into a healpix map to be plotted and saved
-                        # Plot with twice the analysis nside for better resolution
-                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
-                        
-                    else:
-                        raise ValueError("Multi-SGWB injection protoype currently only supports sph-basis spatial injections.")
-                        
-                    Omegamap_inj = (Omega_1mHz) * skymap_inj
-                    
-                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
-                    self.skymap_inj = skymap_inj
-    
-                    ## also save the final healpix map to a datafile
-                    np.savetxt(self.params['out_dir'] +"/injected_healpix_skymap.dat",skymap_inj)
-                    
-                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
-                    hp.graticule()
-                    
-                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
-                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
-                    plt.close()
-                    
-                    
-                    hp.mollview(astro_map, title='Simulated astrophysical skymap')
-                    hp.graticule()
-                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
-                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
-                    plt.close()
-                    if self.inj['injbasis']!='pixel':
-                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
-                        hp.graticule()
-                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
-                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
-                        plt.close()
-
-                if multi=='i':
-                    ## move frequency to be the zeroth-axis, then cholesky decomp
-                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
-                elif multi=='a':
-                    ## move frequency to be the zeroth-axis, then cholesky decomp
-                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
-                else:
-                    raise ValueError("Invalid specification of 'multi' type. Can be 'a' (anisotropic) or 'i' (isotropic).")
+#            if self.inj['injtype'] == 'isgwb':
+#                ## move frequency to be the zeroth-axis, then cholesky decomp
+#                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(injmodel.response_mat[:, :, :, ii], -1, 0))
+#
+#            elif self.inj['injtype'] == 'sph_sgwb':
+#
+#                if ii == 0:
+#
+#                    ## need to set up a few things before doing the spherical harmonic inj
+#
+#                    ## extract alms
+#                    self.alms_inj = self.blm_2_alm(self.inj['blms'])
+#
+#                    ## normalize
+#                    self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+#
+#                    ## extrct only the non-negative components
+#                    alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+#
+#                    ## response matrix summed over Ylms
+#                    summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+#
+#                    # converts alm_inj into a healpix max to be plotted and saved
+#                    # Plot with twice the analysis nside for better resolution
+#                    skymap_inj = hp.alm2map(alms_non_neg, 2*self.params['nside'])
+#
+#                    Omegamap_inj = Omega_1mHz * skymap_inj
+#
+#                    hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+#                    hp.graticule()
+#                    
+#                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+#                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+#                    plt.close()
+#                    
+#
+#                ## move frequency to be the zeroth-axis, then cholesky decomp
+#                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+#
+#            elif self.inj['injtype'] == 'astro':
+#                if ii==0:
+#                    ## pick between different anisotropic astrophysical injections
+#                    if self.inj['spatial_inj'] == 'breivik2020':
+#                        ## toy model foreground
+#                        astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
+#                    elif self.inj['spatial_inj'] == 'population':
+#                        ## generate skymap
+#                        print("Constructing skymap from DWD population...")
+#                        astro_map, log_astro_map = self.pop2map(self.inj['popfile'],self.params['nside'],self.params['dur']*u.s,
+#                                                                  self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
+#                    elif self.inj['spatial_inj'] == 'sdg':
+#                        astro_map, log_astro_map = self.generate_sdg(self.inj['sdg_RA'], self.inj['sdg_DEC'], self.inj['sdg_DIST'], self.inj['sdg_RAD'], self.inj['sdg_NUM'])
+#                    elif self.inj['spatial_inj'] == 'point_source':
+#                        astro_map, log_astro_map = self.generate_point_source(self.inj['theta'],self.inj['phi'])
+#                    elif self.inj['spatial_inj'] == 'two_point':
+#                        astro_map, log_astro_map = self.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'])
+#                    elif self.inj['spatial_inj'] == 'isotropic':
+#                        astro_map = np.ones(hp.nside2npix(self.params['nside']))
+#                    else:
+#                        raise ValueError("Unsupported spatial injection. Currentlys supported: breivik2020, sdg, population, point_source, two_point_source.")
+#            
+#                    if self.inj['injbasis'] == 'sph':
+#                        ## convert to blms
+#                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
+#                        ## save blms for truevals
+#                        self.inj['astro_blms'] = astro_sph
+#                        ## extract alms
+#                        self.alms_inj = self.blm_2_alm(astro_sph)
+#    
+#                        ## normalize
+#                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+#    
+#                        ## extrct only the non-negative components
+#                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+#                        ## response matrix summed over Ylms
+#                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+#    
+#                        # converts alm_inj into a healpix map to be plotted and saved
+#                        # Plot with twice the analysis nside for better resolution
+#                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+#                        
+#                    elif self.inj['injbasis'] == 'sph_lmax':
+#                        ## version with injection lmax decoupled from analysis lmax
+#                        
+#                        ## convert to blms
+#                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.inj['inj_lmax'])
+#                        ## save blms for truevals
+#                        self.inj['astro_blms'] = astro_sph
+#                        ## extract alms
+#                        self.alms_inj = self.inj_blm_2_alm(astro_sph)
+#    
+#                        ## normalize
+#                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+#                        
+#                        ## get almax from blmax
+#                        almax_inj = 2*self.inj['inj_lmax']
+#                        ## extract only the non-negative components
+#                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(almax_inj)]
+#                        ## response matrix summed over Ylms
+#                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+#    
+#                        # converts alm_inj into a healpix map to be plotted and saved
+#                        # Plot with twice the analysis nside for better resolution
+#                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+#                    elif self.inj['injbasis'] == 'pixel':
+#                        print("Warning: pixel-basis injections are still under development, results may be erroneous.")
+#                        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
+#                        skymap_inj = astro_map/(np.sum(astro_map)*(dOmega/(8*np.pi)))
+#                        summ_response_mat = self.add_astro_signal(f0,tmids,skymap_inj)                     
+#                        
+#                    Omegamap_inj = Omega_1mHz * skymap_inj
+#                    
+#                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
+#                    self.skymap_inj = skymap_inj
+#    
+#                    ## also save the final healpix map to a datafile
+#                    np.savetxt(self.params['out_dir'] +"/injected_healpix_skymap.dat",skymap_inj)
+#                    
+#                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+#                    hp.graticule()
+#                    
+#                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+#                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+#                    plt.close()
+#                    
+#                    
+#                    hp.mollview(astro_map, title='Simulated astrophysical skymap')
+#                    hp.graticule()
+#                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+#                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+#                    plt.close()
+#                    if self.inj['injbasis']!='pixel':
+#                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
+#                        hp.graticule()
+#                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+#                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+#                        plt.close()
+#
+#                ## move frequency to be the zeroth-axis, then cholesky decomp
+#                L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+#            
+#            elif self.inj['injtype'] == 'multi':
+#                if ii==0 and multi=='a':
+#                    ## pick between different anisotropic astrophysical injections
+#                    if self.inj['spatial_inj'] == 'breivik2020':
+#                        ## toy model foreground
+#                        astro_map, log_astro_map = self.generate_galactic_foreground(self.inj['rh'], self.inj['zh'])
+#                    else:
+#                        raise ValueError("Multi-SGWB injection protoype currently only supports breivik2020 model galaxy.")
+#            
+#                    if self.inj['injbasis'] == 'sph':
+#                        ## convert to blms
+#                        astro_sph = self.skymap_pix2sph(astro_map, blmax=self.blmax)
+#                        ## save blms for truevals
+#                        self.inj['astro_blms'] = astro_sph
+#                        ## extract alms
+#                        self.alms_inj = self.blm_2_alm(astro_sph)
+#    
+#                        ## normalize
+#                        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+#    
+#                        ## extrct only the non-negative components
+#                        alms_non_neg = self.alms_inj[0:hp.Alm.getsize(self.almax)]
+#                        ## response matrix summed over Ylms
+#                        summ_response_mat = np.einsum('ijklm,m', response_mat, self.alms_inj)
+#    
+#                        # converts alm_inj into a healpix map to be plotted and saved
+#                        # Plot with twice the analysis nside for better resolution
+#                        skymap_inj = hp.alm2map(alms_non_neg, self.params['nside'])
+#                        
+#                    else:
+#                        raise ValueError("Multi-SGWB injection protoype currently only supports sph-basis spatial injections.")
+#                        
+#                    Omegamap_inj = (Omega_1mHz) * skymap_inj
+#                    
+#                    ## save injected skymap for use elsewhere (i.e., diag_spectra)
+#                    self.skymap_inj = skymap_inj
+#    
+#                    ## also save the final healpix map to a datafile
+#                    np.savetxt(self.params['out_dir'] +"/injected_healpix_skymap.dat",skymap_inj)
+#                    
+#                    hp.mollview(Omegamap_inj, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+#                    hp.graticule()
+#                    
+#                    plt.savefig(self.params['out_dir'] + '/inj_skymap.png', dpi=150)
+#                    print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap.png')
+#                    plt.close()
+#                    
+#                    
+#                    hp.mollview(astro_map, title='Simulated astrophysical skymap')
+#                    hp.graticule()
+#                    plt.savefig(self.params['out_dir'] + '/pre_inj_skymap.png', dpi=150)
+#                    print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_skymap.png')
+#                    plt.close()
+#                    if self.inj['injbasis']!='pixel':
+#                        hp.mollview(skymap_inj, title='Simulated astrophysical alm map')
+#                        hp.graticule()
+#                        plt.savefig(self.params['out_dir'] + '/pre_inj_almmap.png', dpi=150)
+#                        print('saving simulated skymap at ' +  self.params['out_dir'] + '/pre_inj_almmap.png')
+#                        plt.close()
+#
+#                if multi=='i':
+#                    ## move frequency to be the zeroth-axis, then cholesky decomp
+#                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(response_mat[:, :, :, ii], -1, 0))
+#                elif multi=='a':
+#                    ## move frequency to be the zeroth-axis, then cholesky decomp
+#                    L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(summ_response_mat[:, :, :, ii], -1, 0))
+#                else:
+#                    raise ValueError("Invalid specification of 'multi' type. Can be 'a' (anisotropic) or 'i' (isotropic).")
                 
             ## generate standard normal complex data frist
             z_norm = np.random.normal(size=(self.Injection.frange.size, 3)) + 1j * np.random.normal(size=(self.Injection.frange.size, 3))

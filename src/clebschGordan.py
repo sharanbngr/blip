@@ -35,7 +35,7 @@ class clebschGordan():
             self.bl_idx[ii], self.bm_idx[ii] = self.idxtoalm(self.blmax, ii)
         
         ## independent injection lmax case
-        if self.inj['injtype']=='astro' and self.inj['injbasis']=='sph_lmax':
+        if self.inj['astro_flag'] and self.inj['injbasis']=='sph_lmax':
             self.inj_blmax = self.inj['inj_lmax']
             self.inj_almax = 2*self.inj_blmax
     

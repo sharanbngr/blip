@@ -74,14 +74,7 @@ class submodel(geometry,sph_geometry,instrNoise):
         ###################################################
         ###            BUILD NEW MODELS HERE            ###
         ###################################################
-        
-        ## color dictionary, for plotting. 
-#        color_dict = {'powerlaw_isgwb':'darkorange',
-#                      }
-        
-        
-        
-        
+
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
             self.parameters = self.parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
@@ -92,6 +85,30 @@ class submodel(geometry,sph_geometry,instrNoise):
             else:
                 self.truevals[r'$\alpha$'] = self.inj['alpha']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
+        elif self.spectral_model_name == 'brokenpowerlaw':
+            self.parameters = self.parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
+            self.omegaf = self.broken_powerlaw_spectrum
+            self.fancyname = "Broken Power Law SGWB"
+            if not injection:
+                self.spectral_prior = self.broken_powerlaw_prior
+            else:
+                self.truevals[r'$\alpha_1$'] = self.inj['alpha1']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
+                self.truevals[r'$\alpha_2$'] = self.inj['alpha2']
+                self.truevals[r'$\log_{10} (f_{break})$'] = self.inj['log_fbreak']
+        
+        elif self.spectral_model_name == 'truncatedpowerlaw':
+            self.parameters = self.parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.omegaf = self.truncated_powerlaw_spectrum
+            self.fancyname = "Truncated Power Law SGWB"
+            if not injection:
+                self.spectral_prior = self.truncated_powerlaw_prior
+            else:
+                self.truevals[r'$\alpha$'] = self.inj['alpha']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
+                self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.inj['log_fcut']
+                self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.inj['log_fscale']
+        
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
@@ -155,9 +172,15 @@ class submodel(geometry,sph_geometry,instrNoise):
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
     
+    def broken_powerlaw_spectrum(self,fs,alpha_1,log_omega0,alpha_2,log_fbreak):
+        delta = 0.1
+        fbreak = 10**log_fbreak
+        return (10**log_omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
     
-    
-    
+    def truncated_powerlaw_spectrum(self,fs,alpha,log_omega0,log_fcut,log_fscale):
+        fcut = 10**log_fcut
+        fscale = 10**log_fscale
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
     
     def compute_Sgw(self,fs,omegaf_args):
         H0 = 2.2*10**(-18)
@@ -237,20 +260,81 @@ class submodel(geometry,sph_geometry,instrNoise):
         ---------
 
         theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, Np and Na
+            theta with each element rescaled. The elements are  interpreted as alpha and log(Omega0)
 
         '''
 
 
         # Unpack: Theta is defined in the unit cube
-        alpha, log_omega0 = theta
-
         # Transform to actual priors
-        alpha       =  10*alpha-5
-        log_omega0  = -10*log_omega0 - 4
+        alpha       =  10*theta[0]-5
+        log_omega0  = -10*theta[1] - 4
+        
+        return [alpha, log_omega0]
+    
+    def broken_powerlaw_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a broken power law spectral model.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha_1, log(Omega_0), alpha_2, and log(f_break).
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        alpha_1 = 10*theta[0] - 4
+        log_omega0 = -10*theta[1] - 4
+        alpha_2 = 40*theta[2]
+        log_fbreak = -2*theta[3] - 2
+
+        return [alpha_1, log_omega0, alpha_2, log_fbreak]
+    
+    def truncated_powerlaw_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a truncated power law spectral model.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, omega_ref, log_fcut, and log_fscale
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        alpha = 10*theta[0] - 5
+        log_omega0 = -10*theta[1] - 4
+        log_fcut = -2*theta[2] - 2
+        log_fscale = -2*theta[3] - 2
         
 
-        return [alpha, log_omega0]
+        return [alpha, log_omega0, log_fcut, log_fscale]
+    
+    
+    
+    
+    
     
     #############################
     ## Covariance Calculations ##
