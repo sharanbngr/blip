@@ -13,7 +13,7 @@ from math import pi
 import os
 import legwork as lw
 
-class LISAdata(geometry, sph_geometry, instrNoise, populations):
+class LISAdata(populations):
 
     '''
     Class for lisa data. Includes methods for generation of gaussian instrumental noise, and generation
@@ -25,8 +25,8 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         self.params = params
         self.inj = inj
         self.armlength = 2.5e9 ## armlength in meters
-        geometry.__init__(self)
-        sph_geometry.__init__(self)
+#        geometry.__init__(self)
+#        sph_geometry.__init__(self)
 
 
     ## Method for reading frequency domain spectral data if given in an npz file
@@ -177,7 +177,7 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         N = self.Injection.Npersplice
         halfN = int(0.5*N)
         
-        injmodel_args = [injmodel.truevals[parameter] for parameter in injmodel.parameters]
+        injmodel_args = [injmodel.truevals[parameter] for parameter in injmodel.spectral_parameters]
         
         Sgw = injmodel.compute_Sgw(self.Injection.frange,injmodel_args)
         
@@ -194,19 +194,19 @@ class LISAdata(geometry, sph_geometry, instrNoise, populations):
         splice_win = np.sin(np.pi * t_arr/N)
 
         # deals with projection parameter to use in the hp.mollview functions below
-        if self.params['projection'] is None:
-            coord = 'E'
-        elif self.params['projection']=='G' or self.params['projection']=='C':
-            coord = ['E',self.params['projection']]
-        elif self.params['projection']=='E':
-            coord = self.params['projection']
-        else:  
-            raise TypeError('Invalid specification of projection, projection can be E, G, or C')
+#        if self.params['projection'] is None:
+#            coord = 'E'
+#        elif self.params['projection']=='G' or self.params['projection']=='C':
+#            coord = ['E',self.params['projection']]
+#        elif self.params['projection']=='E':
+#            coord = self.params['projection']
+#        else:  
+#            raise TypeError('Invalid specification of projection, projection can be E, G, or C')
 
         ## Loop over splice segments
         for ii in range(self.Injection.nsplice):
             ## move frequency to be the zeroth-axis, then cholesky decomp
-            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(injmodel.response_mat[:, :, :, ii], -1, 0))
+            L_cholesky = norms[:, None, None] *  np.linalg.cholesky(np.moveaxis(injmodel.inj_response_mat[:, :, :, ii], -1, 0))
 
 #            if self.inj['injtype'] == 'isgwb':
 #                ## move frequency to be the zeroth-axis, then cholesky decomp

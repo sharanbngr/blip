@@ -649,16 +649,25 @@ def blip(paramsfile='params.ini',resume=False):
         for item in truevals.keys():
             if item in log_list:
                 new_name = "log_"+item
-                inj[new_name] = np.log10(float(truevals[item]))
+                inj[new_name] = np.log10(truevals[item])
             else:
-                inj[item] = float(truevals[item])
+                inj[item] = truevals[item]
         ## add injections to the spherical harmonic check if needed
         sph_check = sph_check + [element for sublist in inj['injection'].split('+') for element in sublist.split('_')]
         
     ## set sph flags
     params['sph_flag'] = ('sph' in sph_check) or ('hierarchical' in sph_check)
     inj['astro_flag'] = 'astro' in sph_check
-        
+    
+    
+    if inj['doInj'] and (params['sph_flag'] or inj['astro_flag']):
+        try:
+            inj['inj_lmax'] = int(config.get("inj", "inj_lmax"))
+        except configparser.NoOptionError:
+            print("Performing a spherical harmonic basis injection and inj_lmax has not been specified. Injection and recovery will use same lmax (lmax={}).".format(params['lmax']))
+            inj['inj_lmax'] = params['lmax']
+    
+    
 #    
 #    
 #    inj['injtype']     = str(config.get("inj", "injtype"))

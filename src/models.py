@@ -1,15 +1,17 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
+import healpy as hp
 from src.geometry import geometry
 from src.sph_geometry import sph_geometry
+from src.clebschGordan import clebschGordan
 from src.populations import populations
 from src.likelihoods import likelihoods
 from src.instrNoise import instrNoise
 
 
 
-class submodel(geometry,sph_geometry,instrNoise):
+class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     '''
     Modular class that can represent either an injection or an analysis model. Will have different attributes depending on use case.
     
@@ -26,16 +28,24 @@ class submodel(geometry,sph_geometry,instrNoise):
         self.f0= f0
         self.time_dim = tsegmid.size
         self.name = submodel_name
+        self.injection = injection
+        geometry.__init__(self)
+        
+        
+        
         if injection:
             self.truevals = {}
             
         ## handle & return noise case in bespoke fashion, as it is quite different from the signal models
         if submodel_name == 'noise':
-            self.parameters = [r'$\log_{10} (Np)$'+suffix, r'$\log_{10} (Na)$'+suffix]
+            self.spectral_parameters = [r'$\log_{10} (Np)$'+suffix, r'$\log_{10} (Na)$'+suffix]
+            self.spatial_parameters = []
+            self.parameters = self.spectral_parameters
             self.Npar = 2
             ## for plotting
             self.fancyname = "Instrumental Noise"
             self.color = 'dimgrey'
+            self.has_map = False
             # Figure out which instrumental noise spectra to use
             if self.params['tdi_lev']=='aet':
                 self.instr_noise_spectrum = self.aet_noise_spectrum
@@ -67,6 +77,8 @@ class submodel(geometry,sph_geometry,instrNoise):
         
         else:
             self.parameters = []
+            self.spectral_parameters = []
+            self.spatial_parameters = []
             self.spectral_model_name, self.spatial_model_name = submodel_name.split('_')
             
             
@@ -77,7 +89,7 @@ class submodel(geometry,sph_geometry,instrNoise):
 
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
-            self.parameters = self.parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
             self.omegaf = self.powerlaw_spectrum
             self.fancyname = "Power Law SGWB"
             if not injection:
@@ -86,7 +98,7 @@ class submodel(geometry,sph_geometry,instrNoise):
                 self.truevals[r'$\alpha$'] = self.inj['alpha']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
         elif self.spectral_model_name == 'brokenpowerlaw':
-            self.parameters = self.parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
             self.omegaf = self.broken_powerlaw_spectrum
             self.fancyname = "Broken Power Law SGWB"
             if not injection:
@@ -98,7 +110,7 @@ class submodel(geometry,sph_geometry,instrNoise):
                 self.truevals[r'$\log_{10} (f_{break})$'] = self.inj['log_fbreak']
         
         elif self.spectral_model_name == 'truncatedpowerlaw':
-            self.parameters = self.parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             self.omegaf = self.truncated_powerlaw_spectrum
             self.fancyname = "Truncated Power Law SGWB"
             if not injection:
@@ -113,6 +125,9 @@ class submodel(geometry,sph_geometry,instrNoise):
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
         ## assignment of response and spatial methods
+        response_kwargs = {}
+        
+        ## This is the isotropic spatial model, and has no additional parameters.
         if self.spatial_model_name == 'isgwb':
             if self.params['tdi_lev'] == 'michelson':
                 self.response = self.isgwb_mich_response
@@ -123,34 +138,98 @@ class submodel(geometry,sph_geometry,instrNoise):
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
+            ## compute response matrix
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+            
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
             self.subscript = "_{I}"
             self.color='darkorange'
+            self.has_map = False
 
             if not injection:
                 ## prior transform
                 self.prior = self.isotropic_prior
-            
+                self.cov = self.compute_cov_isgwb
+            else:
+                ## create a wrapper b/c isotropic and anisotropic injection responses are different
+                self.inj_response_mat = self.response_mat
+        
+        ## This is the spherical harmonic spatial model. It is the workhorse of the spherical harmonic anisotropic analysis.
+        ## It can also be used to perform arbitrary injections in the spherical harmonic basis via direct specification of the blms.
         elif self.spatial_model_name == 'sph':
             
-#            self.blm_start = ...
-            pass
+            if injection:
+                self.lmax = self.inj['inj_lmax']
+            else:
+                self.lmax = self.params['lmax']
+            
+            ## almax is twice the blmax
+            self.almax = 2*self.lmax
+            response_kwargs['set_almax'] = self.almax
+            
+            if self.params['tdi_lev']=='michelson':
+                self.response = self.asgwb_mich_response
+            elif self.params['tdi_lev']=='xyz':
+                self.response = self.asgwb_xyz_response
+            elif self.params['tdi_lev']=='aet':
+                self.response = self.asgwb_aet_response
+            else:
+                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            
+            ## compute response matrix
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+            
+            ## plotting stuff
+            self.fancyname = "Anisotropic "+self.fancyname
+            self.subscript = "_{A}"
+            self.color = 'teal'
+            self.has_map = True
+            
+            # add the blms
+            blm_parameters = []
+            for lval in range(1, self.lmax + 1):
+                for mval in range(lval + 1):
+
+                    if mval == 0:
+                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+                    else:
+                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+            
+            ## save the blm start index for the prior, then add the blms to the parameter list
+            self.blm_start = len(self.spectral_parameters)
+            self.spatial_parameters = self.spatial_parameters + blm_parameters
+            
+            if not injection:
+                self.prior = self.sph_prior
+                self.cov = self.compute_cov_asgwb
+            else:
+                ## get blm truevals
+                for param, val in zip(blm_parameters,inj['blms']):
+                    self.truevals[param] = val
+                ## get alms
+                self.alms_inj = self.compute_skymap_alms(inj['blms'])
+                ## get sph basis skymap
+                self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
+                ## get response integrated over the Ylms
+                self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+                ## create a wrapper b/c isotropic and anisotropic injection responses are different
+                self.inj_response_mat = self.summ_response_mat
         
+        elif self.spatial_model_name == 'astro':
+            pass
         elif self.spatial_model_name == 'hierarchical':
             pass
         else:
-            raise ValueError("Invalid specification of spatial model name. Can be 'isgwb', 'asgwb', or 'hierarchical'.")
+            raise ValueError("Invalid specification of spatial model name. Can be 'isgwb', 'sph', 'astro', or 'hierarchical'.")
         
-        ## compute response matrix
-        self.response_mat = self.response(f0,tsegmid)
 
         
-        
+        ## store final parameter list and count
+        self.parameters = self.parameters + self.spectral_parameters + self.spatial_parameters
         if not injection:               
             self.Npar = len(self.parameters)
-            ## covariance calculation
-            self.cov = self.compute_cov_gw
             
         ## add suffix to parameter names and trueval keys, if desired
         ## (we need this in the multi-model or duplicate model case)
@@ -158,7 +237,11 @@ class submodel(geometry,sph_geometry,instrNoise):
             if injection:
                 updated_truevals = {parameter+suffix:self.truevals[parameter] for parameter in self.parameters}
                 self.truevals = updated_truevals
-            updated_parameters = [parameter+suffix for parameter in self.parameters]
+            updated_spectral_parameters = [parameter+suffix for parameter in self.spectral_parameters]
+            updated_spatial_parameters = [parameter+suffix for parameter in self.spatial_parameters]
+            updated_parameters = updated_spectral_parameters+updated_spatial_parameters
+            if len(updated_parameters) != len(self.parameters):
+                raise ValueError("If you've added a new variety of parameters above, you'll need to update this bit of code too!")
             self.parameters = updated_parameters
             
         
@@ -256,16 +339,41 @@ class submodel(geometry,sph_geometry,instrNoise):
     
     def sph_prior(self,theta):
         '''
-        Spherical harmonic anisotropic prior transform. Combines a generic prior function with ther spherical harmonic priors for the desired lmax.
+        Spherical harmonic anisotropic prior transform. Combines a generic spectral prior function with the spherical harmonic priors for the desired lmax.
         '''
         
-        ## compute the number of spectral components here by subtracting the expected number of blms
+        ## spectral prior takes everything up to 
+        spectral_theta = self.spectral_prior(theta[:self.blm_start])
         
-#        blm_start = ???
-#        spectral_theta = self.spectral_prior(theta[:blm_start])
-#        sph_theta = ???
-#        return spectral_theta+sph_theta
-        pass
+        # Calculate lmax from the size of theta blm arrays. The shape is
+        # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
+        # an independent parameter
+        lmax = np.sqrt( theta[self.blm_start:].size + 1 ) - 1
+
+        if lmax.is_integer():
+            lmax = int(lmax)
+        else:
+            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+
+        # The rest of the priors define the blm parameter space
+        sph_theta = []
+
+        ## counter for the rest of theta
+        cnt = self.blm_start
+
+        for lval in range(1, lmax + 1):
+            for mval in range(lval + 1):
+
+                if mval == 0:
+                    sph_theta.append(6*theta[cnt] - 3)
+                    cnt = cnt + 1
+                else:
+                    ## prior on amplitude, phase
+                    sph_theta.append(3* theta[cnt])
+                    sph_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    cnt = cnt + 2
+
+        return spectral_theta+sph_theta
     
     def hierarchical_prior(self,theta):
         pass
@@ -413,9 +521,9 @@ class submodel(geometry,sph_geometry,instrNoise):
         
         return cov_noise
     
-    def compute_cov_gw(self,theta):
+    def compute_cov_isgwb(self,theta):
         '''
-        Computes the covariance matrix contribution from a generic stochastic GW signal.
+        Computes the covariance matrix contribution from a generic isotropic stochastic GW signal.
         '''
         ## Signal PSD
         Sgw = self.compute_Sgw(self.fs,theta)
@@ -425,8 +533,64 @@ class submodel(geometry,sph_geometry,instrNoise):
         cov_sgwb = Sgw[None, None, :, None]*self.response_mat
         
         return cov_sgwb
+    
+    def compute_cov_asgwb(self,theta):
+        '''
+        Computes the covariance matrix contribution from a generic anisotropic stochastic GW signal.
+        '''
+        ## Signal PSD
+        Sgw = self.compute_Sgw(self.fs,theta[:self.blm_start])
+        
+        ## get skymap and integrate over alms
+        summ_response_mat = self.compute_summed_response(self.compute_skymap_alms(theta[self.blm_start:]))
 
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
+        
+        return cov_sgwb
 
+       
+    #############################
+    ##   Skymap Calculations   ##
+    #############################
+    
+    def compute_skymap_alms(self,blm_params):
+        '''
+        Function to compute the anisotropic skymap a_lms from the blm parameters.
+        
+        Arguments
+        ----------
+        blm_params (array of complex floats) : the blm parameters
+        
+        Returns
+        ----------
+        alm_vals (array of complex floats) : the corresponding alms
+        
+        '''
+        ## Spatial distribution
+        blm_vals = self.blm_params_2_blms(blm_params)
+        alm_vals = self.blm_2_alm(blm_vals)
+
+        ## normalize and return
+        return alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
+    
+    def compute_summed_response(self,alms):
+        '''
+        Function to compute the integrated, skymap-convolved anisotropic response
+        
+        Arguments
+        ----------
+        alms (array of complex floats) : the spherical harmonic alms
+        
+        Returns
+        ----------
+        summ_response_mat (array) : the sky/alm-integrated response (3 x 3 x frequency x time)
+        
+        '''
+        return np.einsum('ijklm,m', self.response_mat, alms)
+    
+    
 
 class Model(likelihoods):
     '''
@@ -577,6 +741,8 @@ class Injection(geometry,sph_geometry,populations):
             cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
             self.components[component_name] = cm
             self.truevals.update(cm.truevals)
+            if cm.has_map:
+                self.plot_skymaps(component_name)
     
         
     
@@ -590,9 +756,9 @@ class Injection(geometry,sph_geometry,populations):
         ## split the channel indicators
         c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
         if not imaginary:
-            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * np.real(self.components[component_name].response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * np.real(self.components[component_name].inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
         else:
-            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * 1j * np.imag(self.components[component_name].response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * 1j * np.imag(self.components[component_name].inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
         
         if fs_new is not None:
             PSD_interp = interp1d(self.frange,np.log10(PSD))
@@ -670,6 +836,38 @@ class Injection(geometry,sph_geometry,populations):
             return PSD
         else:
             return
+        
+    def plot_skymaps(self,component_name,**plt_kwargs):
+        '''
+        Function to plot the injected skymaps.
+        
+        NOTE - will need to be generalized when I add the astro injections
+        '''
+        cm = self.components[component_name]
+        
+        # deals with projection parameter 
+        if self.params['projection'] is None:
+            coord = 'E'
+        elif self.params['projection']=='G' or self.params['projection']=='C':
+            coord = ['E',self.params['projection']]
+        elif self.params['projection']=='E':
+            coord = self.params['projection']
+        else:  
+            raise TypeError('Invalid specification of projection, projection can be E, G, or C')
+        
+        ## dimensionless energy density at 1 mHz
+        spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
+        Omega_1mHz = cm.omegaf(1e-3,*spec_args)
+        Omegamap_inj = Omega_1mHz * cm.sph_skymap
+
+        hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+        hp.graticule()
+        
+        plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
+        print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
+        plt.close()
+        
+        return
 
 
 
