@@ -57,6 +57,11 @@ def mapmaker(post, params, parameters, inj, Model, Injection, saveto=None, coord
         
         ## only make a map if there's a map to make (this is also good life advice)
         if submodel_name in sph_models+hierarchical_models:
+            
+            ## HEALpy is really, REALLY noisy sometimes. This stops that.
+            logger = logging.getLogger()
+            logger.setLevel(logging.ERROR)
+            
             ## select relevant posterior columns
             post_i = post[:,start_idx:(start_idx+sm.Npar)]
             
@@ -83,10 +88,6 @@ def mapmaker(post, params, parameters, inj, Model, Injection, saveto=None, coord
             else:
                 coord = 'E'
             
-            ## HEALpy is really, REALLY noisy sometimes. This stops that.
-            logger = logging.getLogger()
-            logger.setLevel(logging.ERROR)
-            
             # generating skymap, switches to specified projection if not 'E'
             if coord=='E':
                 hp.mollview(omega_map, coord=coord, title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
@@ -109,6 +110,10 @@ def mapmaker(post, params, parameters, inj, Model, Injection, saveto=None, coord
             
             ## now do the median skymap
             print("Computing median posterior skymap for submodel {}...".format(submodel_name))
+            
+            ## HEALpy is really, REALLY noisy sometimes. This stops that.
+            logger.setLevel(logging.ERROR)
+            
             # median values of the posteriors
             med_vals = np.median(post_i, axis=0)
             
@@ -122,9 +127,6 @@ def mapmaker(post, params, parameters, inj, Model, Injection, saveto=None, coord
             norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
 
             Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
-            
-            ## HEALpy is really, REALLY noisy sometimes. This stops that.
-            logger.setLevel(logging.ERROR)
             
             if coord=='E':
                 hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
@@ -507,7 +509,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
 #        post_sm = post[:,start_idx:start_idx+sm.Npar]
         ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
         if hasattr(sm,"blm_start"):
-            post_sm = post_sm[sm.blm_start:]
+            post_sm = post_sm[:sm.blm_start]
         start_idx += sm.Npar
         ## the spectrum of every sample
         Sgw = sm.compute_Sgw(fs,post_sm)
@@ -584,17 +586,17 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
             for jj in range(post.shape[0]):
 #                post_sm = [post[jj,idx] for idx in range(start_idx,start_idx+sm.Npar)]
                 post_sm = post[jj,start_idx:start_idx+sm.Npar]
-                ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
-                if hasattr(sm,"blm_start"):
-                    post_sm = post_sm[sm.blm_start:]
                 ## handle noise and gw differently, but they all ended up named Sgw. Oh well.
                 if sm_name == 'noise':
                     Np = 10**post_sm[0]
                     Na = 10**post_sm[1]
                     Sgw_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)[2,2,:]
-#                    import pdb; pdb.set_trace()
+                ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
+                elif hasattr(sm,"blm_start"):
+                    post_sm_sph = post_sm[sm.blm_start:]
+                    post_sm = post_sm[:sm.blm_start]
+                    Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.compute_summed_response(sm.compute_skymap_alms(post_sm_sph))[0,0,filt,:],axis=1)
                 else:
-#                    import pdb; pdb.set_trace()
                     Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.response_mat[0,0,filt,:],axis=1)
                 
                 Sgw[jj,:] = np.real(Sgw_j)
