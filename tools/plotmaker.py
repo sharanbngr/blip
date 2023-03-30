@@ -16,7 +16,7 @@ from src.populations import populations
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(post, params, parameters, Model, Injection, saveto=None, coord=None):
+def mapmaker(post, params, parameters, inj, Model, Injection, saveto=None, coord=None):
     
     
     sph_models = []
@@ -41,292 +41,411 @@ def mapmaker(post, params, parameters, Model, Injection, saveto=None, coord=None
 #            blm_start = Model[name].blm_start
 #        elif name in hierarchical_models:
 #            hyperparam_start = 
-        
-        
-        
     
-    
-    
-    blm_start = len(Model.parameters['all']) - len(Model.parameters['blms'])
-    
-    if type(parameters) is dict:
-        blm_start = len(parameters['noise']) + len(parameters['signal'])
-        
-    elif type(parameters) is list:
-        print("Warning: using a depreciated parameter format. Number of non-b_lm parameters is unknown, defaulting to n=4.")
-        blm_start = 4
-    else:
-        raise TypeError("parameters argument is not dict or list.")
-    
-    # size of the blm array
-    blm_size = Alm.getsize(params['lmax'])
-
-    ## we will plot with a larger nside than the analysis for finer plots
-#    nside = 2*params['nside']
-    ## no we won't
     nside = params['nside']
 
     npix = hp.nside2npix(nside)
 
-    # Initialize power skymap
-    omega_map = np.zeros(npix)
-
-    blmax = params['lmax']
-    
-    print("Computing marginalized posterior skymap...")
-    for ii in range(post.shape[0]):
-
-        sample = post[ii, :]
-
-        # Omega at 1 mHz
-        # handle various spectral models, but default to power law
-        if 'spectrum_model' in params.keys():
-            if params['spectrum_model'] == 'powerlaw':
-                alpha = sample[2]
-                log_Omega0 = sample[3]
-                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-            elif params['spectrum_model']=='broken_powerlaw':
-                log_A1 = sample[2]
-                alpha_1 = sample[3]
-                log_A2 = sample[4]
-                alpha_2 = sample[3] - 0.667
-                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
-            elif params['spectrum_model']=='broken_powerlaw_2':
-                delta = 0.1
-                log_Omega0 = sample[2]
-                alpha_1 = sample[3]
-                alpha_2 = sample[4]
-                f_break = 10**sample[5]
-                Omega_1mHz = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
-            elif params['spectrum_model']=='free_broken_powerlaw':
-                log_A1 = sample[2]
-                alpha_1 = sample[3]
-                log_A2 = sample[4]
-                alpha_2 = sample[5]
-                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
-            elif params['spectrum_model']=='truncated_broken_powerlaw':
-                delta = 0.1
-                log_Omega0 = sample[2]
-                alpha_1 = sample[3]
-                alpha_2 = sample[4]
-                f_break = 10**sample[5]
-                f_cut = f_break
-                f_scale = 10**sample[6]
-                Omega_1mHz = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
-            elif params['spectrum_model']=='truncated_powerlaw':
-                delta = 0.1
-                log_Omega0 = sample[2]
-                alpha = sample[3]
-                f_break = 10**sample[4]
-                f_scale = 10**sample[5]
-                Omega_1mHz = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
-            elif params['spectrum_model']=='multi_atpl_ipl':
-                delta = 0.1
-                log_Omega0_a = sample[2]
-                alpha_a = sample[3]
-                f_cut_a = 10**sample[4]
-                f_scale_a = 10**sample[5]
-#                log_Omega0_i = sample[6]
-#                alpha_i = sample[7]
-                Omega_1mHz = 0.5 * (10**(log_Omega0_a)) * (1e-3/params['fref'])**(alpha_a) * (1+np.tanh((f_cut_a-1e-3)/f_scale_a))
-            else:
-                if ii==0:
-                    print("Unknown spectral model. Defaulting to power law...")
-                alpha = sample[2]
-                log_Omega0 = sample[3]
-                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-        else:
-            print("Warning: running on older output without specification of spectral model.")
-            print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
-            alpha = sample[2]
-            log_Omega0 = sample[3]
-            Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-        ## blms.
-        blms = np.append([1], sample[blm_start:])
-
-        ## Complex array of blm values for both +ve m values
-        blm_vals = np.zeros(blm_size, dtype='complex')
-
-        ## this is b00, alsways set to 1
-        blm_vals[0] = 1
-        norm, cnt = 1, 1
-
-        for lval in range(1, blmax + 1):
-            for mval in range(lval + 1):
-
-                idx = Alm.getidx(blmax, lval, mval)
-
-                if mval == 0:
-                    blm_vals[idx] = blms[cnt]
-                    cnt = cnt + 1
-                else:
-                    ## prior on amplitude, phase
-                    blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
-                    cnt = cnt + 2
-
-        norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
-
-        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
-
-        ## add to the omega map
-        omega_map = omega_map + Omega_1mHz * prob_map
-
-    omega_map = omega_map/post.shape[0]
-
-    # setting coord back to E, if parameter isn't specified
-    if 'projection' in params.keys():
-        coord = params['projection']
-    else:
-        coord = 'E'
-    
-    ## HEALpy is really, REALLY noisy sometimes. This stops that.
-    logger = logging.getLogger()
-    logger.setLevel(logging.ERROR)
-    
-    # generating skymap, switches to specified projection if not 'E'
-    if coord=='E':
-        hp.mollview(omega_map, coord=coord, title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
-    else:
-        hp.mollview(omega_map, coord=['E',coord], title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
-   
-    # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
-
-    hp.graticule()
-    
-    ## switch logging level back to normal so we get our own status updates
-    logger.setLevel(logging.INFO)
-    
-    if saveto is not None:
-        plt.savefig(saveto + '/post_skymap.png', dpi=150)
-        logger.info('Saving posterior skymap at ' +  saveto + '/post_skymap.png')
-
-    else:
-        plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
-        logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/post_skymap.png')
-    plt.close()
-
-
-    #### ------------ Now plot median value
-    print("Computing median posterior skymap...")
-    # median values of the posteriors
-    med_vals = np.median(post, axis=0)
-
-    ## blms.
-    blms_median = np.append([1], med_vals[blm_start:])
-
-    # Omega at 1 mHz
-    # handle various spectral models, but default to power law
-    ## include backwards compatability check (to be depreciated later)
-    if 'spectrum_model' in params.keys():
-        if params['spectrum_model'] == 'powerlaw':
-            alpha = med_vals[2]
-            log_Omega0 = med_vals[3]
-            Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
-        elif params['spectrum_model']=='broken_powerlaw':
-            log_A1 = med_vals[2]
-            alpha_1 = med_vals[3]
-            log_A2 = med_vals[4]
-            alpha_2 = med_vals[3] - 0.667
-            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
-        elif params['spectrum_model']=='broken_powerlaw_2':
-            delta = 0.1
-            log_Omega0 = med_vals[2]
-            alpha_1 = med_vals[3]
-            alpha_2 = med_vals[4]
-            f_break = 10**med_vals[5]
-            Omega_1mHz_median = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
-        elif params['spectrum_model']=='free_broken_powerlaw':
-            log_A1 = med_vals[2]
-            alpha_1 = med_vals[3]
-            log_A2 = med_vals[4]
-            alpha_2 = med_vals[5]
-            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
-        elif params['spectrum_model']=='truncated_broken_powerlaw':
-            delta = 0.1
-            log_Omega0 = med_vals[2]
-            alpha_1 = med_vals[3]
-            alpha_2 = med_vals[4]
-            f_break = 10**med_vals[5]
-            f_cut = f_break
-            f_scale = 10**med_vals[6]
-            Omega_1mHz_median = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
-        elif params['spectrum_model']=='truncated_powerlaw':
-            delta = 0.1
-            log_Omega0 = med_vals[2]
-            alpha = med_vals[3]
-            f_break = 10**med_vals[4]
-            f_scale = 10**med_vals[5]
-            Omega_1mHz_median = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
-        elif params['spectrum_model']=='multi_atpl_ipl':
-            delta = 0.1
-            log_Omega0_a = med_vals[2]
-            alpha_a = med_vals[3]
-            f_cut_a = 10**med_vals[4]
-            f_scale_a = 10**med_vals[5]
-#                log_Omega0_i = sample[6]
-#                alpha_i = sample[7]
-            Omega_1mHz_median = 0.5 * (10**(log_Omega0_a)) * (1e-3/params['fref'])**(alpha_a) * (1+np.tanh((f_cut_a-1e-3)/f_scale_a))
-        else:
-            print("Unknown spectral model. Defaulting to power law...")
-            alpha = med_vals[2]
-            log_Omega0 = med_vals[3]
-            Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
         
-    else:
-        print("Warning: running on older output without specification of spectral model.")
-        print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
-        alpha = med_vals[2]
-        log_Omega0 = med_vals[3]
-        Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+    start_idx = 0   
+    for submodel_name in Model.submodel_names:
+        ## grab submodel
+        sm = Model.submodels[submodel_name]
+        
+        # Initialize power skymap
+        omega_map = np.zeros(npix)
+        
+        ## only make a map if there's a map to make (this is also good life advice)
+        if submodel_name in sph_models+hierarchical_models:
+            ## select relevant posterior columns
+            post_i = post[:,start_idx:(start_idx+sm.Npar)]
+            
+            print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
+            for ii in range(post.shape[0]):
+                ## get Omega(f=1mHz)
+                Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
+                
+                ## convert blm params to full blms
+                blm_vals = sm.blm_params_2_blms(post_i[ii,sm.blm_start:])
+                
+                ## normalize, convert to map, and sum
+                norm = np.sum(blm_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(sm.lmax + 1):])**2)
+                
+                prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
+                
+                omega_map = omega_map + Omega_1mHz * prob_map
 
-    ## Complex array of blm values for both +ve m values
-    blm_median_vals = np.zeros(blm_size, dtype='complex')
-
-    ## this is b00, alsways set to 1
-    blm_median_vals[0] = 1
-    cnt = 1
-
-    for lval in range(1, blmax + 1):
-        for mval in range(lval + 1):
-
-            idx = Alm.getidx(blmax, lval, mval)
-
-            if mval == 0:
-                blm_median_vals[idx] = blms_median[cnt]
-                cnt = cnt + 1
+            omega_map = omega_map/post.shape[0]
+            
+            # setting coord back to E, if parameter isn't specified
+            if 'projection' in params.keys():
+                coord = params['projection']
             else:
-                ## prior on amplitude, phase
-                blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
-                cnt = cnt + 2
+                coord = 'E'
+            
+            ## HEALpy is really, REALLY noisy sometimes. This stops that.
+            logger = logging.getLogger()
+            logger.setLevel(logging.ERROR)
+            
+            # generating skymap, switches to specified projection if not 'E'
+            if coord=='E':
+                hp.mollview(omega_map, coord=coord, title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+            else:
+                hp.mollview(omega_map, coord=['E',coord], title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+           
+            hp.graticule()
+            
+            ## switch logging level back to normal so we get our own status updates
+            logger.setLevel(logging.INFO)
+            
+            if saveto is not None:
+                plt.savefig(saveto + '/{}_post_skymap.png'.format(submodel_name), dpi=150)
+                logger.info('Saving posterior skymap at ' +  saveto + '/{}_post_skymap.png'.format(submodel_name))
+        
+            else:
+                plt.savefig(params['out_dir'] + '/{}_post_skymap.png'.format(submodel_name), dpi=150)
+                logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/{}_post_skymap.png'.format(submodel_name))
+            plt.close()
+            
+            ## now do the median skymap
+            print("Computing median posterior skymap for submodel {}...".format(submodel_name))
+            # median values of the posteriors
+            med_vals = np.median(post_i, axis=0)
+            
+            # Omega(f=1mHz)
+            Omega_1mHz_median = sm.omegaf(1e-3,*med_vals[:sm.blm_start])
+            ## blms.
+            blms_median = np.append([1], med_vals[sm.blm_start:])
+            
+            blm_median_vals = sm.blm_params_2_blms(blms_median)
+        
+            norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
 
-    norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
-
-    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
+            Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
+            
+            ## HEALpy is really, REALLY noisy sometimes. This stops that.
+            logger.setLevel(logging.ERROR)
+            
+            if coord=='E':
+                hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+            else:
+                hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+            
+            hp.graticule()
+            
+            ## switch logging level back to normal so we get our own status updates
+            logger.setLevel(logging.INFO)
+            
+            if saveto is not None:
+                plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
+                logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
+        
+            else:
+                plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+                logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+        
+            plt.close()
+        
+            
+        
+        ## increment start regardless of if we made a map
+        start_idx += sm.Npar
     
-    ## HEALpy is really, REALLY noisy sometimes. This stops that.
-    logger.setLevel(logging.ERROR)
     
-    if coord=='E':
-        hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
-    else:
-        hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
-    
-    hp.graticule()
-    
-    ## switch logging level back to normal so we get our own status updates
-    logger.setLevel(logging.INFO)
-    
-    if saveto is not None:
-        plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
-        logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
-
-    else:
-        plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-        logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
-
-    plt.close()
-
     return
+    
+    
+    
+    
+    
+    
+    
+#    
+#    
+#    
+#    
+#    
+#    
+#    blm_start = len(Model.parameters['all']) - len(Model.parameters['blms'])
+#    
+#    if type(parameters) is dict:
+#        blm_start = len(parameters['noise']) + len(parameters['signal'])
+#        
+#    elif type(parameters) is list:
+#        print("Warning: using a depreciated parameter format. Number of non-b_lm parameters is unknown, defaulting to n=4.")
+#        blm_start = 4
+#    else:
+#        raise TypeError("parameters argument is not dict or list.")
+#    
+#    # size of the blm array
+#    blm_size = Alm.getsize(params['lmax'])
+#
+#    ## we will plot with a larger nside than the analysis for finer plots
+##    nside = 2*params['nside']
+#    ## no we won't
+#    nside = params['nside']
+#
+#    npix = hp.nside2npix(nside)
+#
+#    # Initialize power skymap
+#    omega_map = np.zeros(npix)
+#
+#    blmax = params['lmax']
+#    
+#    print("Computing marginalized posterior skymap...")
+#    for ii in range(post.shape[0]):
+#
+#        sample = post[ii, :]
+#
+#        # Omega at 1 mHz
+#        # handle various spectral models, but default to power law
+#        if 'spectrum_model' in params.keys():
+#            if params['spectrum_model'] == 'powerlaw':
+#                alpha = sample[2]
+#                log_Omega0 = sample[3]
+#                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+#            elif params['spectrum_model']=='broken_powerlaw':
+#                log_A1 = sample[2]
+#                alpha_1 = sample[3]
+#                log_A2 = sample[4]
+#                alpha_2 = sample[3] - 0.667
+#                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+#            elif params['spectrum_model']=='broken_powerlaw_2':
+#                delta = 0.1
+#                log_Omega0 = sample[2]
+#                alpha_1 = sample[3]
+#                alpha_2 = sample[4]
+#                f_break = 10**sample[5]
+#                Omega_1mHz = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
+#            elif params['spectrum_model']=='free_broken_powerlaw':
+#                log_A1 = sample[2]
+#                alpha_1 = sample[3]
+#                log_A2 = sample[4]
+#                alpha_2 = sample[5]
+#                Omega_1mHz= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+#            elif params['spectrum_model']=='truncated_broken_powerlaw':
+#                delta = 0.1
+#                log_Omega0 = sample[2]
+#                alpha_1 = sample[3]
+#                alpha_2 = sample[4]
+#                f_break = 10**sample[5]
+#                f_cut = f_break
+#                f_scale = 10**sample[6]
+#                Omega_1mHz = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
+#            elif params['spectrum_model']=='truncated_powerlaw':
+#                delta = 0.1
+#                log_Omega0 = sample[2]
+#                alpha = sample[3]
+#                f_break = 10**sample[4]
+#                f_scale = 10**sample[5]
+#                Omega_1mHz = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
+#            elif params['spectrum_model']=='multi_atpl_ipl':
+#                delta = 0.1
+#                log_Omega0_a = sample[2]
+#                alpha_a = sample[3]
+#                f_cut_a = 10**sample[4]
+#                f_scale_a = 10**sample[5]
+##                log_Omega0_i = sample[6]
+##                alpha_i = sample[7]
+#                Omega_1mHz = 0.5 * (10**(log_Omega0_a)) * (1e-3/params['fref'])**(alpha_a) * (1+np.tanh((f_cut_a-1e-3)/f_scale_a))
+#            else:
+#                if ii==0:
+#                    print("Unknown spectral model. Defaulting to power law...")
+#                alpha = sample[2]
+#                log_Omega0 = sample[3]
+#                Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+#        else:
+#            print("Warning: running on older output without specification of spectral model.")
+#            print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+#            alpha = sample[2]
+#            log_Omega0 = sample[3]
+#            Omega_1mHz = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+#        ## blms.
+#        blms = np.append([1], sample[blm_start:])
+#
+#        ## Complex array of blm values for both +ve m values
+#        blm_vals = np.zeros(blm_size, dtype='complex')
+#
+#        ## this is b00, alsways set to 1
+#        blm_vals[0] = 1
+#        norm, cnt = 1, 1
+#
+#        for lval in range(1, blmax + 1):
+#            for mval in range(lval + 1):
+#
+#                idx = Alm.getidx(blmax, lval, mval)
+#
+#                if mval == 0:
+#                    blm_vals[idx] = blms[cnt]
+#                    cnt = cnt + 1
+#                else:
+#                    ## prior on amplitude, phase
+#                    blm_vals[idx] = blms[cnt] * np.exp(1j * blms[cnt+1])
+#                    cnt = cnt + 2
+#
+#        norm = np.sum(blm_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(blmax + 1):])**2)
+#
+#        prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
+#
+#        ## add to the omega map
+#        omega_map = omega_map + Omega_1mHz * prob_map
+#
+#    omega_map = omega_map/post.shape[0]
+#
+#    # setting coord back to E, if parameter isn't specified
+#    if 'projection' in params.keys():
+#        coord = params['projection']
+#    else:
+#        coord = 'E'
+#    
+#    ## HEALpy is really, REALLY noisy sometimes. This stops that.
+#    logger = logging.getLogger()
+#    logger.setLevel(logging.ERROR)
+#    
+#    # generating skymap, switches to specified projection if not 'E'
+#    if coord=='E':
+#        hp.mollview(omega_map, coord=coord, title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+#    else:
+#        hp.mollview(omega_map, coord=['E',coord], title='Marginalized posterior skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+#   
+#    # hp.mollview(omega_map, coord=coord, title='Posterior predictive skymap of $\\Omega(f= 1mHz)$')
+#
+#    hp.graticule()
+#    
+#    ## switch logging level back to normal so we get our own status updates
+#    logger.setLevel(logging.INFO)
+#    
+#    if saveto is not None:
+#        plt.savefig(saveto + '/post_skymap.png', dpi=150)
+#        logger.info('Saving posterior skymap at ' +  saveto + '/post_skymap.png')
+#
+#    else:
+#        plt.savefig(params['out_dir'] + '/post_skymap.png', dpi=150)
+#        logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/post_skymap.png')
+#    plt.close()
+#
+#
+#    #### ------------ Now plot median value
+#    print("Computing median posterior skymap...")
+#    # median values of the posteriors
+#    med_vals = np.median(post, axis=0)
+#
+#    ## blms.
+#    blms_median = np.append([1], med_vals[blm_start:])
+#
+#    # Omega at 1 mHz
+#    # handle various spectral models, but default to power law
+#    ## include backwards compatability check (to be depreciated later)
+#    if 'spectrum_model' in params.keys():
+#        if params['spectrum_model'] == 'powerlaw':
+#            alpha = med_vals[2]
+#            log_Omega0 = med_vals[3]
+#            Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+#        elif params['spectrum_model']=='broken_powerlaw':
+#            log_A1 = med_vals[2]
+#            alpha_1 = med_vals[3]
+#            log_A2 = med_vals[4]
+#            alpha_2 = med_vals[3] - 0.667
+#            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+#        elif params['spectrum_model']=='broken_powerlaw_2':
+#            delta = 0.1
+#            log_Omega0 = med_vals[2]
+#            alpha_1 = med_vals[3]
+#            alpha_2 = med_vals[4]
+#            f_break = 10**med_vals[5]
+#            Omega_1mHz_median = (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta)
+#        elif params['spectrum_model']=='free_broken_powerlaw':
+#            log_A1 = med_vals[2]
+#            alpha_1 = med_vals[3]
+#            log_A2 = med_vals[4]
+#            alpha_2 = med_vals[5]
+#            Omega_1mHz_median= ((10**log_A1)*(1e-3/params['fref'])**alpha_1)/(1 + (10**log_A2)*(1e-3/params['fref'])**alpha_2)
+#        elif params['spectrum_model']=='truncated_broken_powerlaw':
+#            delta = 0.1
+#            log_Omega0 = med_vals[2]
+#            alpha_1 = med_vals[3]
+#            alpha_2 = med_vals[4]
+#            f_break = 10**med_vals[5]
+#            f_cut = f_break
+#            f_scale = 10**med_vals[6]
+#            Omega_1mHz_median = 0.5 * (10**log_Omega0)*(1e-3/f_break)**(alpha_1) * (0.5*(1+(1e-3/f_break)**(1/delta)))**((alpha_1-alpha_2)*delta) * (1+np.tanh((f_cut-1e-3)/f_scale))
+#        elif params['spectrum_model']=='truncated_powerlaw':
+#            delta = 0.1
+#            log_Omega0 = med_vals[2]
+#            alpha = med_vals[3]
+#            f_break = 10**med_vals[4]
+#            f_scale = 10**med_vals[5]
+#            Omega_1mHz_median = 0.5 * (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha) * (1+np.tanh((f_break-1e-3)/f_scale))
+#        elif params['spectrum_model']=='multi_atpl_ipl':
+#            delta = 0.1
+#            log_Omega0_a = med_vals[2]
+#            alpha_a = med_vals[3]
+#            f_cut_a = 10**med_vals[4]
+#            f_scale_a = 10**med_vals[5]
+##                log_Omega0_i = sample[6]
+##                alpha_i = sample[7]
+#            Omega_1mHz_median = 0.5 * (10**(log_Omega0_a)) * (1e-3/params['fref'])**(alpha_a) * (1+np.tanh((f_cut_a-1e-3)/f_scale_a))
+#        else:
+#            print("Unknown spectral model. Defaulting to power law...")
+#            alpha = med_vals[2]
+#            log_Omega0 = med_vals[3]
+#            Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+#        
+#    else:
+#        print("Warning: running on older output without specification of spectral model.")
+#        print("Warning: defaulting to power law spectral model. This may result in unintended behavior.")
+#        alpha = med_vals[2]
+#        log_Omega0 = med_vals[3]
+#        Omega_1mHz_median = (10**(log_Omega0)) * (1e-3/params['fref'])**(alpha)
+#
+#    ## Complex array of blm values for both +ve m values
+#    blm_median_vals = np.zeros(blm_size, dtype='complex')
+#
+#    ## this is b00, alsways set to 1
+#    blm_median_vals[0] = 1
+#    cnt = 1
+#
+#    for lval in range(1, blmax + 1):
+#        for mval in range(lval + 1):
+#
+#            idx = Alm.getidx(blmax, lval, mval)
+#
+#            if mval == 0:
+#                blm_median_vals[idx] = blms_median[cnt]
+#                cnt = cnt + 1
+#            else:
+#                ## prior on amplitude, phase
+#                blm_median_vals[idx] = blms_median[cnt] * np.exp(1j * blms_median[cnt+1])
+#                cnt = cnt + 2
+#
+#    norm = np.sum(blm_median_vals[0:(blmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(blmax + 1):])**2)
+#
+#    Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
+#    
+#    ## HEALpy is really, REALLY noisy sometimes. This stops that.
+#    logger.setLevel(logging.ERROR)
+#    
+#    if coord=='E':
+#        hp.mollview(Omega_median_map, coord=coord, title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+#    else:
+#        hp.mollview(Omega_median_map, coord=['E',coord], title='Median skymap of $\\Omega(f= 1mHz)$', unit="$\\Omega(f= 1mHz)$")
+#    
+#    hp.graticule()
+#    
+#    ## switch logging level back to normal so we get our own status updates
+#    logger.setLevel(logging.INFO)
+#    
+#    if saveto is not None:
+#        plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
+#        logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
+#
+#    else:
+#        plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+#        logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+#
+#    plt.close()
+#
+#    return
 
 def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
     
@@ -385,6 +504,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         ## this grabs the relevant bits of the posterior vector for each model
         ## will need to fix this for the anisotropic case later...
         post_sm = [post[:,idx] for idx in range(start_idx,start_idx+sm.Npar)]
+#        post_sm = post[:,start_idx:start_idx+sm.Npar]
+        ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
+        if hasattr(sm,"blm_start"):
+            post_sm = post_sm[sm.blm_start:]
         start_idx += sm.Npar
         ## the spectrum of every sample
         Sgw = sm.compute_Sgw(fs,post_sm)
@@ -459,7 +582,11 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
             ## for memory's sake, this needs to be a for loop
             Sgw = np.zeros((post.shape[0],len(fdata)))
             for jj in range(post.shape[0]):
-                post_sm = [post[jj,idx] for idx in range(start_idx,start_idx+sm.Npar)]
+#                post_sm = [post[jj,idx] for idx in range(start_idx,start_idx+sm.Npar)]
+                post_sm = post[jj,start_idx:start_idx+sm.Npar]
+                ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
+                if hasattr(sm,"blm_start"):
+                    post_sm = post_sm[sm.blm_start:]
                 ## handle noise and gw differently, but they all ended up named Sgw. Oh well.
                 if sm_name == 'noise':
                     Np = 10**post_sm[0]

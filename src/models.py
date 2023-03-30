@@ -18,8 +18,31 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     Includes all information required to generate an injection or a likelihood/prior.
     
     New models (injection or analysis) should be added here.
+    
     '''
     def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix=''):
+        '''
+        Each submodel should be defined as "[spectral]_[spatial]", save for the noise model, which is just "noise".
+        
+        e.g., "powerlaw_isgwb" defines a submodel with an isotropic spatial distribution and a power law spectrum.
+        
+        Resulting objects has different attributes depending on if it is to be used as an Injection component or part of our unified multi-signal Model.
+        
+        Arguments
+        ------------
+        params, inj (dict)  : params and inj config dictionaries as generated in run_blip.py
+        submodel_name (str) : submodel name, defined as "[spectral]_[spatial]" (or just "noise")
+        fs, f0 (array)      : frequency array and its LISA-characteristic-frequency-scaled counterpart (f0=fs/(2*fstar))
+        tsegmid (array)     : array of time segment midpoints
+        injection (bool)    : If True, generate the submodel as an injection component, rather than a Model submodel.
+        suffix (str)        : String to append to parameter names, etc., to differentiate between duplicate submodels.
+        
+        Returns
+        ------------
+        submodel (object) : submodel with all needed attributes to serve as an Injection component or Model submodel as desired.
+        
+        '''
+        
         ## preliminaries
         self.params = params
         self.inj = inj
@@ -206,8 +229,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.cov = self.compute_cov_asgwb
             else:
                 ## get blm truevals
-                for param, val in zip(blm_parameters,inj['blms']):
+                val_list = []
+                for lval in range(1, inj['inj_lmax'] + 1):
+                    for mval in range(lval + 1):
+        
+                        idx = hp.Alm.getidx(inj['inj_lmax'], lval, mval)
+        
+                        if mval == 0:
+                            val_list.append(np.real(inj['blms'][idx]))
+                        else:
+                            val_list.append(np.abs(inj['blms'][idx]))
+                            val_list.append(np.angle(inj['blms'][idx]))
+                
+                for param, val in zip(blm_parameters,val_list):
                     self.truevals[param] = val
+                
                 ## get alms
                 self.alms_inj = self.compute_skymap_alms(inj['blms'])
                 ## get sph basis skymap
@@ -264,6 +300,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Returns
         -----------
         spectrum (array of floats) : the resulting power law spectrum
+        
         '''
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
@@ -283,6 +320,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Returns
         -----------
         spectrum (array of floats) : the resulting broken power law spectrum
+        
         '''
         delta = 0.1
         fbreak = 10**log_fbreak
@@ -304,6 +342,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Returns
         -----------
         spectrum (array of floats) : the resulting truncated power law spectrum
+        
         '''
         fcut = 10**log_fcut
         fscale = 10**log_fscale
@@ -322,6 +361,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Returns
         -----------
         Sgw (array of floats) : the resulting GW PSD
+        
         '''
         H0 = 2.2*10**(-18)
         Omegaf = self.omegaf(fs,*omegaf_args)
@@ -334,12 +374,37 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     def isotropic_prior(self,theta):
         '''
         Isotropic prior transform. Just serves as a wrapper for the spectral prior, as no additional foofaraw is necessary.
+        
+        Arguments
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled for the spectral parameters.
+            
         '''
         return self.spectral_prior(theta)
     
     def sph_prior(self,theta):
         '''
         Spherical harmonic anisotropic prior transform. Combines a generic spectral prior function with the spherical harmonic priors for the desired lmax.
+        
+        Arguments
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled for both the spectral and spatial parameters.
         '''
         
         ## spectral prior takes everything up to 
@@ -376,6 +441,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         return spectral_theta+sph_theta
     
     def hierarchical_prior(self,theta):
+        '''
+        Hierarchical anisotropic prior transform. Combines a generic spectral prior function with the hierarchical astrophysical prior.
+        
+        Arguments
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled for both the spectral and spatial parameters.
+        '''
         pass
         
         
@@ -507,6 +587,15 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     def compute_cov_noise(self,theta):
         '''
         Computes the noise covariance for a given draw of log_Np, log_Na
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_noise (array) : The corresponding 3 x 3 x frequency x time covariance matrix for the detector noise submodel.
+        
         '''
         ## unpack priors
         log_Np, log_Na = theta
@@ -524,6 +613,15 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     def compute_cov_isgwb(self,theta):
         '''
         Computes the covariance matrix contribution from a generic isotropic stochastic GW signal.
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_sgwb (array) : The corresponding 3 x 3 x frequency x time covariance matrix for an isotropic SGWB submodel.
+        
         '''
         ## Signal PSD
         Sgw = self.compute_Sgw(self.fs,theta)
@@ -537,6 +635,15 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     def compute_cov_asgwb(self,theta):
         '''
         Computes the covariance matrix contribution from a generic anisotropic stochastic GW signal.
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_sgwb (array) : The corresponding 3 x 3 x frequency x time covariance matrix for an anisotropic SGWB submodel.
+        
         '''
         ## Signal PSD
         Sgw = self.compute_Sgw(self.fs,theta[:self.blm_start])
@@ -604,6 +711,18 @@ class Model(likelihoods):
         
         e.g., "noise+powerlaw_isgwb+truncated-powerlaw_sph" defines a model with noise, an isotropic SGWB with a power law spectrum,
             and a (spherical harmonic model for) an anisotropic SGWB with a truncated power law spectrum.
+        
+        Arguments
+        ------------
+        params, inj (dict)  : params and inj config dictionaries as generated in run_blip.py
+        fs, f0 (array)      : frequency array and its LISA-characteristic-frequency-scaled counterpart (f0=fs/(2*fstar))
+        tsegmid (array)     : array of time segment midpoints
+        rmat (array)        : the data correllation matrix for all LISA arms
+        
+        Returns
+        ------------
+        Model (object) : Unified Model comprised of an arbitrary number of noise/signal submodels, with a corresponding unified prior and likelihood.
+        
         '''
         
         self.params = params
@@ -715,6 +834,17 @@ class Injection(geometry,sph_geometry,populations):
         
         e.g., "noise+powerlaw_isgwb+truncated-powerlaw_sph" defines an injection with noise, an isotropic SGWB with a power law spectrum,
             and a (spherical harmonic description of) an anisotropic SGWB with a truncated power law spectrum.
+        
+        Arguments
+        ------------
+        params, inj (dict)  : params and inj config dictionaries as generated in run_blip.py
+        fs, f0 (array)      : frequency array and its LISA-characteristic-frequency-scaled counterpart (f0=fs/(2*fstar))
+        tsegmid (array)     : array of time segment midpoints
+        
+        Returns
+        ------------
+        Injection (object)  : Unified Injection comprised of an arbitrary number of noise/signal injection components, with a variety of helper functions to aid in the BLIP injection procedure.
+        
         '''
         self.params = params
         self.inj = inj
@@ -751,6 +881,20 @@ class Injection(geometry,sph_geometry,populations):
     def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
         '''
         Wrapper to convolve the frozen response with the frozen injected GW spectra for the desired channels.
+        
+        Arguments
+        -----------
+        component_name (str) : the name (key) of the Injection component to use.
+        fs_new (array) : If desired, frequencies at which to interpolate the convolved PSD
+        channels (str) : Which channel cross/auto-correlation PSD to plot. Default is '11' auto-correlation, i.e. XX for XYZ, 11 for Michelson, AA for AET.
+        return_fs (bool) : If True, also returns the frequencies at which the PSD has been evaluated. Default False.
+        imaginary (bool) : If True, returns the magnitude of the imaginary component. Default False.
+        
+        Returns
+        -----------
+        PSD (array) : Power spectral density of the specified channels' auto/cross-correlation at the desired frequencies.
+        fs (array, optional) : The PSD frequencies, if return_fs==True.
+        
         '''
         
         ## split the channel indicators
@@ -776,6 +920,25 @@ class Injection(geometry,sph_geometry,populations):
     def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,**plt_kwargs):
         '''
         Wrapper to plot the injected spectrum component on the specified matplotlib axes (or current axes if unspecified).
+        
+        Arguments
+        -----------
+        component_name (str) : the name (key) of the Injection component to use.
+        fs_new (array) : If desired, frequencies at which to interpolate the convolved PSD
+        ax (matplotlib axes) : Axis on which to plot. Default None (will plot on current axes.)
+        convolved (bool) : If True, convolve the injected spectra with the detector response. Default False.
+        legend (bool) : If True, generate a legend entry. Default False.
+        channels (str) : Which channel cross/auto-correlation PSD to plot. Default is '11' auto-correlation, i.e. XX for XYZ, 11 for Michelson, AA for AET.
+        return_PSD (bool) : If True, also returns the plotted PSD. Default False.
+        scale (str) : Matplotlib scale at which to plot ('log' or 'linear'). Default 'log'.
+        flim (tuple) : (fmin,fmax) plot limits. Default None (will use fmin,fmax as specified in the params file.)
+        **plt_kwargs (kwargs) : matplotlib.pyplot keyword arguments
+        
+        Returns
+        -----------
+        PSD plot on specified axes.
+        PSD (array, optional) : Power spectral density of the specified channels' auto/cross-correlation at the desired frequencies.
+
         '''
         
         ## set axes
