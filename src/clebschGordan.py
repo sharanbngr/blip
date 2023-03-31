@@ -189,7 +189,25 @@ class clebschGordan():
         return blm_vals
     
     
-#    
+    def blms_2_blm_params(self,blms):
+        '''
+        Convert complex-valued blms to our parameter notation where amplitudes and phases are separate.
+        '''
+        
+        blm_params = []
+        for lval in range(1, self.blmax + 1):
+            for mval in range(lval + 1):
+
+                idx = Alm.getidx(self.blmax, lval, mval)
+
+                if mval == 0:
+                    blm_params.append(np.real(blms[idx]))
+                else:
+                    blm_params.append(np.abs(blms[idx]))
+                    blm_params.append(np.angle(blms[idx]))
+        
+        return blm_params
+    
 #    
 #    ## injection mirrors
 #    ## for case where injection lmax != analysis lmax, mirror all CG functions to use injection versions of self objects

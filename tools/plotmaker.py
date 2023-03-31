@@ -529,6 +529,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         for component_name in Injection.component_names:
             if component_name != 'noise':
                 Injection.plot_injected_spectra(component_name,legend=False,color=Injection.components[component_name].color,ls='--')
+                if component_name not in Model.submodel_names:
+                    model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
     
     ## avoid plot squishing due to signal spectra with cutoffs, etc.
     ymin = np.min(ymins)
@@ -622,6 +624,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
                     Injection.plot_injected_spectra(component_name,channels='22',ls='--',color=Injection.components[component_name].color)
                 else:
                     Injection.plot_injected_spectra(component_name,convolved=True,ls='--',color=Injection.components[component_name].color)
+                    if component_name not in Model.submodel_names:
+                        model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         ymin = np.min(ymins)

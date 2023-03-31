@@ -5,9 +5,10 @@ import healpy as hp
 from src.geometry import geometry
 from src.sph_geometry import sph_geometry
 from src.clebschGordan import clebschGordan
-from src.populations import populations
+from src.astro import Population
 from src.likelihoods import likelihoods
 from src.instrNoise import instrNoise
+import src.astro as astro
 
 
 
@@ -97,12 +98,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.frozen_spectra = self.instr_noise_spectrum(self.fs,self.f0,Np=10**self.inj['log_Np'],Na=10**self.inj['log_Na'])
             
             return
-        
+
         else:
             self.parameters = []
             self.spectral_parameters = []
             self.spatial_parameters = []
-            self.spectral_model_name, self.spatial_model_name = submodel_name.split('_')
+            ## for convenience, so there's no need to specify e.g., "population_population"
+            if submodel_name == 'population':
+                self.spectral_model_name = self.spatial_model_name = submodel_name
+            else:
+                self.spectral_model_name, self.spatial_model_name = submodel_name.split('_')
             
             
         
@@ -143,6 +148,14 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
                 self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.inj['log_fcut']
                 self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.inj['log_fscale']
+        elif self.spectral_model_name == 'population':
+            if not injection:
+                raise ValueError("Populations are injection-only.")
+            self.fancyname = "DWD Population"
+            self.population = Population(self.params,self.inj,self.fs)
+            self.compute_Sgw = self.population.Sgw_wrapper
+            self.omegaf = self.population.omegaf_wrapper
+            self.ispop = True
         
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
@@ -166,7 +179,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## plotting stuff
             self.fancyname = "Isotropic "+self.fancyname
-            self.subscript = "_{I}"
+            self.subscript = "_{\mathrm{I}}"
             self.color='darkorange'
             self.has_map = False
 
@@ -205,20 +218,12 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## plotting stuff
             self.fancyname = "Anisotropic "+self.fancyname
-            self.subscript = "_{A}"
+            self.subscript = "_{\mathrm{A}}"
             self.color = 'teal'
             self.has_map = True
             
             # add the blms
-            blm_parameters = []
-            for lval in range(1, self.lmax + 1):
-                for mval in range(lval + 1):
-
-                    if mval == 0:
-                        blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
-                    else:
-                        blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
-                        blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+            blm_parameters = gen_blm_parameters(self.lmax)
             
             ## save the blm start index for the prior, then add the blms to the parameter list
             self.blm_start = len(self.spectral_parameters)
@@ -229,17 +234,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.cov = self.compute_cov_asgwb
             else:
                 ## get blm truevals
-                val_list = []
-                for lval in range(1, inj['inj_lmax'] + 1):
-                    for mval in range(lval + 1):
-        
-                        idx = hp.Alm.getidx(inj['inj_lmax'], lval, mval)
-        
-                        if mval == 0:
-                            val_list.append(np.real(inj['blms'][idx]))
-                        else:
-                            val_list.append(np.abs(inj['blms'][idx]))
-                            val_list.append(np.angle(inj['blms'][idx]))
+                val_list = self.blms_2_blm_params(inj['blms'])
+#                val_list = []
+#                for lval in range(1, inj['inj_lmax'] + 1):
+#                    for mval in range(lval + 1):
+#        
+#                        idx = hp.Alm.getidx(inj['inj_lmax'], lval, mval)
+#        
+#                        if mval == 0:
+#                            val_list.append(np.real(inj['blms'][idx]))
+#                        else:
+#                            val_list.append(np.abs(inj['blms'][idx]))
+#                            val_list.append(np.angle(inj['blms'][idx]))
                 
                 for param, val in zip(blm_parameters,val_list):
                     self.truevals[param] = val
@@ -253,12 +259,93 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## create a wrapper b/c isotropic and anisotropic injection responses are different
                 self.inj_response_mat = self.summ_response_mat
         
-        elif self.spatial_model_name == 'astro':
-            pass
+        ## Handle all the astrophysical spatial distributions together due to their similarities
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population']:
+            
+            ## the astrophysical spatial models are generally injection-only
+            if not injection:
+                raise ValueError("This model is injection-only.")
+            
+            self.has_map = True
+            
+            ## almax is twice the blmax
+            self.lmax = self.inj['inj_lmax']
+            self.almax = 2*self.lmax
+            response_kwargs['set_almax'] = self.almax
+            
+            if self.params['tdi_lev']=='michelson':
+                self.response = self.asgwb_mich_response
+            elif self.params['tdi_lev']=='xyz':
+                self.response = self.asgwb_xyz_response
+            elif self.params['tdi_lev']=='aet':
+                self.response = self.asgwb_aet_response
+            else:
+                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            
+            ## compute response matrix
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+            
+            ## model-specific quantities
+            if self.spatial_model_name == 'galaxy':
+                ## store the high-level MW truevals for the hierarchical analysis
+                self.truevals[r'$r_{\mathrm{h}}$'] = inj['rh']
+                self.truevals[r'$z_{\mathrm{h}}$'] = inj['zh']
+                ## plotting stuff
+                self.fancyname = "Galactic Foreground"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                ## generate skymap
+                self.skymap = astro.generate_galactic_foreground(self.inj['rh'],self.inj['zh'],self.params['nside'])
+            elif self.spatial_model_name == 'lmc':
+                ## plotting stuff
+                self.fancyname = "LMC"
+                self.subscript = "_{\mathrm{LMC}}"
+                self.color = 'darkmagenta'
+                ## generate skymap
+                self.skymap = astro.generate_sdg(self.params['nside']) ## sdg defaults are for the LMC
+            elif self.spatial_model_name == 'dwarfgalaxy':
+                ## plotting stuff
+                self.fancyname = "Dwarf Galaxy"
+                self.subscript = "_{\mathrm{DG}}"
+                self.color = 'maroon'
+                ## generate skymap
+                self.skymap = astro.generate_sdg(self.params['nside'],ra=self.inj['sdg_RA'], dec=self.inj['sdg_DEC'], D=self.inj['sdg_dist'], r=self.inj['sdg_rad'], N=self.inj['sdg_N'])
+            elif self.spatial_model_name == 'pointsource':
+                ## plotting stuff
+                self.fancyname = "Point Source"
+                self.subscript = "_{\mathrm{1P}}"
+                self.color = 'forestgreen'
+                ## generate skymap
+                self.skymap = astro.generate_point_source(self.inj['theta'],self.inj['phi'],self.params['nside'])
+            elif self.spatial_model_name == 'twopoints':
+                ## revisit this when I have duplicates sorted, maybe unnecessary (could just have 2x point source injection components)
+                ## plotting stuff
+                self.fancyname = "Two Point Sources"
+                self.subscript = "_{\mathrm{2P}}"
+                self.color = 'gold'
+                ## generate skymap
+                self.skymap = astro.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'],self.params['nside'])
+            elif self.spatial_model_name == 'population':
+                ## revisit this when I have duplicates sorted, maybe unnecessary (could just have 2x point source injection components)
+                ## plotting stuff
+                self.fancyname = "DWD Population"
+                self.subscript = "_{\mathrm{P}}"
+                self.color = 'midnightblue'
+                if self.spectral_model_name != 'population':
+                    ## generate population if still needed
+                    self.population = Population(self.params,self.inj,self.fs)
+                self.skymap = self.population.skymap
+            
+            else:
+                raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
+            
+            self.process_astro_skymap(self.skymap)
+            
+
         elif self.spatial_model_name == 'hierarchical':
             pass
         else:
-            raise ValueError("Invalid specification of spatial model name. Can be 'isgwb', 'sph', 'astro', or 'hierarchical'.")
+            raise ValueError("Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name))
         
 
         
@@ -697,7 +784,36 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         return np.einsum('ijklm,m', self.response_mat, alms)
     
-    
+    def process_astro_skymap(self,skymap):
+        '''
+        
+        Function that takes in an astrophysical pixel skymap and:
+            - calculates all associated sph quantities
+            - computes corresponding blm parameter truevals
+            - convolves with response
+            
+        Arguments
+        -----------
+        skymap (healpy array) : pixel-basis astrophysical skymap
+        
+        '''
+        ## transform to blms
+        self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
+        ## get corresponding truevals
+        inj_blms = self.blms_2_blm_params(self.astro_blms)
+        blm_parameters = gen_blm_parameters(self.lmax)
+        for param, val in zip(blm_parameters,inj_blms):
+            self.truevals[param] = val
+        
+        self.alms_inj = self.blm_2_alm(self.astro_blms)
+        self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
+        self.sph_skymap = hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
+        ## get response integrated over the Ylms
+        self.summ_response_mat = self.compute_summed_response(self.alms_inj)
+        ## create a wrapper b/c isotropic and anisotropic injection responses are different
+        self.inj_response_mat = self.summ_response_mat
+        
+        return
 
 class Model(likelihoods):
     '''
@@ -823,7 +939,7 @@ class Model(likelihoods):
     
 
     
-class Injection(geometry,sph_geometry,populations):
+class Injection():#geometry,sph_geometry):
     '''
     Class to house all injection attributes in a modular fashion.
     '''
@@ -1101,6 +1217,33 @@ def gen_suffixes(names):
             shorthand[end]['count'] += 1
 
     return suffixes
+
+def gen_blm_parameters(blmax):
+    '''
+    Function to make the blm parameter name strings for all blms of a given lmax, in the correct order.
+    
+    Arguments
+    -----------
+    blmax (int) : lmax for the blms
+    
+    Returns
+    -----------
+    blm_parameters (list of str) : Ordered list of blm parameter name strings
+    
+    '''
+    
+    blm_parameters = []
+    for lval in range(1, blmax + 1):
+        for mval in range(lval + 1):
+
+            if mval == 0:
+                blm_parameters.append(r'$b_{' + str(lval) + str(mval) + '}$' )
+            else:
+                blm_parameters.append(r'$|b_{' + str(lval) + str(mval) + '}|$' )
+                blm_parameters.append(r'$\phi_{' + str(lval) + str(mval) + '}$' )
+    
+    return blm_parameters
+
 
 def bespoke_inv(A):
 

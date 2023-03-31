@@ -45,6 +45,7 @@ class LISA(LISAdata, Model):
             self.makedata()
 
         # Set up the Bayes class
+        print("Building Bayesian model...")
         likelihoods.__init__(self)
         self.Model = Model(params,inj,self.fdata,self.f0,self.tsegmid,self.rmat)
 
@@ -88,6 +89,7 @@ class LISA(LISAdata, Model):
         f0 = frange/(2*fstar)
         
         ## Build the Injection object
+        print("Constructing injection...")
         self.Injection = Injection(self.params,self.inj,frange,f0,tsegmid)
         
         ## assign a couple additional universal injection attributes needed in add_sgwb_data()
@@ -311,7 +313,7 @@ class LISA(LISAdata, Model):
         Np, Na = 10**self.inj['log_Np'], 10**self.inj['log_Na']
 
         # Modelled Noise PSD
-        C_noise = self.Injection.components['noise'].instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+        C_noise = self.Injection.components['noise'].instr_noise_spectrum(self.Injection.frange,self.Injection.f0, Np, Na)
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
@@ -323,9 +325,9 @@ class LISA(LISAdata, Model):
         plt.close()
         ymins = []
         for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
+            S1_gw = self.Injection.plot_injected_spectra(component_name,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
             ymins.append(S1_gw.min())
-            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
+            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,channels='22'), self.Injection.compute_convolved_spectra(component_name,channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
 #        
 #        if self.inj['injtype'] != 'noise_only':
@@ -436,12 +438,12 @@ class LISA(LISAdata, Model):
 
             
             
-            plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
+            plt.loglog(self.Injection.frange, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
 
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
+        plt.loglog(self.Injection.frange, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
         ## multi-SGWB injection plot gets squished due to truncated pl
 #        if self.inj['injtype'] == 'multi':
 #            ymin = 0.5 * S1_gw_i.min()
@@ -459,19 +461,19 @@ class LISA(LISAdata, Model):
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
         plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
         plt.close()
 
 
-        plt.loglog(self.fdata, S3, label='required',color='mediumvioletred')
+        plt.loglog(self.Injection.frange, S3, label='required',color='mediumvioletred')
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6,color='slategrey')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
@@ -481,7 +483,10 @@ class LISA(LISAdata, Model):
 
 
         ## lets also plot psd residue.
-        rel_res_mean = (data_PSD3 - S3)/S3
+        ## need to interpolate
+        S3interp = interp1d(self.Injection.frange,S3)
+        S3i = S3interp(self.fdata)
+        rel_res_mean = (data_PSD3 - S3i)/S3i
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
         plt.xlabel('f in Hz')
@@ -489,7 +494,7 @@ class LISA(LISAdata, Model):
         plt.ylim([-1.50, 1.50])
         plt.legend()
         plt.grid()
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
@@ -510,7 +515,7 @@ class LISA(LISAdata, Model):
         for component_name in self.Injection.sgwb_component_names:
             if component_name != 'noise':
 #                Sx_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels=IJ,return_PSD=True,lw=0.75)
-                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ,imaginary=True)
+                Sx_gw = self.Injection.compute_convolved_spectra(component_name,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,channels=IJ,imaginary=True)
                 ymins.append(np.real(Sx_gw).min())
                 iymins.append(np.imag(Sx_gw).min())
                 Sx = Sx + Sx_gw
@@ -532,27 +537,27 @@ class LISA(LISAdata, Model):
 #
         plt.subplot(2, 1, 1)
         if len(Sx.shape) == 1:
-            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.Injection.frange, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.Injection.frange, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
         plt.legend()
         plt.ylim([1e-44, 5e-40])
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
         plt.grid()
 
         plt.subplot(2, 1, 2)
         if len(Sx.shape) == 1:
-            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.Injection.frange, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.Injection.frange, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
         plt.legend()
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
         plt.ylim([1e-44, 5e-40])
         plt.grid()
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
@@ -582,7 +587,7 @@ class LISA(LISAdata, Model):
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
     #        plt.ylim([1e-44, 5e-40])
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
     
         plt.savefig(self.params['out_dir'] + '/data_psd.png', dpi=200)
         print('Data spectra plot made in ' + self.params['out_dir'] + '/data_psd.png')
@@ -633,8 +638,8 @@ def blip(paramsfile='params.ini',resume=False):
     params['sampler'] = str(config.get("params", "sampler"))
 
     ## see if we need to initialize the spherical harmonic subroutines
-    sph_check = [element for sublist in params['model'].split('+') for element in sublist.split('_')]
-
+#    sph_check = [element for sublist in params['model'].split('+') for element in sublist.split('_')]
+    sph_check = [sublist.split('_')[-1] for sublist in params['model'].split('+')]
 
     # Injection Dict
     inj['doInj']         = int(config.get("inj", "doInj"))
@@ -653,21 +658,44 @@ def blip(paramsfile='params.ini',resume=False):
             else:
                 inj[item] = truevals[item]
         ## add injections to the spherical harmonic check if needed
-        sph_check = sph_check + [element for sublist in inj['injection'].split('+') for element in sublist.split('_')]
+#        sph_check = sph_check + [element for sublist in inj['injection'].split('+') for element in sublist.split('_')]
+        sph_check = sph_check + [sublist.split('_')[-1] for sublist in inj['injection'].split('+')]
         
     ## set sph flags
     params['sph_flag'] = ('sph' in sph_check) or ('hierarchical' in sph_check)
-    inj['astro_flag'] = 'astro' in sph_check
+    inj['sph_flag'] = np.any([(item not in ['noise','isgwb']) for item in sph_check])
+    inj['pop_flag'] = 'population' in sph_check
     
-    
-    if inj['doInj'] and (params['sph_flag'] or inj['astro_flag']):
+    if inj['sph_flag']:
         try:
             inj['inj_lmax'] = int(config.get("inj", "inj_lmax"))
+        except configparser.NoOptionError as err:
+            if params['sph_flag']:
+                print("Performing a spherical harmonic basis injection and inj_lmax has not been specified. Injection and recovery will use same lmax (lmax={}).".format(params['lmax']))
+                inj['inj_lmax'] = params['lmax']
+            else:
+                print("You are trying to do a spherical harmonic injection, but have not specified lmax.")
+                if 'lmax' in params.keys():
+                    print("Warning: using analysis lmax parameter for inj_lmax, but you are not performing a spherical harmonic analysis.")
+                    inj['inj_lmax'] = params['lmax']
+                else:
+                    raise err
+    
+    if inj['doInj'] and inj['pop_flag']:
+        inj['popfile']     = str(config.get("inj","popfile"))
+        try:
+            inj['SNRcut']  = float(config.get("inj","SNRcut"))
         except configparser.NoOptionError:
-            print("Performing a spherical harmonic basis injection and inj_lmax has not been specified. Injection and recovery will use same lmax (lmax={}).".format(params['lmax']))
-            inj['inj_lmax'] = params['lmax']
-    
-    
+            inj['SNRcut'] = 7
+        colnames = str(config.get("inj","columns"))
+        colnames = colnames.split(',')
+        inj['columns'] = colnames
+        delimiter = str(config.get("inj","delimiter"))
+        if delimiter == 'space':
+            delimiter = ' '
+        elif delimiter == 'tab':
+            delimiter = '\t'
+        inj['delimiter'] = delimiter
 #    
 #    
 #    inj['injtype']     = str(config.get("inj", "injtype"))
@@ -963,12 +991,12 @@ def blip(paramsfile='params.ini',resume=False):
     print("\nMaking posterior Plots ...")
     plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
     fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
-    ## TO-DO: FIX THIS
-    ## need to figure out a flag for when to call mapmaker
-#    if 'healpy_proj' in params.keys():
-#        mapmaker(post, params, parameters, inj, Model, Injection, coord=params['healpy_proj'])
-#    else:
-#        mapmaker(post, params, parameters, inj, Model, Injection)
+    ## make a map if there is a map to be made
+    if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
+        if 'healpy_proj' in params.keys():
+            mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection, coord=params['healpy_proj'])
+        else:
+            mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
         
         
         

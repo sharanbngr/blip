@@ -13,7 +13,7 @@ class geometry(sph_geometry):
 
     def __init__(self):
 
-        if self.params['sph_flag']:
+        if self.params['sph_flag'] or self.inj['sph_flag']:
             sph_geometry.__init__(self)
 
 
