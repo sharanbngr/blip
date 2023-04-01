@@ -313,7 +313,7 @@ class LISA(LISAdata, Model):
         Np, Na = 10**self.inj['log_Np'], 10**self.inj['log_Na']
 
         # Modelled Noise PSD
-        C_noise = self.Injection.components['noise'].instr_noise_spectrum(self.Injection.frange,self.Injection.f0, Np, Na)
+        C_noise = self.Injection.components['noise'].instr_noise_spectrum(self.fdata,self.f0, Np, Na)
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
@@ -325,9 +325,9 @@ class LISA(LISAdata, Model):
         plt.close()
         ymins = []
         for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
+            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
             ymins.append(S1_gw.min())
-            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,channels='22'), self.Injection.compute_convolved_spectra(component_name,channels='33')
+            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
 #        
 #        if self.inj['injtype'] != 'noise_only':
@@ -438,12 +438,12 @@ class LISA(LISAdata, Model):
 
             
             
-            plt.loglog(self.Injection.frange, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
+            plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
 
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.Injection.frange, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
+        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
         ## multi-SGWB injection plot gets squished due to truncated pl
 #        if self.inj['injtype'] == 'multi':
 #            ymin = 0.5 * S1_gw_i.min()
@@ -461,19 +461,19 @@ class LISA(LISAdata, Model):
         plt.legend()
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
         plt.close()
 
 
-        plt.loglog(self.Injection.frange, S3, label='required',color='mediumvioletred')
+        plt.loglog(self.fdata, S3, label='required',color='mediumvioletred')
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6,color='slategrey')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
@@ -483,10 +483,7 @@ class LISA(LISAdata, Model):
 
 
         ## lets also plot psd residue.
-        ## need to interpolate
-        S3interp = interp1d(self.Injection.frange,S3)
-        S3i = S3interp(self.fdata)
-        rel_res_mean = (data_PSD3 - S3i)/S3i
+        rel_res_mean = (data_PSD3 - S3)/S3
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
         plt.xlabel('f in Hz')
@@ -494,7 +491,7 @@ class LISA(LISAdata, Model):
         plt.ylim([-1.50, 1.50])
         plt.legend()
         plt.grid()
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
@@ -515,7 +512,7 @@ class LISA(LISAdata, Model):
         for component_name in self.Injection.sgwb_component_names:
             if component_name != 'noise':
 #                Sx_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels=IJ,return_PSD=True,lw=0.75)
-                Sx_gw = self.Injection.compute_convolved_spectra(component_name,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,channels=IJ,imaginary=True)
+                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ,imaginary=True)
                 ymins.append(np.real(Sx_gw).min())
                 iymins.append(np.imag(Sx_gw).min())
                 Sx = Sx + Sx_gw
@@ -537,27 +534,27 @@ class LISA(LISAdata, Model):
 #
         plt.subplot(2, 1, 1)
         if len(Sx.shape) == 1:
-            plt.loglog(self.Injection.frange, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.Injection.frange, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
         plt.legend()
         plt.ylim([1e-44, 5e-40])
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.grid()
 
         plt.subplot(2, 1, 2)
         if len(Sx.shape) == 1:
-            plt.loglog(self.Injection.frange, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.Injection.frange, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
         plt.legend()
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
         plt.ylim([1e-44, 5e-40])
         plt.grid()
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
@@ -587,7 +584,7 @@ class LISA(LISAdata, Model):
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
     #        plt.ylim([1e-44, 5e-40])
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
     
         plt.savefig(self.params['out_dir'] + '/data_psd.png', dpi=200)
         print('Data spectra plot made in ' + self.params['out_dir'] + '/data_psd.png')

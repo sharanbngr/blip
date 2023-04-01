@@ -29,16 +29,26 @@ class Population():
         self.inj = inj
         self.frange = frange
         
+        
         pop = self.load_population(self.inj['popfile'],self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
         
         self.skymap = self.pop2map(pop,self.params['nside'],self.params['dur']*u.s,self.params['fmin'],self.params['fmax'])
         
-        self.PSD, self.median_PSD = self.pop2spec(pop,frange,self.params['dur']*u.s,return_median=True,plot=True,saveto=params['out_dir'])
+        ## PSD at "true" frequency resolution of run, i.e. delta_f = 1/t_seg
+        self.frange_true = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
+        self.PSD_true, self.median_PSD_true = self.pop2spec(pop,self.frange_true,self.params['dur']*u.s,return_median=True,plot=False,saveto=params['out_dir'])
+        
+        ## PSD at time segment frequency resolution, for injections
+        PSD_interp = intrp(self.frange_true,self.PSD_true)
+        self.PSD = PSD_interp(self.frange)
+#        self.PSD, self.median_PSD = self.pop2spec(pop,frange,self.params['dur']*u.s,return_median=True)#,plot=False,saveto=params['out_dir'])
         
         ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
         ## additional factor of 2 b/c S_GW = 2 * S_A
         self.Sgw = self.PSD * 4
-        self.median_Sgw = self.median_PSD * 4
+#        self.median_Sgw = self.median_PSD * 4
+        self.Sgw_true = self.PSD_true * 4
+        self.median_Sgw_true = self.median_PSD_true * 4
         
         self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
         
@@ -54,7 +64,7 @@ class Population():
         This is a wrapper function to allow the pupulation spectrum to play well with some of the generic Injection-handling code.
         '''
         H0 = 2.2*10**(-18)
-        omegaf = intrp(self.frange,self.median_Sgw/((3/(4*(self.frange)**3))*(H0/np.pi)**2))
+        omegaf = intrp(self.frange,self.Sgw/((3/(4*(self.frange)**3))*(H0/np.pi)**2))
         return omegaf(fs)
     
     @staticmethod

@@ -326,7 +326,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## generate skymap
                 self.skymap = astro.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'],self.params['nside'])
             elif self.spatial_model_name == 'population':
-                ## revisit this when I have duplicates sorted, maybe unnecessary (could just have 2x point source injection components)
+                ## flag the fact that we have a population skymap
+                self.skypop = True
                 ## plotting stuff
                 self.fancyname = "DWD Population"
                 self.subscript = "_{\mathrm{P}}"
@@ -347,7 +348,15 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         else:
             raise ValueError("Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name))
         
-
+        
+        ## some special treatment for the population case
+        if hasattr(self,"ispop") and self.ispop:
+            f0_true = self.population.frange_true/(3e8/(2*np.pi*self.armlength))
+            inj_response_mat_true = self.response(f0_true,tsegmid,**response_kwargs)
+            if hasattr(self,'skypop') and self.skypop:
+                self.inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.alms_inj)
+            else:
+                self.inj_response_mat_true = inj_response_mat_true
         
         ## store final parameter list and count
         self.parameters = self.parameters + self.spectral_parameters + self.spatial_parameters
@@ -1013,19 +1022,31 @@ class Injection():#geometry,sph_geometry):
         
         '''
         
+        cm = self.components[component_name]
         ## split the channel indicators
         c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
-        if not imaginary:
-            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * np.real(self.components[component_name].inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
+        ## populations need some finessing due to frequency subtleties
+        if hasattr(cm,"ispop") and cm.ispop:
+            response_mat = cm.inj_response_mat_true
         else:
-            PSD = np.mean(self.components[component_name].frozen_spectra[:,None] * 1j * np.imag(self.components[component_name].inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            response_mat = cm.inj_response_mat
+        if not imaginary:
+            PSD = np.mean(cm.frozen_spectra[:,None] * np.real(response_mat[c1_idx,c2_idx,:,:]),axis=1)
+        else:
+            PSD = np.mean(cm.frozen_spectra[:,None] * 1j * np.imag(response_mat[c1_idx,c2_idx,:,:]),axis=1)
+        
+        ## special treatment of population frequencies
+        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
+            fs_base = self.components[component_name].population.frange_true
+        else:
+            fs_base = self.frange
         
         if fs_new is not None:
-            PSD_interp = interp1d(self.frange,np.log10(PSD))
+            PSD_interp = interp1d(fs_base,np.log10(PSD))
             PSD = 10**PSD_interp(fs_new)
             fs = fs_new
         else:
-            fs = self.frange
+            fs = fs_base
         
         if return_fs:
             return fs, PSD
@@ -1069,6 +1090,12 @@ class Injection():#geometry,sph_geometry):
             fmin = self.params['fmin']
             fmax = self.params['fmax']
         
+        ## special treatment of population frequencies
+        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
+            fs_base = self.components[component_name].population.frange_true
+        else:
+            fs_base = self.frange
+        
         ## get frozen injected spectra at original injection frequencies and convolve with detector response if desired
         if convolved:
             if component_name == 'noise':
@@ -1086,11 +1113,11 @@ class Injection():#geometry,sph_geometry):
         ## downsample (or upsample, but why) if desired
         ## do the interpolation in log-space for better low-f fidelity
         if fs_new is not None:
-            PSD_interp = interp1d(self.frange,np.log10(PSD))
+            PSD_interp = interp1d(fs_base,np.log10(PSD))
             PSD = 10**PSD_interp(fs_new)
             fs = fs_new
         else:
-            fs = self.frange
+            fs = fs_base
         
         filt = (fs>fmin)*(fs<fmax)
         
