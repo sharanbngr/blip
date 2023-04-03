@@ -34,13 +34,25 @@ class Population():
         
         self.skymap = self.pop2map(pop,self.params['nside'],self.params['dur']*u.s,self.params['fmin'],self.params['fmax'])
         
-        ## PSD at "true" frequency resolution of run, i.e. delta_f = 1/t_seg
-        self.frange_true = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
-        self.PSD_true, self.median_PSD_true = self.pop2spec(pop,self.frange_true,self.params['dur']*u.s,return_median=True,plot=False,saveto=params['out_dir'])
+        ## PSD at injection frequency binning
         
-        ## PSD at time segment frequency resolution, for injections
-        PSD_interp = intrp(self.frange_true,self.PSD_true)
-        self.PSD = PSD_interp(self.frange)
+#        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
+#        self.delta_f = 1/self.params['dur']
+        self.PSD= self.pop2spec(pop,self.frange,self.params['dur']*u.s,return_median=False,plot=False)
+#        self.PSD_interp = intrp(fs_spec,PSD_spec)
+        
+        ## PSD at data frequencies
+        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
+        PSD_spec = self.pop2spec(pop,fs_spec,self.params['dur']*u.s,return_median=False,plot=False)
+        self.PSD_interp = intrp(fs_spec,PSD_spec)
+        self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
+        self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
+        self.PSD_true = self.PSD_interp(self.frange_true)
+#        self.PSD_true = self.pop2spec(pop,self.frange_true,self.params['dur']*u.s,return_median=False,plot=False)
+        
+        
+        ## PSD at time splice frequency resolution, for injections
+#        self.PSD = self.rebin_PSD(frange)
 #        self.PSD, self.median_PSD = self.pop2spec(pop,frange,self.params['dur']*u.s,return_median=True)#,plot=False,saveto=params['out_dir'])
         
         ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
@@ -48,24 +60,47 @@ class Population():
         self.Sgw = self.PSD * 4
 #        self.median_Sgw = self.median_PSD * 4
         self.Sgw_true = self.PSD_true * 4
-        self.median_Sgw_true = self.median_PSD_true * 4
+#        self.median_Sgw_true = self.median_PSD_true * 4
         
         self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
         
+    def rebin_PSD(self,fs_new):
+        '''
+        Function to correctly interpolate the population spectrum to new frequencies without violating conservation of energy
+        '''
+        delta_f_old = self.delta_f
+        delta_f_new = fs_new[1] - fs_new[0]
+        return (delta_f_new/delta_f_old)*self.PSD_interp(fs_new)
     
     def Sgw_wrapper(self,frange,spoof_arg=None):
         '''
-        This is a wrapper function to allow the pupulation spectrum to play well with some of the generic Injection-handling code.
+        This is a wrapper function to allow the population spectrum to play well with some of the generic Injection-handling code.
+        
+        Evaluated at the injection frequencies.
         '''
-        return self.Sgw
+        if hasattr(frange,"__len__"):
+            return self.Sgw
+        else:
+            return self.Sgw[np.argmin(np.abs(self.frange - 1e-3))]
+    
+    def Sgw_wrapper_true(self,frange,spoof_arg=None):
+        '''
+        This is a wrapper function to allow the population spectrum to play well with some of the generic Injection-handling code.
+        Evaluated at the data frequencies.
+        '''
+        if hasattr(frange,"__len__"):
+            return self.Sgw_true
+        else:
+            return self.Sgw_true[np.argmin(np.abs(self.frange_true - 1e-3))]
     
     def omegaf_wrapper(self,fs,spoof_arg=None):
         '''
         This is a wrapper function to allow the pupulation spectrum to play well with some of the generic Injection-handling code.
         '''
         H0 = 2.2*10**(-18)
-        omegaf = intrp(self.frange,self.Sgw/((3/(4*(self.frange)**3))*(H0/np.pi)**2))
-        return omegaf(fs)
+        omegaf = self.Sgw_wrapper(fs)/((3/(4*(fs)**3))*(H0/np.pi)**2)
+#        omegaf = intrp(self.frange,self.Sgw/((3/(4*(self.frange)**3))*(H0/np.pi)**2))
+        return omegaf
     
     @staticmethod
     def load_population(popfile,fmin,fmax,coldict={'f':'f','h':'h','lat':'lat','long':'long'},unitdict={'f':u.Hz,'lat':u.rad,'long':u.rad},

@@ -322,6 +322,30 @@ class LISA(LISAdata, Model):
         ## set up a color-coder for the different models somewhere later
 #        matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(color=["mediumorchid", "teal", "goldenrod","slategray","navy"])
         
+        ## need to generate the population response at the data frequencies
+        ## we can't do this earlier because we need the data time array
+        if 'population' in self.Injection.sgwb_component_names:
+            ## just use the analysis response if the lmax are the same (or there is no sph component)
+            if not self.params['sph_flag'] and not self.inj['sph_flag']:
+                ## grab a random isotropic response
+                sm_name = [name for name in self.Model.submodel_names if name!='noise'][0]
+                response_mat = self.Model.submodels[sm_name].response_mat
+                self.Injection.components['population'].inj_response_mat_true = response_mat
+            elif self.params['sph_flag'] and self.inj['sph_flag'] and self.inj['inj_lmax']==self.params['lmax']:
+                ## grab a random anisotropic response
+                sm_name = [name for name in self.Model.submodel_names if (name!='noise' and self.Model.submodels[name].has_map)][0]
+                response_mat = self.Model.submodels[sm_name].response_mat
+                self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', response_mat, self.Injection.components['population'].alms_inj)
+            else:
+                inj_response_mat_true = self.Injection.components['population'].response(f0,self.tsegmid,**self.Injection.components['population'].response_kwargs)
+                if hasattr(self.Injection.components['population'],'has_map') and self.Injection.components['population'].has_map:
+                    self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.Injection.components['population'].alms_inj)
+                else:
+                    self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
+
+            
+        
+        
         plt.close()
         ymins = []
         for component_name in self.Injection.sgwb_component_names:

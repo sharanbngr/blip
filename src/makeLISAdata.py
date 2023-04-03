@@ -186,10 +186,10 @@ class LISAdata(populations):
         ## (there are subtleties with the binning; the true spectrum has a frequency resolution of delta(f) = 1/t_obs
         ##   but we inject segment-by-segment, and the segment frequency resolution is different. Because we add all segments together
         ##   in time-domain and then fft, the *final* product is equivalent, but for e.g. plotting, we want the true spectrum)
-        if hasattr(injmodel,"ispop") and injmodel.ispop:
-            injmodel.frozen_spectra = injmodel.population.Sgw_true
-        else:
-            injmodel.frozen_spectra = Sgw
+#        if hasattr(injmodel,"ispop") and injmodel.ispop:
+#            injmodel.frozen_spectra = injmodel.population.Sgw_true
+#        else:
+        injmodel.frozen_spectra = Sgw
         
         ## the spectrum of the frequecy domain gaussian for ifft
         norms = np.sqrt(self.params['fs']*Sgw*N)/2

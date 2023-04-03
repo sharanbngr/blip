@@ -350,19 +350,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         
         ## some special treatment for the population case
-        if hasattr(self,"ispop") and self.ispop:
-            f0_true = self.population.frange_true/(3e8/(2*np.pi*self.armlength))
-            inj_response_mat_true = self.response(f0_true,tsegmid,**response_kwargs)
-            if hasattr(self,'skypop') and self.skypop:
-                self.inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.alms_inj)
-            else:
-                self.inj_response_mat_true = inj_response_mat_true
+#        if hasattr(self,"ispop") and self.ispop:
+#            f0_true = self.population.frange_true/(3e8/(2*np.pi*self.armlength))
+#            inj_response_mat_true = self.response(f0_true,tsegmid,**response_kwargs)
+#            if hasattr(self,'skypop') and self.skypop:
+#                self.inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.alms_inj)
+#            else:
+#                self.inj_response_mat_true = inj_response_mat_true
         
         ## store final parameter list and count
         self.parameters = self.parameters + self.spectral_parameters + self.spatial_parameters
         if not injection:               
             self.Npar = len(self.parameters)
-            
+        ## store response kwargs for use elsewhere as needed
+        self.response_kwargs = response_kwargs
         ## add suffix to parameter names and trueval keys, if desired
         ## (we need this in the multi-model or duplicate model case)
         if suffix != '':
@@ -1027,26 +1028,42 @@ class Injection():#geometry,sph_geometry):
         c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
         ## populations need some finessing due to frequency subtleties
         if hasattr(cm,"ispop") and cm.ispop:
-            response_mat = cm.inj_response_mat_true
+#            if fs_new is not None and not np.array_equal(fs_new,cm.population.frange_true):
+#                print("Warning: population spectra cannot be aribtrarily rebinned. Calculating convolved signal at data frequencies...")
+            fs = cm.population.frange_true
+            if not imaginary:
+                PSD = np.mean(cm.population.Sgw_true[:,None] * np.real(cm.inj_response_mat_true[c1_idx,c2_idx,:,:]),axis=1)
+            else:
+                PSD = np.mean(cm.population.Sgw_true[:,None] * 1j * np.imag(cm.inj_response_mat_true[c1_idx,c2_idx,:,:]),axis=1)
+            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
+                PSD_interp = interp1d(fs,PSD)
+                PSD = PSD_interp(fs_new)
+                fs = fs_new
+#                PSD_interp = interp1d(cm.population.frange_true,PSD)
+#                deltaf_new = fs_new[1] - fs_new[0]
+#                deltaf_old = cm.population.frange_true[1] - cm.population.frange_true[0]
+#                PSD = PSD_interp(fs_new) * (deltaf_new/deltaf_old)
+#                print("shouldn't see this")
+#                fs = fs_new
+#            else:
         else:
-            response_mat = cm.inj_response_mat
-        if not imaginary:
-            PSD = np.mean(cm.frozen_spectra[:,None] * np.real(response_mat[c1_idx,c2_idx,:,:]),axis=1)
-        else:
-            PSD = np.mean(cm.frozen_spectra[:,None] * 1j * np.imag(response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            if not imaginary:
+                PSD = np.mean(cm.frozen_spectra[:,None] * np.real(cm.inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            else:
+                PSD = np.mean(cm.frozen_spectra[:,None] * 1j * np.imag(cm.inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            
+#        ## special treatment of population frequencies
+##        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
+##            fs_base = self.components[component_name].population.frange_true
+##        else:
+#        fs_base = self.frange
         
-        ## special treatment of population frequencies
-        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
-            fs_base = self.components[component_name].population.frange_true
-        else:
-            fs_base = self.frange
-        
-        if fs_new is not None:
-            PSD_interp = interp1d(fs_base,np.log10(PSD))
-            PSD = 10**PSD_interp(fs_new)
-            fs = fs_new
-        else:
-            fs = fs_base
+            if fs_new is not None:
+                PSD_interp = interp1d(self.frange,np.log10(PSD))
+                PSD = 10**PSD_interp(fs_new)
+                fs = fs_new
+            else:
+                fs = self.frange
         
         if return_fs:
             return fs, PSD
@@ -1077,6 +1094,8 @@ class Injection():#geometry,sph_geometry):
         PSD (array, optional) : Power spectral density of the specified channels' auto/cross-correlation at the desired frequencies.
 
         '''
+        ## grav component
+        cm = self.components[component_name]
         
         ## set axes
         if ax is None:
@@ -1091,38 +1110,49 @@ class Injection():#geometry,sph_geometry):
             fmax = self.params['fmax']
         
         ## special treatment of population frequencies
-        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
-            fs_base = self.components[component_name].population.frange_true
-        else:
-            fs_base = self.frange
+#        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
+#            fs_base = self.components[component_name].population.frange_true
+#        else:
+#        fs_base = self.frange
         
         ## get frozen injected spectra at original injection frequencies and convolve with detector response if desired
         if convolved:
             if component_name == 'noise':
                 raise ValueError("Cannot convolve noise spectra with the detector GW response - this is not physical. (Set convolved=False in the function call!)")
-            PSD = self.compute_convolved_spectra(component_name,channels=channels)
+            fs, PSD = self.compute_convolved_spectra(component_name,channels=channels,return_fs=True,fs_new=fs_new)
         else:
-            PSD = self.components[component_name].frozen_spectra
-            ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
-            ## generically capture anything that looks like a covariance matrix for future-proofing
-            if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
-                I, J = int(channels[0]) - 1, int(channels[1]) - 1
-                PSD = PSD[I,J,:]
-            
-        
-        ## downsample (or upsample, but why) if desired
-        ## do the interpolation in log-space for better low-f fidelity
-        if fs_new is not None:
-            PSD_interp = interp1d(fs_base,np.log10(PSD))
-            PSD = 10**PSD_interp(fs_new)
-            fs = fs_new
-        else:
-            fs = fs_base
+            ## special treatment for the population case
+            if hasattr(cm,"ispop") and cm.ispop:
+                PSD = cm.population.Sgw_true
+                fs = cm.population.frange_true
+                if fs_new is not None and not np.array_equal(fs_new,cm.population.frange_true):
+#                    print("Warning: population spectra cannot be aribtrarily rebinned. Plotting at data frequencies...")
+##                    PSD = cm.population.rebin_PSD(fs_new)
+##                    fs = fs_new
+                    PSD_interp = interp1d(fs,PSD)
+                    PSD = PSD_interp(fs_new)
+                    fs = fs_new
+            else:
+                PSD = cm.frozen_spectra
+                ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
+                ## generically capture anything that looks like a covariance matrix for future-proofing
+                if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
+                    I, J = int(channels[0]) - 1, int(channels[1]) - 1
+                    PSD = PSD[I,J,:]
+
+                ## downsample (or upsample, but why) if desired
+                ## do the interpolation in log-space for better low-f fidelity
+                if fs_new is not None:
+                    PSD_interp = interp1d(self.frange,np.log10(PSD))
+                    PSD = 10**PSD_interp(fs_new)
+                    fs = fs_new
+                else:
+                    fs = self.frange
         
         filt = (fs>fmin)*(fs<fmax)
         
         if legend:
-            label = self.components[component_name].fancyname
+            label = cm.fancyname
             if plt_kwargs is None:
                 plt_kwargs = {}
                 plt_kwargs['label'] = label
