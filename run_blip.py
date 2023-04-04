@@ -480,7 +480,7 @@ def blip(paramsfile='params.ini',resume=False):
         params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons"))
         if params['nessai_neurons']=='manual':
             params['n_neurons']      = int(config.get("run_params", "n_neurons"))
-        params['reset_flow']         = str(config.get("run_params", "reset_flow"))
+        params['reset_flow']         = int(config.get("run_params", "reset_flow"))
     # checkpointing (dynesty+nessai only for now)
     params['checkpoint']            = int(config.get("run_params", "checkpoint"))
     params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))

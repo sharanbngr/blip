@@ -865,12 +865,18 @@ class Model(likelihoods):
         self.Npar = 0
         self.parameters = {}
         all_parameters = []
+        spectral_parameters = []
+        spatial_parameters = []
         for submodel_name, suffix in zip(self.submodel_names,suffixes):
             sm = submodel(params,inj,submodel_name,fs,f0,tsegmid,suffix=suffix)
             self.submodels[submodel_name] = sm
             self.Npar += sm.Npar
             self.parameters[submodel_name] = sm.parameters
+            spectral_parameters += sm.spectral_parameters
+            spatial_parameters += sm.spatial_parameters
             all_parameters += sm.parameters
+        self.parameters['spectral'] = spectral_parameters
+        self.parameters['spatial'] = spatial_parameters
         self.parameters['all'] = all_parameters
         
         ## assign reference to data for use in likelihood
