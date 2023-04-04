@@ -380,6 +380,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             updated_parameters = updated_spectral_parameters+updated_spatial_parameters
             if len(updated_parameters) != len(self.parameters):
                 raise ValueError("If you've added a new variety of parameters above, you'll need to update this bit of code too!")
+            self.spectral_parameters = updated_spectral_parameters
+            self.spatial_parameters = updated_spatial_parameters
             self.parameters = updated_parameters
             
         
@@ -1261,6 +1263,7 @@ def gen_suffixes(names):
     shorthand = {'noise':{'abbrv':'','count':1},
                  'isgwb':{'abbrv':'I','count':1},
                  'sph':{'abbrv':'A','count':1},
+                 'population':{'abbrv':'P','count':1},
                  'hierarchical':{'abbrv':'H','count':1} }
     
     suffixes = ['  $\mathrm{[' for i in range(len(names))]
