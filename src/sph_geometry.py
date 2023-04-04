@@ -1,9 +1,7 @@
 import numpy as np
-from scipy.special import lpmn, sph_harm
+from scipy.special import sph_harm
 import numpy.linalg as LA
-import types
 import healpy as hp
-from healpy import Alm
 from src.clebschGordan import clebschGordan
 
 class sph_geometry(clebschGordan):

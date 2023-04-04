@@ -35,12 +35,8 @@ class Population():
         self.skymap = self.pop2map(pop,self.params['nside'],self.params['dur']*u.s,self.params['fmin'],self.params['fmax'])
         
         ## PSD at injection frequency binning
-        
-#        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
-#        self.delta_f = 1/self.params['dur']
         self.PSD= self.pop2spec(pop,self.frange,self.params['dur']*u.s,return_median=False,plot=False)
-#        self.PSD_interp = intrp(fs_spec,PSD_spec)
-        
+
         ## PSD at data frequencies
         fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
         PSD_spec = self.pop2spec(pop,fs_spec,self.params['dur']*u.s,return_median=False,plot=False)
@@ -48,19 +44,11 @@ class Population():
         self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
         self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
         self.PSD_true = self.PSD_interp(self.frange_true)
-#        self.PSD_true = self.pop2spec(pop,self.frange_true,self.params['dur']*u.s,return_median=False,plot=False)
-        
-        
-        ## PSD at time splice frequency resolution, for injections
-#        self.PSD = self.rebin_PSD(frange)
-#        self.PSD, self.median_PSD = self.pop2spec(pop,frange,self.params['dur']*u.s,return_median=True)#,plot=False,saveto=params['out_dir'])
-        
+
         ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
         ## additional factor of 2 b/c S_GW = 2 * S_A
         self.Sgw = self.PSD * 4
-#        self.median_Sgw = self.median_PSD * 4
         self.Sgw_true = self.PSD_true * 4
-#        self.median_Sgw_true = self.median_PSD_true * 4
         
         self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
         
@@ -99,7 +87,6 @@ class Population():
         '''
         H0 = 2.2*10**(-18)
         omegaf = self.Sgw_wrapper(fs)/((3/(4*(fs)**3))*(H0/np.pi)**2)
-#        omegaf = intrp(self.frange,self.Sgw/((3/(4*(self.frange)**3))*(H0/np.pi)**2))
         return omegaf
     
     @staticmethod
@@ -225,7 +212,6 @@ class Population():
         
         
         ## get strain squared power
-    #        hs2 = hs**2
         PSDs_unres = cls.get_binary_psd(hs,4*u.yr)
         
         ## get BLIP frequency bins
@@ -463,11 +449,9 @@ def generate_galactic_foreground(rh,zh,nside):
     bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
     DWD_density = disk_density + bulge_density
     ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
-#        gc = cc.Galactocentric(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc)
     gc = cc.SkyCoord(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc, frame='galactocentric')
     SSBc = gc.transform_to(cc.Galactic)
     ## Calculate GW power
-    #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
     DWD_powers = DWD_density*(np.array(SSBc.distance))**-2
     ## Filter nearby grid points (cut out 2kpc sphere)
     ## This is a temporary soln. Later, we will want to do something more subtle, sampling a DWD pop from
@@ -477,17 +461,12 @@ def generate_galactic_foreground(rh,zh,nside):
     ## resolution is 2x analysis resolution
     pixels = hp.ang2pix(nside,np.array(SSBc.l),np.array(SSBc.b),lonlat=True)
     ## Create skymap
-#        DWD_FG_mapG = np.zeros(hp.nside2npix(nside))
     ## Bin
     astro_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(nside))
-#        for i in range(DWD_FG_mapG.size):
-#            DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
-    ## create logarithmic skymap for plotting purposes
-#    log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
+
     ## Transform into the ecliptic
     rGE = hp.rotator.Rotator(coord=['G','E'])
     astro_map = rGE.rotate_map_pixel(astro_mapG)
-#    log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
     
     return astro_map
 
@@ -564,7 +543,6 @@ def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     ## =============================================================================
    
     ## Calculate GW power
-    #DWD_strains = DWD_density*(np.array(SSBc.distance))**-1
     ## density will be total power divided by the points that we're simulating
     ## assuming all grid points will contribute an equal amount of power
     DWD_powers = sphere_filter*DWD_density*(np.array(SSBc.distance))**-2
@@ -583,22 +561,12 @@ def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     
 
     ## Create skymap
-#    astro_mapG = np.zeros(hp.nside2npix(nside))
     ## Bin
     astro_mapG = np.bincount(pixels.flatten(),weights=DWD_unresolved_powers.flatten(),minlength=hp.nside2npix(nside))
-    ## old, slow way:
-    # for i in range(DWD_FG_mapG.size):
-    #     DWD_FG_mapG[i] = np.sum((pixels==i)*DWD_unresolved_powers)
-#    
-#    ## create logarithmic skymap for plotting purposes
-#    log_DWD_FG_mapG = np.log10(DWD_FG_mapG + 10**-15 * (DWD_FG_mapG==0))
-#    
-
     ## below isn't in the jupyter notebook?
     ## Transform into the ecliptic
     rGE = hp.rotator.Rotator(coord=['G','E'])
     astro_map = rGE.rotate_map_pixel(astro_mapG)
-#    log_DWD_FG_map = rGE.rotate_map_pixel(log_DWD_FG_mapG)
     
     ## returning healpix skymaps
     return astro_map
@@ -625,8 +593,6 @@ def generate_point_source(theta,phi,nside):
     astro_map[neighbours] = 1e-10
     astro_map = astro_map/np.sum(astro_map)
     
-#    log_astro_map = np.log10(astro_map + 10**-15 * (astro_map==0))
-    
     return astro_map
 
 def generate_two_point_source(theta_1,phi_1,theta_2,phi_2,nside):
@@ -649,8 +615,6 @@ def generate_two_point_source(theta_1,phi_1,theta_2,phi_2,nside):
     ps_idx = [hp.ang2pix(nside, theta_1, phi_1),
               hp.ang2pix(nside, theta_2, phi_2)]
     astro_map[ps_idx] = 0.5
-    
-#    log_astro_map = np.log10(astro_map + 10**-15 * (astro_map==0))
     
     return astro_map
 

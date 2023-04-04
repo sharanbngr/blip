@@ -2,18 +2,13 @@ import pickle
 import numpy as np
 import sys, configparser, subprocess
 from src.makeLISAdata import LISAdata
-from src.likelihoods import likelihoods
 from src.models import Model, Injection
 from tools.plotmaker import plotmaker
 from tools.plotmaker import mapmaker
 from tools.plotmaker import fitmaker
-import matplotlib
 import matplotlib.pyplot as plt
-from astropy import units as u
 from multiprocessing import Pool
 import time
-from scipy.interpolate import interp1d
-# from eogtest import open_img
 from src.dynesty_engine import dynesty_engine
 from src.nessai_engine import nessai_engine
 #from src.emcee_engine import emcee_engine
@@ -31,13 +26,6 @@ class LISA(LISAdata, Model):
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
-        # Make noise spectra
-#        self.which_noise_spectrum(params,inj,self.fdata,self.f0,self.tsegmid)
-
-#        if self.inj['doInj']:
-#            self.Injection = Injection()
-#            self.which_astro_signal()
-
         # Generate or get mldc data
         if self.params['mldc']:
             self.read_mldc_data()
@@ -46,11 +34,8 @@ class LISA(LISAdata, Model):
 
         # Set up the Bayes class
         print("Building Bayesian model...")
-        likelihoods.__init__(self)
+        self.make_data_correlation_matrix()
         self.Model = Model(params,inj,self.fdata,self.f0,self.tsegmid,self.rmat)
-
-        # Figure out which response function to use for recoveries
-#        self.which_response()
 
         # Make some simple diagnostic plots to contrast spectra
         if self.params['mldc']:
@@ -114,27 +99,6 @@ class LISA(LISAdata, Model):
             self.h2 = self.h2 + h2_gw
             self.h3 = self.h3 + h3_gw
         
-        
-#        if self.inj['injtype'] == 'multi':
-#            h1_gw_i, h2_gw_i, h3_gw_i, times = self.add_sgwb_data(multi='i')
-#            h1_gw_a, h2_gw_a, h3_gw_a, times = self.add_sgwb_data(multi='a')
-#            h1_gw_i, h2_gw_i, h3_gw_i = h1_gw_i[0:N], h2_gw_i[0:N], h3_gw_i[0:N]
-#            h1_gw_a, h2_gw_a, h3_gw_a = h1_gw_a[0:N], h2_gw_a[0:N], h3_gw_a[0:N]
-#
-#            # Add gravitational-wave time series to noise time-series
-#            self.h1 = self.h1 + h1_gw_i + h1_gw_a
-#            self.h2 = self.h2 + h2_gw_i + h2_gw_a
-#            self.h3 = self.h3 + h3_gw_i + h3_gw_a
-#        else:
-#            for injection_component in 
-#            h1_gw, h2_gw, h3_gw, times = self.add_sgwb_data()
-#
-#            h1_gw, h2_gw, h3_gw = h1_gw[0:N], h2_gw[0:N], h3_gw[0:N]
-#
-#            # Add gravitational-wave time series to noise time-series
-#            self.h1 = self.h1 + h1_gw
-#            self.h2 = self.h2 + h2_gw
-#            self.h3 = self.h3 + h3_gw
 
         self.timearray = times[0:N]
         if delt != (times[1] - times[0]):
@@ -152,6 +116,27 @@ class LISA(LISAdata, Model):
         fstar = cspeed/(2*np.pi*self.armlength)
         self.f0 = self.fdata/(2*fstar)
         
+    def make_data_correlation_matrix(self):
+        '''
+        Uses the generated time-domain data series to construct a data correlation matrix.
+        
+        Used to be the initialization of the (now defunct) likelihoods.py
+        '''
+        self.r12 = np.conj(self.r1)*self.r2
+        self.r13 = np.conj(self.r1)*self.r3
+        self.r21 = np.conj(self.r2)*self.r1
+        self.r23 = np.conj(self.r2)*self.r3
+        self.r31 = np.conj(self.r3)*self.r1
+        self.r32 = np.conj(self.r3)*self.r2
+        self.rbar = np.stack((self.r1, self.r2, self.r3), axis=2)
+
+        ## create a data correlation matrix
+        self.rmat = np.zeros((self.rbar.shape[0], self.rbar.shape[1], self.rbar.shape[2], self.rbar.shape[2]), dtype='complex')
+
+        for ii in range(self.rbar.shape[0]):
+            for jj in range(self.rbar.shape[1]):
+                self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
+    
     def read_mldc_data(self):
         '''
         Just a wrapper function to use the methods the LISAdata class to
@@ -186,110 +171,13 @@ class LISA(LISAdata, Model):
             pass
 
 
-#    def which_noise_spectrum(self):
-#
-#        # Figure out which instrumental noise spectra to use
-#        if self.params['tdi_lev']=='aet':
-#            self.instr_noise_spectrum = self.aet_noise_spectrum
-#            self.gen_noise_spectrum = self.gen_aet_noise
-#        elif self.params['tdi_lev']=='xyz':
-#            self.instr_noise_spectrum = self.xyz_noise_spectrum
-#            self.gen_noise_spectrum = self.gen_xyz_noise
-#        elif self.params['tdi_lev']=='michelson':
-#            self.instr_noise_spectrum = self.mich_noise_spectrum
-#            self.gen_noise_spectrum = self.gen_michelson_noise
-
-#    def which_response(self):
-#
-#        # Calculate reponse function to use for analysis
-#        if (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='aet':
-#            self.response_mat = self.isgwb_aet_response(self.f0, self.tsegmid)
-#
-#        elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='xyz':
-#            self.response_mat = self.isgwb_xyz_response(self.f0, self.tsegmid)
-#
-#        elif (self.params['modeltype'] == 'isgwb' or self.params['modeltype'] == 'isgwb_only') and self.params['tdi_lev']=='michelson':
-#            self.response_mat = self.isgwb_mich_response(self.f0, self.tsegmid)
-#
-#        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
-#            self.response_mat = self.asgwb_mich_response(self.f0, self.tsegmid)
-#        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
-#            self.response_mat = self.asgwb_xyz_response(self.f0, self.tsegmid)
-#        elif self.params['modeltype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-#            self.response_mat = self.asgwb_aet_response(self.f0, self.tsegmid)
-#        
-#        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='michelson':
-#            self.response_mat_a = self.asgwb_mich_response(self.f0, self.tsegmid)
-#            self.response_mat_i = self.isgwb_mich_response(self.f0, self.tsegmid)
-#        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='xyz':
-#            self.response_mat_a = self.asgwb_xyz_response(self.f0, self.tsegmid)
-#            self.response_mat_i = self.isgwb_xyz_response(self.f0, self.tsegmid)
-#        elif self.params['modeltype']=='multi' and self.params['tdi_lev']=='aet':
-#            self.response_mat_a = self.asgwb_aet_response(self.f0, self.tsegmid)
-#            self.response_mat_i = self.isgwb_aet_response(self.f0, self.tsegmid)
-#        elif self.params['modeltype'] == 'noise_only':
-#            print('Noise only model chosen ...')
-#        else:
-#            raise ValueError('Unknown recovery model selected')
-
-#    def which_astro_signal(self):
-#
-#        # Figure out which antenna patterns to use
-#        if self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='aet':
-#            self.add_astro_signal = self.isgwb_aet_response
-#        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='xyz':
-#            self.add_astro_signal = self.isgwb_xyz_response
-#        elif self.inj['injtype'] == 'isgwb' and self.params['tdi_lev']=='michelson':
-#            self.add_astro_signal = self.isgwb_mich_response
-#        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='michelson':
-#            self.add_astro_signal = self.asgwb_mich_response
-#        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='aet':
-#            self.add_astro_signal = self.asgwb_aet_response
-#        elif self.inj['injtype']=='sph_sgwb' and self.params['tdi_lev']=='xyz':
-#            self.add_astro_signal = self.asgwb_xyz_response
-#        elif self.inj['injtype']=='astro' and (self.inj['injbasis']=='sph' or self.inj['injbasis']=='sph_lmax'):
-#            if self.params['tdi_lev']=='michelson':
-#                self.add_astro_signal = self.asgwb_mich_response
-#            elif self.params['tdi_lev']=='aet':
-#                self.add_astro_signal = self.asgwb_aet_response
-#            elif self.params['tdi_lev']=='xyz':
-#                self.add_astro_signal = self.asgwb_xyz_response
-#            else:
-#                raise ValueError("Unknown TDI level selected.")
-#        elif self.inj['injtype']=='astro' and self.inj['injbasis']=='pixel':
-#            if self.params['tdi_lev']=='michelson':
-#                self.add_astro_signal = self.pixel_mich_response
-#            elif self.params['tdi_lev']=='aet':
-#                self.add_astro_signal = self.pixel_aet_response
-#            elif self.params['tdi_lev']=='xyz':
-#                self.add_astro_signal = self.pixel_xyz_response
-#            else:
-#                raise ValueError("Unknown TDI level selected.")
-#        elif self.inj['injtype'] == 'multi':
-#            if self.params['tdi_lev']=='michelson':
-#                self.add_astro_signal_a = self.asgwb_mich_response
-#                self.add_astro_signal_i = self.isgwb_mich_response
-#            elif self.params['tdi_lev']=='aet':
-#                self.add_astro_signal_a = self.asgwb_aet_response
-#                self.add_astro_signal_i = self.isgwb_aet_response
-#            elif self.params['tdi_lev']=='xyz':
-#                self.add_astro_signal_a = self.asgwb_xyz_response
-#                self.add_astro_signal_i = self.isgwb_xyz_response
-#        else:
-#           raise ValueError('Unknown injection model selected')
-
     def diag_spectra(self):
 
         '''
         A function to do simple diagnostics. Plot the expected spectra and data.
         '''
 
-#        import scipy.signal as sg
-
         # ------------ Calculate PSD ------------------
-
-        # Number of segmants
-        Nperseg=int(self.params['fs']*self.params['seglen'])
 
         # PSD from the FFTs
         data_PSD1, data_PSD2, data_PSD3  = np.mean(np.abs(self.r1)**2, axis=1), np.mean(np.abs(self.r2)**2, axis=1), np.mean(np.abs(self.r3)**2, axis=1)
@@ -317,10 +205,6 @@ class LISA(LISAdata, Model):
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
-        
-        ## this is kinda hacky for now
-        ## set up a color-coder for the different models somewhere later
-#        matplotlib.rcParams['axes.prop_cycle'] = matplotlib.cycler(color=["mediumorchid", "teal", "goldenrod","slategray","navy"])
         
         ## need to generate the population response at the data frequencies
         ## we can't do this earlier because we need the data time array
@@ -353,129 +237,13 @@ class LISA(LISAdata, Model):
             ymins.append(S1_gw.min())
             S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
-#        
-#        if self.inj['injtype'] != 'noise_only':
-#            if self.inj['injtype'] == 'sph_sgwb' or self.inj['injtype']=='astro':
-#                ## Response matrix : shape (3 x 3 x freq x time) if isotropic
-#                ## set up different use cases
-#                if self.inj['injtype'] == 'astro':
-#                    if self.inj['injbasis'] == 'sph':
-#                        summ_response_mat = np.sum(self.add_astro_signal(self.f0,self.tsegmid)*self.alms_inj[None,None,None,None,:],axis=-1)
-#                    elif self.inj['injbasis'] == 'sph_lmax':
-#                        summ_response_mat = np.sum(self.add_astro_signal(self.f0,self.tsegmid,set_almax=self.inj_almax)*self.alms_inj[None,None,None,None,:],axis=-1)
-#                    elif self.inj['injbasis'] == 'pixel':
-#                        summ_response_mat = self.add_astro_signal(self.f0,self.tsegmid,self.skymap_inj)  
-#                else:
-#                    summ_response_mat = np.sum(self.response_mat*self.alms_inj[None, None, None, None, :], axis=-1)
-#                
-#                # extra auto-power GW responses
-#                R1 = np.real(summ_response_mat[0, 0, :, :])
-#                R2 = np.real(summ_response_mat[1, 1, :, :])
-#                R3 = np.real(summ_response_mat[2, 2, :, :])
-#            
-#            elif self.inj['injtype'] == 'multi':
-#                if self.inj['injbasis'] == 'sph':
-#                    summ_response_mat_a = np.sum(self.add_astro_signal_a(self.f0,self.tsegmid)*self.alms_inj[None,None,None,None,:],axis=-1)
-#                    response_mat_i = self.add_astro_signal_i(self.f0, self.tsegmid)
-#                    R1_a = np.real(summ_response_mat_a[0, 0, :, :])
-#                    R2_a = np.real(summ_response_mat_a[1, 1, :, :])
-#                    R3_a = np.real(summ_response_mat_a[2, 2, :, :])
-#                    R1_i = np.real(response_mat_i[0, 0, :, :])
-#                    R2_i = np.real(response_mat_i[1, 1, :, :])
-#                    R3_i = np.real(response_mat_i[2, 2, :, :])
-#                else:
-#                    raise ValueError("Multi-SGWB injections only supports sph basis injections for now.")
-#            else:
-#                # extra auto-power GW responses
-#                R1 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[0, 0, :, :])
-#                R2 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[1, 1, :, :])
-#                R3 = np.real(self.add_astro_signal(self.f0, self.tsegmid)[2, 2, :, :])
-#            
-#            
-#            # Hubble constant
-#            H0 = 2.2*10**(-18)
-#            if self.inj['injtype'] == 'multi':
-#                Omegaf_i = (10**self.inj['log_omega0_i'])*(self.fdata/self.params['fref'])**self.inj['alpha_i']
-#                Omegaf_a = (10**self.inj['log_omega0_a']) * (self.fdata/self.params['fref'])**self.inj['alpha_a'] \
-#                                * 0.5 * (1+np.tanh((self.inj['f_cut_a']-self.fdata)/self.inj['f_scale_a']))
-#                Sgw_a = (3.0*(H0**2)*Omegaf_a)/(4*np.pi*np.pi*self.fdata**3)
-#                Sgw_i = (3.0*(H0**2)*Omegaf_i)/(4*np.pi*np.pi*self.fdata**3)
-#            else:
-#                # Calculate astrophysical power law noise
-#                if self.inj['spectral_inj'] == 'population':
-#                    ## population-derived power spectra
-#                    Sgw = self.pop2spec(self.inj['popfile'],self.fdata,self.params['dur']*u.s,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
-#                    # Power spectra of the specified DWD population
-#                    ## need to use the same frequencies as during the data generation process
-#                    N_spec=int(self.params['fs']*self.params['dur'])
-#                    fs_spec = np.fft.rfftfreq(N_spec, 1.0/self.params['fs'])[1:]
-#                    Sgw_fine = self.pop2spec(self.inj['popfile'],fs_spec,self.params['dur']*u.s,plot=False,names=self.inj['columns'],sep=self.inj['delimiter'])*4 ##h^2 = 1/2S_A = 1/2 * 1/2S_GW
-#                    ## now downsample to the frequencies at which we've evaluated the response
-#                    interp = interp1d(fs_spec,Sgw_fine)
-#                    Sgw = interp(self.fdata)
-#                else:
-#                    ## power spectra for analytic cases
-#                    if self.inj['spectral_inj'] == 'powerlaw':
-#                        Omega0, alpha = 10**self.inj['log_omega0'], self.inj['alpha']
-#                        Omegaf = Omega0*(self.fdata/self.params['fref'])**alpha
-#                    elif self.inj['spectral_inj'] == 'broken_powerlaw':
-#                        alpha_2 = self.inj['alpha1'] - 0.667
-#                        Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
-#                             1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**alpha_2)
-#                    elif self.inj['spectral_inj'] == 'free_broken_powerlaw':
-#                        Omegaf = ((10**self.inj['log_A1'])*(self.fdata/self.params['fref'])**self.inj['alpha1'])/(\
-#                             1 + (10**self.inj['log_A2'])*(self.fdata/self.params['fref'])**self.inj['alpha2'])
-#                    elif self.inj['spectral_inj'] == 'broken_powerlaw_2':
-#                        delta = 0.1
-#                        Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
-#                                * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta)
-#                    elif self.inj['spectral_inj'] == 'truncated_broken_powerlaw':
-#                        delta = 0.1
-#                        Omegaf = (10**self.inj['log_omega0'])*(self.fdata/self.inj['f_break'])**(self.inj['alpha1']) \
-#                                * (0.5*(1+(self.fdata/self.inj['f_break'])**(1/delta)))**((self.inj['alpha1']-self.inj['alpha2'])*delta) \
-#                                * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
-#                    elif self.inj['spectral_inj'] == 'truncated_powerlaw':
-#                        Omegaf = (10**self.inj['log_omega0']) * (self.fdata/self.params['fref'])**self.inj['alpha'] \
-#                                * 0.5 * (1+np.tanh((self.inj['f_cut']-self.fdata)/self.inj['f_scale']))
-#    
-#                    Sgw = (3.0*(H0**2)*Omegaf)/(4*np.pi*np.pi*self.fdata**3)            
-            
-#            plt.close()
-#            if self.inj['injtype'] == 'multi':
-#                # Spectrum of each SGWB signal convoluted with their respective detector response tensor.
-#                S1_gw_a, S2_gw_a, S3_gw_a = Sgw_a[:, None]*R1_a, Sgw_a[:, None]*R2_a, Sgw_a[:, None]*R3_a
-#                S1_gw_i, S2_gw_i, S3_gw_i = Sgw_i[:, None]*R1_i, Sgw_i[:, None]*R2_i, Sgw_i[:, None]*R3_i
-#                
-#                # The total noise spectra is the sum of the instrumental + astrophysical (anisotropic and isotropic alike)
-#                S1, S2, S3 = S1[:, None] + S1_gw_a + S1_gw_i, S2[:, None] + S2_gw_a + S2_gw_i, S3[:, None] + S3_gw_a + S3_gw_i
-#                
-#                plt.loglog(self.fdata, np.mean(S1_gw_a,axis=1), label='Simulated anisotropic GW spectrum', lw=0.75)
-#                plt.loglog(self.fdata, np.mean(S1_gw_i,axis=1), label='Simulated isotropic GW spectrum', lw=0.75)
-#            else:
-#                # Spectrum of the SGWB signal convoluted with the detector response tensor.
-#                S1_gw, S2_gw, S3_gw = Sgw[:, None]*R1, Sgw[:, None]*R2, Sgw[:, None]*R3
-#
-#                # The total noise spectra is the sum of the instrumental + astrophysical
-#                S1, S2, S3 = S1[:, None] + S1_gw, S2[:, None] + S2_gw, S3[:, None] + S3_gw
-#                
-#                plt.loglog(self.fdata, np.mean(S1_gw,axis=1), label='Simulated GW spectrum', lw=0.75)
-
-            
-            
+       
             plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
 
         # noise budget plot
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75,color='slategrey')
         plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
-        ## multi-SGWB injection plot gets squished due to truncated pl
-#        if self.inj['injtype'] == 'multi':
-#            ymin = 0.5 * S1_gw_i.min()
-#            plt.ylim(bottom=ymin)
-        ## population injection drops to zero inside frequency range and squishes the plot
-#        elif self.inj['spectral_inj'] == 'population':
-#            ymin = 0.5*S1_gw[S1_gw>1e-50].min()
-#            plt.ylim(bottom=ymin)
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         ymin = np.min(ymins)
@@ -523,8 +291,6 @@ class LISA(LISAdata, Model):
         
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
-
-        ## FIX LATER
         
         ii, jj = 2,0
         IJ = str(ii+1)+str(jj+1)
@@ -535,27 +301,13 @@ class LISA(LISAdata, Model):
         iymins = []
         for component_name in self.Injection.sgwb_component_names:
             if component_name != 'noise':
-#                Sx_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels=IJ,return_PSD=True,lw=0.75)
                 Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ,imaginary=True)
                 ymins.append(np.real(Sx_gw).min())
                 iymins.append(np.imag(Sx_gw).min())
                 Sx = Sx + Sx_gw
-#        
+       
         CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
-        
-#        ii, jj = 2, 0
-#
-#        if self.inj['injtype'] == 'noise_only':
-#            Sx = C_noise[ii, jj, :]
-#        elif self.inj['injtype'] == 'multi':
-#            Sx = C_noise[ii, jj, :, None] + Sgw_i[:,None]*response_mat_i[ii,jj,:,0] + Sgw_a*summ_response_mat_a[ii, jj, :, 0]
-#        elif self.inj['injtype'] == 'sph_sgwb' or self.inj['injtype'] == 'astro':
-#            Sx = C_noise[ii, jj, :] + Sgw*summ_response_mat[ii, jj, :, 0]
-#        else:
-#            Sx = C_noise[ii, jj, :, None] + Sgw[:,None]*self.response_mat[ii, jj, :, 0]
-#
-#        CSDx = np.mean(np.conj(self.rbar[:, :, ii]) * self.rbar[:, :, jj], axis=1)
-#
+
         plt.subplot(2, 1, 1)
         if len(Sx.shape) == 1:
             plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
@@ -607,7 +359,6 @@ class LISA(LISAdata, Model):
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-    #        plt.ylim([1e-44, 5e-40])
         plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
     
         plt.savefig(self.params['out_dir'] + '/data_psd.png', dpi=200)
@@ -648,9 +399,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['fref'] = float(config.get("params", "fref"))
     
     params['model'] = str(config.get("params", "model"))
-    
-#    params['modeltype'] = str(config.get("params", "modeltype"))
-#    params['spectrum_model'] = str(config.get("params", "spectrum_model"))
+
     params['tdi_lev'] = str(config.get("params", "tdi_lev"))
     params['lisa_config'] = str(config.get("params", "lisa_config"))
     params['nside'] = int(config.get("params", "nside"))
@@ -659,7 +408,6 @@ def blip(paramsfile='params.ini',resume=False):
     params['sampler'] = str(config.get("params", "sampler"))
 
     ## see if we need to initialize the spherical harmonic subroutines
-#    sph_check = [element for sublist in params['model'].split('+') for element in sublist.split('_')]
     sph_check = [sublist.split('_')[-1] for sublist in params['model'].split('+')]
 
     # Injection Dict
@@ -679,7 +427,6 @@ def blip(paramsfile='params.ini',resume=False):
             else:
                 inj[item] = truevals[item]
         ## add injections to the spherical harmonic check if needed
-#        sph_check = sph_check + [element for sublist in inj['injection'].split('+') for element in sublist.split('_')]
         sph_check = sph_check + [sublist.split('_')[-1] for sublist in inj['injection'].split('+')]
         
     ## set sph flags
@@ -717,132 +464,6 @@ def blip(paramsfile='params.ini',resume=False):
         elif delimiter == 'tab':
             delimiter = '\t'
         inj['delimiter'] = delimiter
-#    
-#    
-#    inj['injtype']     = str(config.get("inj", "injtype"))
-#    
-#    inj['log_Np']      = np.log10(float(config.get("inj", "Np")))
-#    inj['log_Na']      = np.log10(float(config.get("inj", "Na")))
-#    
-#    
-##    inj.extend(parameter_collector(inj['injection']))
-#    ## need to write parameter_collector (in models.py) that automatically looks for the relevant parameters in the params file given the model
-#    
-#    
-#    ## spectral parameters
-#    
-#    
-#    
-#    
-#    if inj['injtype'] != 'noise_only':
-#        inj['spectral_inj']     = str(config.get("inj", "spectral_inj"))
-#        if inj['spectral_inj'] == 'powerlaw':
-#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-#            inj['alpha']       = float(config.get("inj", "alpha"))
-#        elif inj['spectral_inj'] == 'broken_powerlaw':
-#            inj['alpha1']     = float(config.get("inj", "alpha1"))
-#            inj['log_A1']      = float(config.get("inj", "log_A1"))
-#            inj['log_A2']      = float(config.get("inj", "log_A2"))
-#        elif inj['spectral_inj'] == 'broken_powerlaw_2':
-#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-#            inj['alpha1']     = float(config.get("inj", "alpha1"))
-#            inj['alpha2']     = float(config.get("inj", "alpha2"))
-#            inj['f_break']      = float(config.get("inj", "f_break"))
-#        elif inj['spectral_inj'] == 'truncated_broken_powerlaw':
-#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-#            inj['alpha1']     = float(config.get("inj", "alpha1"))
-#            inj['alpha2']     = float(config.get("inj", "alpha2"))
-#            inj['f_break']      = float(config.get("inj", "f_break"))
-#            inj['f_cut']      = float(config.get("inj", "f_cut"))
-#            inj['f_scale']      = float(config.get("inj", "f_scale"))
-#        elif inj['spectral_inj'] == 'truncated_powerlaw':
-#            inj['log_omega0']   = np.log10(float(config.get("inj", "omega0")))
-#            inj['alpha']     = float(config.get("inj", "alpha"))
-#            inj['f_cut']      = float(config.get("inj", "f_cut"))
-#            inj['f_scale']      = float(config.get("inj", "f_scale"))
-#        elif inj['spectral_inj'] == 'free_broken_powerlaw':
-#            inj['alpha1']     = float(config.get("inj", "alpha1"))
-#            inj['alpha2']     = float(config.get("inj", "alpha2"))
-#            inj['log_A1']      = float(config.get("inj", "log_A1"))
-#            inj['log_A2']      = float(config.get("inj", "log_A2"))
-#        elif inj['spectral_inj'] == 'population' :
-#            inj['popfile']     = str(config.get("inj","popfile"))
-#            inj['SNRcut']      = float(config.get("inj","SNRcut"))
-#            colnames = str(config.get("inj","columns"))
-#            colnames = colnames.split(',')
-#            inj['columns'] = colnames
-#            delimiter = str(config.get("inj","delimiter"))
-#            if delimiter == 'space':
-#                delimiter = ' '
-#            elif delimiter == 'tab':
-#                delimiter = '\t'
-#            inj['delimiter'] = delimiter
-    ## spatial parameters
-    ## direct spherical harmonic injections
-#    if inj['injtype'] ==  'sph_sgwb':
-#        blm_vals = config.get("inj", "blms")
-#        blm_vals = blm_vals.split(',')
-#        num_blms = int(0.5*(params['lmax'] + 1) * (params['lmax'] + 2))
-#        blms = np.zeros(num_blms, dtype='complex')
-#        for ii in range(num_blms):
-#            blms[ii] = complex(blm_vals[ii])
-#        inj['blms'] = blms
-#    ## astrophysical injections
-#    elif inj['injtype'] == 'astro':
-#        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
-#        inj['injbasis'] = str(config.get("inj", "injbasis"))
-#        if inj['injbasis'] == 'sph_lmax':
-#            inj['inj_lmax'] = int(config.get("inj", "inj_lmax"))
-#        if inj['spatial_inj'] == 'breivik2020':
-#            inj['rh']          = float(config.get("inj", "rh"))
-#            inj['zh']          = float(config.get("inj", "zh"))
-#        ## only need to load these parameters is spectral inj isn't also population
-#        elif inj['spatial_inj'] == 'population':
-#            if inj['spectral_inj'] != 'population':
-#                inj['popfile']     = str(config.get("inj","popfile"))
-#                inj['SNRcut']      = float(config.get("inj","SNRcut"))
-#                colnames = str(config.get("inj","columns"))
-#                colnames = colnames.split(',')
-#                inj['columns'] = colnames
-#                delimiter = str(config.get("inj","delimiter"))
-#                if delimiter == 'space':
-#                    delimiter = ' '
-#                elif delimiter == 'tab':
-#                    delimiter = '\t'
-#                inj['delimiter'] = delimiter
-#        elif inj['spatial_inj'] == 'sdg':
-#            inj['sdg_RA']      = float(config.get("inj", "sdg_RA"))
-#            inj['sdg_DEC']     = float(config.get("inj", "sdg_DEC"))
-#            inj['sdg_DIST']    = float(config.get("inj", "sdg_DIST"))
-#            inj['sdg_RAD']     = float(config.get("inj", "sdg_RAD"))
-#            inj['sdg_NUM']     = float(config.get("inj", "sdg_NUM"))
-#        elif inj['spatial_inj'] == 'point_source':
-#            inj['theta'] = float(config.get("inj", "theta"))
-#            inj['phi'] = float(config.get("inj", "phi"))
-#        elif inj['spatial_inj'] == 'two_point':
-#            inj['theta_1'] = float(config.get("inj", "theta_1"))
-#            inj['phi_1'] = float(config.get("inj", "phi_1"))
-#            inj['theta_2'] = float(config.get("inj", "theta_2"))
-#            inj['phi_2'] = float(config.get("inj", "phi_2"))
-#        elif inj['spatial_inj']:
-#            pass
-#        else:
-#            raise TypeError("Unkown spatial injection type. Currently supported: 'breivik2020', 'population', 'sdg', 'ps', 'tps'.")
-#    elif inj['injtype'] == 'multi':
-#        ## this prototype only supports a Breivik+2020 galaxy with a truncated power law spectrum + a power law isotropic SGWB
-#        inj['spatial_inj']     = str(config.get("inj", "spatial_inj"))
-#        inj['injbasis'] = str(config.get("inj", "injbasis"))
-#        if inj['spatial_inj'] == 'breivik2020':
-#            inj['rh']          = float(config.get("inj", "rh"))
-#            inj['zh']          = float(config.get("inj", "zh"))
-#        else:
-#            raise ValueError("Multi-SGWB analysis prototype only supports a Breivik+2020 anisotropic spatial injection.")
-#        inj['log_omega0_a']   = np.log10(float(config.get("inj", "omega0_a")))
-#        inj['alpha_a']     = float(config.get("inj", "alpha_a"))
-#        inj['f_cut_a']      = float(config.get("inj", "f_cut_a"))
-#        inj['f_scale_a']      = float(config.get("inj", "f_scale_a"))
-#        inj['log_omega0_i']   = np.log10(float(config.get("inj", "omega0_i")))
-#        inj['alpha_i']       = float(config.get("inj", "alpha_i"))
 
 
     # some run parameters
@@ -852,7 +473,6 @@ def blip(paramsfile='params.ini',resume=False):
     params['projection']         = str(config.get("run_params", "projection"))
     params['FixSeed']            = str(config.get("run_params", "FixSeed"))
     params['seed']               = int(config.get("run_params", "seed"))
-    verbose                      = int(config.get("run_params", "verbose"))
     nlive                        = int(config.get("run_params", "nlive"))
     nthread                      = int(config.get("run_params", "Nthreads"))
     # nessai flow tuning
@@ -1019,12 +639,7 @@ def blip(paramsfile='params.ini',resume=False):
         else:
             mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
         
-        
-        
-#    if params['modeltype'] not in ['isgwb','isgwb_only','noise_only']:
-#        print("\nMaking posterior skymap ...")
-#        mapmaker(params, post_samples, parameters, coord=params['projection'])
-    # open_img(params['out_dir'])
+    
 
 if __name__ == "__main__":
 

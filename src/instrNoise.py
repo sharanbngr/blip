@@ -1,7 +1,6 @@
 from __future__ import division
 import numpy as np
 from scipy.interpolate import interp1d as intrp
-import types
 
 class instrNoise():
 
@@ -130,8 +129,6 @@ class instrNoise():
         C_mich = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        #SX = 4*SM1* np.sin(2*f0)**2
-
         C_xyz =  4 * np.sin(2*f0)**2 * C_mich
 
         return C_xyz
@@ -197,8 +194,6 @@ class instrNoise():
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
         frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
-        fstar = 3e8/(2*np.pi*self.armlength)
-        f0 = frange/(2*fstar)
 
         Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
@@ -220,7 +215,6 @@ class instrNoise():
         # time array and time shift array
         tarr =  np.arange(0, 1.1*self.params['dur'], 1.0/self.params['fs'])
         tarr = tarr[0:np12.size]
-        delt = tarr[2] - tarr[1]
 
         # We start with assuming a padding of 20 seconds on the beginning for the
         # Michelson channels
@@ -341,8 +335,6 @@ class instrNoise():
 
         '''
 
-        cspeed = 3e8 #m/s
-
         # michelson channels
         tarr, hX, hY, hZ = self.gen_xyz_noise()
 
@@ -364,8 +356,6 @@ class instrNoise():
             Time series data for the three TDI channels
         '''
 
-        cspeed = 3e8 #m/s
-        delf  = 1.0/self.params['dur']
         fstar = 3e8/(2*np.pi*self.armlength)
         N = int(self.params['fs']*self.params['dur'])
 
@@ -375,16 +365,11 @@ class instrNoise():
 
         f0 = frange/(2*fstar)
 
-        #Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
         C_xyz = self.xyz_noise_spectrum(frange, f0, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
         ## Cholesky decomposition to get the "sigma" matrix
         L_cholesky = np.sqrt(self.params['fs'] * N/4.0) *  np.linalg.cholesky(np.moveaxis(C_xyz, -1, 0))
-
-        #for ii in range(C_xyz.shape[-1]):
-        #    np.linalg.cholesky(C_xyz[:, :, ii])
-        #    print(str(ii) + '/' + str(C_xyz.shape[-1]))
 
         ## generate standard normal complex data frist
         z_norm = np.random.normal(size=(3, frange.size)) + 1j * np.random.normal(size=(3, frange.size))
@@ -452,10 +437,8 @@ class instrNoise():
             numFreqs = int((N-1)/2)
 
         # We will make an array of the desired frequencies
-        delF = 1/dur
         fmin = 0
         fmax = np.around(dur*fs/2)/dur
-        delF = 1/dur
 
         # The output frequency series
         fout = np.linspace(fmin, fmax, numFreqs)
@@ -519,10 +502,8 @@ class instrNoise():
             numFreqs = (N-1)/2;
 
         # We will make an array of the desired frequencies
-        delF = 1/dur
         fmin = 1/dur
         fmax = np.around(dur*fs/2)/dur
-        delF = 1/dur
 
         # The output frequency series
         fout = np.linspace(fmin, fmax, numFreqs)

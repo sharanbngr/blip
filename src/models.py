@@ -240,17 +240,6 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 ## get blm truevals
                 val_list = self.blms_2_blm_params(inj['blms'])
-#                val_list = []
-#                for lval in range(1, inj['inj_lmax'] + 1):
-#                    for mval in range(lval + 1):
-#        
-#                        idx = hp.Alm.getidx(inj['inj_lmax'], lval, mval)
-#        
-#                        if mval == 0:
-#                            val_list.append(np.real(inj['blms'][idx]))
-#                        else:
-#                            val_list.append(np.abs(inj['blms'][idx]))
-#                            val_list.append(np.angle(inj['blms'][idx]))
                 
                 for param, val in zip(blm_parameters,val_list):
                     self.truevals[param] = val
@@ -353,15 +342,6 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         else:
             raise ValueError("Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name))
         
-        
-        ## some special treatment for the population case
-#        if hasattr(self,"ispop") and self.ispop:
-#            f0_true = self.population.frange_true/(3e8/(2*np.pi*self.armlength))
-#            inj_response_mat_true = self.response(f0_true,tsegmid,**response_kwargs)
-#            if hasattr(self,'skypop') and self.skypop:
-#                self.inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.alms_inj)
-#            else:
-#                self.inj_response_mat_true = inj_response_mat_true
         
         ## store final parameter list and count
         self.parameters = self.parameters + self.spectral_parameters + self.spatial_parameters
@@ -832,6 +812,14 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         return
 
+
+
+
+###################################################
+###      UNIFIED MODEL PRIOR & LIKELIHOOD       ###
+###################################################
+
+
 class Model(likelihoods):
     '''
     Class to house all model attributes in a modular fashion.
@@ -953,7 +941,9 @@ class Model(likelihoods):
         return loglike
     
 
-    
+###################################################
+###       UNIFIED INJECTION INFRASTRUCTURE      ###
+################################################### 
 
     
 class Injection():#geometry,sph_geometry):
@@ -1046,24 +1036,12 @@ class Injection():#geometry,sph_geometry):
                 PSD_interp = interp1d(fs,PSD)
                 PSD = PSD_interp(fs_new)
                 fs = fs_new
-#                PSD_interp = interp1d(cm.population.frange_true,PSD)
-#                deltaf_new = fs_new[1] - fs_new[0]
-#                deltaf_old = cm.population.frange_true[1] - cm.population.frange_true[0]
-#                PSD = PSD_interp(fs_new) * (deltaf_new/deltaf_old)
-#                print("shouldn't see this")
-#                fs = fs_new
-#            else:
+
         else:
             if not imaginary:
                 PSD = np.mean(cm.frozen_spectra[:,None] * np.real(cm.inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
             else:
                 PSD = np.mean(cm.frozen_spectra[:,None] * 1j * np.imag(cm.inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
-            
-#        ## special treatment of population frequencies
-##        if hasattr(self.components[component_name],"ispop") and self.components[component_name].ispop:
-##            fs_base = self.components[component_name].population.frange_true
-##        else:
-#        fs_base = self.frange
         
             if fs_new is not None:
                 PSD_interp = interp1d(self.frange,np.log10(PSD))
