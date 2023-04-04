@@ -6,6 +6,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
+from matplotlib.legend_handler import HandlerTuple
 from chainconsumer import ChainConsumer
 import healpy as hp
 from healpy import Alm
@@ -471,10 +472,22 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
     ## get samples
 #    post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
     
-    notation_legend_elements = [Line2D([0], [0], color='k', ls='--', label='Injection'),
-                                Line2D([0], [0], color='k', ls='-', label='Median Fit'),
-                                Patch(color='k',alpha=0.25,label='$95\%$ C.I.')]
-    
+    ## the population injection looks funky with a dashed line, but we still need to make it clear that it's an injection.
+    ## this makes the Notation Legend "Injection" label be a split dashed/solid line
+    if 'population' in Injection.component_names:
+        notation_legend_elements = [(Line2D([0], [0], color='k', ls='--'),Line2D([0], [0], color=Injection.components['population'].color,ls='-',lw=0.75,alpha=0.8)),
+                                    Line2D([0], [0], color='k', ls='-'),
+                                    Patch(color='k',alpha=0.25)]
+        notation_legend_labels = ['Injection','Median Fit','$95\%$ C.I.']
+        notation_handler_map = {tuple: HandlerTuple(ndivide=None)}
+        notation_handlelength = 3
+    else:
+        notation_legend_elements = [Line2D([0], [0], color='k', ls='--'),
+                                    Line2D([0], [0], color='k', ls='-'),
+                                    Patch(color='k',alpha=0.25)]
+        notation_legend_labels = ['Injection','Median Fit','$95\%$ C.I.']
+        notation_handler_map = {}
+        notation_handlelength = None
     
     ## get frequencies
     frange = Injection.frange
@@ -528,7 +541,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         ## plot the injected spectra, if known
         for component_name in Injection.component_names:
             if component_name != 'noise':
-                Injection.plot_injected_spectra(component_name,legend=False,color=Injection.components[component_name].color,ls='--')
+                ## this will overwrite the default linestyle if 'ls' is given in cm.plot_kwargs
+                kwargs = {'ls':'--','color':Injection.components[component_name].color,
+                          **Injection.components[component_name].plot_kwargs}
+                Injection.plot_injected_spectra(component_name,legend=False,ymins=ymins,**kwargs)
                 if component_name not in Model.submodel_names:
                     model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
     
@@ -540,7 +556,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
     model_legend = ax.legend(handles=model_legend_elements,loc='upper right')
     ax.add_artist(model_legend)
     N_models = len(model_legend_elements)
-    notation_legend = ax.legend(handles=notation_legend_elements,loc='upper right',bbox_to_anchor=(1,0.9825-0.056*N_models))
+    notation_legend = ax.legend(handles=notation_legend_elements,labels=notation_legend_labels,handler_map=notation_handler_map,
+                                handlelength=notation_handlelength,loc='upper right',bbox_to_anchor=(1,0.9825-0.056*N_models))
     ax.add_artist(notation_legend)
     
     plt.title("Fit vs. Injection (Astrophysical)")
@@ -620,10 +637,13 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         if not params['mldc']:
             ## plot the injected spectra, if known
             for component_name in Injection.component_names:
+                ## this will overwrite the default linestyle if 'ls' is given in cm.plot_kwargs
+                kwargs = {'ls':'--','color':Injection.components[component_name].color,
+                          **Injection.components[component_name].plot_kwargs}
                 if component_name == 'noise':
-                    Injection.plot_injected_spectra(component_name,channels='22',ls='--',color=Injection.components[component_name].color)
+                    Injection.plot_injected_spectra(component_name,channels='22',ymins=ymins,**kwargs)
                 else:
-                    Injection.plot_injected_spectra(component_name,convolved=True,ls='--',color=Injection.components[component_name].color)
+                    Injection.plot_injected_spectra(component_name,convolved=True,ymins=ymins,**kwargs)
                     if component_name not in Model.submodel_names:
                         model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
         
@@ -636,7 +656,9 @@ def fitmaker(post,params,parameters,inj,Model,Injection,plot_convolved=True):
         model_legend = ax.legend(handles=model_legend_elements,loc='upper right')
         ax.add_artist(model_legend)
         N_models = len(model_legend_elements)
-        notation_legend = ax.legend(handles=notation_legend_elements,loc='upper right',bbox_to_anchor=(1,0.9825-0.056*N_models))
+        notation_legend = ax.legend(handles=notation_legend_elements,labels=notation_legend_labels,handler_map=notation_handler_map,
+                                    handlelength=notation_handlelength,loc='upper right',bbox_to_anchor=(1,0.9825-0.056*N_models))
+#        notation_legend = ax.legend(handles=notation_legend_elements,loc='upper right',bbox_to_anchor=(1,0.9825-0.056*N_models))
         ax.add_artist(notation_legend)
         plt.title("Fit vs. Injection (in Detector)")
         plt.xlabel('Frequency [Hz]')

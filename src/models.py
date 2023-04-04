@@ -59,6 +59,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         if injection:
             self.truevals = {}
+        
+        ## plot kwargs dict to allow for case-by-case exceptions to our usual plotting approach
+        ## e.g., the population spectra look real weird as dotted lines.
+        self.plot_kwargs = {}
             
         ## handle & return noise case in bespoke fashion, as it is quite different from the signal models
         if submodel_name == 'noise':
@@ -156,6 +160,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.compute_Sgw = self.population.Sgw_wrapper
             self.omegaf = self.population.omegaf_wrapper
             self.ispop = True
+            self.plot_kwargs |= {'ls':'-','lw':0.75,'alpha':0.6}
         
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
@@ -1071,7 +1076,7 @@ class Injection():#geometry,sph_geometry):
             return PSD
 
     
-    def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,**plt_kwargs):
+    def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,ymins=None,**plt_kwargs):
         '''
         Wrapper to plot the injected spectrum component on the specified matplotlib axes (or current axes if unspecified).
         
@@ -1086,6 +1091,7 @@ class Injection():#geometry,sph_geometry):
         return_PSD (bool) : If True, also returns the plotted PSD. Default False.
         scale (str) : Matplotlib scale at which to plot ('log' or 'linear'). Default 'log'.
         flim (tuple) : (fmin,fmax) plot limits. Default None (will use fmin,fmax as specified in the params file.)
+        ymins (list) : External list to which, if specified, will be added the lower ylim of the injected spectra.
         **plt_kwargs (kwargs) : matplotlib.pyplot keyword arguments
         
         Returns
@@ -1167,6 +1173,8 @@ class Injection():#geometry,sph_geometry):
         else:
             raise ValueError("We only support linear and log plots, there is no secret third option!")
         
+        if ymins is not None:
+            ymins.append(PSD.min())
         
         if return_PSD:
             return PSD
