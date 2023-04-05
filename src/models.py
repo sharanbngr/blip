@@ -497,7 +497,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Calculate lmax from the size of theta blm arrays. The shape is
         # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
-        lmax = np.sqrt( theta[self.blm_start:].size + 1 ) - 1
+        lmax = np.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
 
         if lmax.is_integer():
             lmax = int(lmax)

@@ -9,9 +9,6 @@ from tools.plotmaker import fitmaker
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import time
-from src.dynesty_engine import dynesty_engine
-from src.nessai_engine import nessai_engine
-#from src.emcee_engine import emcee_engine
 
 class LISA(LISAdata, Model):
 
@@ -405,7 +402,6 @@ def blip(paramsfile='params.ini',resume=False):
     params['nside'] = int(config.get("params", "nside"))
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart"))
-    params['sampler'] = str(config.get("params", "sampler"))
 
     ## see if we need to initialize the spherical harmonic subroutines
     sph_check = [sublist.split('_')[-1] for sublist in params['model'].split('+')]
@@ -475,15 +471,33 @@ def blip(paramsfile='params.ini',resume=False):
     params['seed']               = int(config.get("run_params", "seed"))
     nlive                        = int(config.get("run_params", "nlive"))
     nthread                      = int(config.get("run_params", "Nthreads"))
-    # nessai flow tuning
-    if params['sampler'] == 'nessai':
+    
+    ## sampler selection
+    params['sampler'] = str(config.get("run_params", "sampler"))
+    
+    ## sampler setup and late-time imports to reduce dependencies
+    ## dynesty
+    if params['sampler'] == 'dynesty':
+        from src.dynesty_engine import dynesty_engine
+    # nessai
+    elif params['sampler'] == 'nessai':
+        from src.nessai_engine import nessai_engine
+        ## flow tuning
         params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons"))
         if params['nessai_neurons']=='manual':
             params['n_neurons']      = int(config.get("run_params", "n_neurons"))
         params['reset_flow']         = int(config.get("run_params", "reset_flow"))
+    ## emcee
+    elif params['sampler'] == 'emcee':
+        from src.emcee_engine import emcee_engine
+        params['Nburn'] = int(config.get("run_params", "Nburn"))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples"))
+    else:
+        raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
-    params['checkpoint']            = int(config.get("run_params", "checkpoint"))
-    params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
+    if params['sampler']=='dynesty' or params['sampler'] == 'nessai':
+        params['checkpoint']            = int(config.get("run_params", "checkpoint"))
+        params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
 
     # Fix random seed
     if params['FixSeed']:
@@ -562,42 +576,18 @@ def blip(paramsfile='params.ini',resume=False):
     elif params['sampler'] == 'emcee':
 
         # Create engine
-        engine, parameters, init_samples = emcee_engine.define_engine(lisa, params, nlive, randst)
-        post_samples = emcee_engine.run_engine(engine, init_samples)
+        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, randst)
+        unit_samples, post_samples = emcee_engine.run_engine(engine, lisa.Model, init_samples,params['Nburn'],params['Nsamples'])
 
         # Save posteriors to file
+        np.savetxt(params['out_dir'] + "/unit_samples.txt",unit_samples)
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
 
     elif params['sampler'] == 'nessai':
         # Create engine
         if not resume:
-            # nessai handles multiprocessing internally
-#            if nthread > 1:
-##                pool = Pool(nthread)
-#                pool = Pool(processes=Nthread,initializer=initialise_pool_variables,initargs=(model,))
-#            else:
-#                pool = None
             engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])    
         else:
-#            pool = None
-#            if nthread > 1:
-#                print("Warning: Nthread > 1, but multiprocessing is not supported when resuming a run. Pool set to None.")
-#                ## To anyone reading this and wondering why:
-#                ## The pickle calls used by Python's multiprocessing fail when trying to run the sampler after saving/reloading it.
-#                ## This is because pickling the sampler maps all its attributes to their full paths;
-#                ## e.g., dynesty_engine.isgwb_prior is named as src.dynesty_engine.dynesty_engine.isgwb_prior
-#                ## BUT the object itself is still e.g. <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>
-#                ## so we get an error like
-#                ## _pickle.PicklingError: Can't pickle <function dynesty_engine.isgwb_prior at 0x7f8ebcc27130>: \
-#                ##                        it's not the same object as src.dynesty_engine.dynesty_engine.isgwb_prior
-#                ## See e.g. https://stackoverflow.com/questions/1412787/picklingerror-cant-pickle-class-decimal-decimal-its-not-the-same-object
-#                ## After too much time and sanity spent trying to fix this, I have admitted defeat.
-#                ## Feel free to try your hand -- maybe you're the chosen one. Good luck.
-            # nessai handles multiprocessing internally
-#            if nthread > 1:
-#                pool = Pool(nthread)
-#            else:
-#                pool = None    
             engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])
         ## run sampler
         if params['checkpoint']:
