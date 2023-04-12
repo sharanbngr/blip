@@ -3,8 +3,8 @@ import matplotlib
 import astropy.coordinates as cc
 import astropy.units as u
 #matplotlib.use('Agg')
-from .makeLISAdata import LISAdata
-from .clebschGordan import clebschGordan
+from makeLISAdata import LISAdata
+from clebschGordan import clebschGordan
 #from ..src.makeLISAdata import LISAdata
 #from ..src.clebschGordon import clebschGordon
 #import ..src.makeLISAdata
