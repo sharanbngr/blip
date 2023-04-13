@@ -1,7 +1,6 @@
 import numpy as np
 import emcee
 
-
 class emcee_engine():
 
     '''
@@ -28,7 +27,7 @@ class emcee_engine():
 
 
     @classmethod
-    def define_engine(cls, model, nlive, randst):
+    def define_engine(cls, model, nlive, moves, pool, randst):
         '''
         Defines the emcee engine.
         
@@ -58,7 +57,7 @@ class emcee_engine():
         
         
         # set up the sampler
-        engine = emcee.EnsembleSampler(nlive, Npar, cls.logpost, args=(model.prior, model.likelihood))
+        engine = emcee.EnsembleSampler(nlive, Npar, cls.logpost, args=(model.prior, model.likelihood), moves=moves, pool=pool)
 
 
         return engine, parameters, init_samples

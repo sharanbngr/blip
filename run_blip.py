@@ -574,9 +574,18 @@ def blip(paramsfile='params.ini',resume=False):
         np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
 
     elif params['sampler'] == 'emcee':
+        # multiprocessing
+        if nthread>1:
+            pool=Pool(nthread)
+        else:
+            pool=None
+
+        # moves
+        moves = emcee.moves.StretchMove(a=2.0)
+        #moves = emcee.moves.KDEMove(bw_method=.8) #use a lot of walkers
 
         # Create engine
-        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, randst)
+        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, moves, pool, randst)
         unit_samples, post_samples = emcee_engine.run_engine(engine, lisa.Model, init_samples,params['Nburn'],params['Nsamples'])
 
         # Save posteriors to file
