@@ -290,6 +290,12 @@ class LISA(LISAdata, likelihoods):
 
                         #save Sgw_XX (for every sample)
 
+                        #3/27:
+                        #save response above, then find summ_response_mat for every sample
+                        # will need to do blms to alms using clebsch Gordan code
+                        #write a function to take in a sample vector of all our parameters and spit out the snr
+
+
                         summ_response_mat = np.sum(response_convolved,axis=-1)
                         
 

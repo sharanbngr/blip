@@ -124,6 +124,7 @@ class likelihoods():
 
     def isgwb_pl_log_likelihood(self, theta):
 
+        # this likelihood used -smr
         '''
         Calculate likelihood for an isotropic stochastic background analysis.
 
@@ -163,6 +164,7 @@ class likelihoods():
         ## The noise spectrum of the GW signal. Written down here as a full
         ## covariance matrix axross all the channels.
         cov_sgwb = Sgw[None, None, :, None]*self.response_mat
+        # [I, J, frequency, time]
 
         cov_mat = cov_sgwb + cov_noise
 
@@ -171,6 +173,9 @@ class likelihoods():
 
         ## take inverse and determinant
         inv_cov, det_cov = bespoke_inv(cov_mat)
+
+        #log likelihood
+        #gaussian. minus is denominator- sigma^2, variance; first part is data and inverse signal to remove it from the data
 
         logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
 
