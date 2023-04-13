@@ -21,3 +21,10 @@ eogtest*
 bayesfactorplot*
 test*
 vectest*
+dwdfg_powerlaw_params.ini
+params-milky-way.ini
+fast-params.ini
+params(copy).ini
+WD_Galactic_Foreground.ipynb
+*checkpoint.ipynb
+quick_*

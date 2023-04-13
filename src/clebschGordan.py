@@ -1,7 +1,6 @@
 import numpy as np
 from healpy import Alm
 from sympy.physics.quantum.cg import CG
-from collections import OrderedDict
 
 
 class clebschGordan():
@@ -11,7 +10,10 @@ class clebschGordan():
     '''
 
     def __init__(self):
-        self.blmax = self.params['lmax']
+        if self.injection:
+            self.blmax = self.inj['inj_lmax']
+        else:
+            self.blmax = self.params['lmax']
         self.almax = 2*self.blmax
 
         ## size of arrays: for blms its only non-negative m values but for alms it is all of them
@@ -33,7 +35,7 @@ class clebschGordan():
 
             #lval, mval = Alm.getlm(blmax, jj)
             self.bl_idx[ii], self.bm_idx[ii] = self.idxtoalm(self.blmax, ii)
-
+        
 
     def idxtoalm(self, lmax, ii):
 
@@ -116,7 +118,7 @@ class clebschGordan():
         '''
         Convert complex blm values to alm complex values. This will contain both -ve m values too in the standard order
         '''
-
+#        if not (self.inj['injtype'] == 'astro' and self.inj['injbasis'] == 'sph_lmax'):
         if blms_in.size != self.blm_size:
             raise ValueError('The size of the input blm array does not match the size defined by lmax ')
 
@@ -159,6 +161,23 @@ class clebschGordan():
                     cnt = cnt + 2
 
         return blm_vals
+    
+    
+    def blms_2_blm_params(self,blms):
+        '''
+        Convert complex-valued blms to our parameter notation where amplitudes and phases are separate.
+        '''
+        
+        blm_params = []
+        for lval in range(1, self.blmax + 1):
+            for mval in range(lval + 1):
 
+                idx = Alm.getidx(self.blmax, lval, mval)
 
-
+                if mval == 0:
+                    blm_params.append(np.real(blms[idx]))
+                else:
+                    blm_params.append(np.abs(blms[idx]))
+                    blm_params.append(np.angle(blms[idx]))
+        
+        return blm_params
