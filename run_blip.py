@@ -467,6 +467,10 @@ def blip(paramsfile='params.ini',resume=False):
     params['doPreProc']          = int(config.get("run_params", "doPreProc"))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
     params['projection']         = str(config.get("run_params", "projection"))
+    try:
+        params['colormap']       = str(config.get("run_params", "colormap"))
+    except:
+        params['colormap']       = 'magma'
     params['FixSeed']            = str(config.get("run_params", "FixSeed"))
     params['seed']               = int(config.get("run_params", "seed"))
     nlive                        = int(config.get("run_params", "nlive"))
@@ -620,7 +624,10 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(parameters, outfile)
 
     print("\nMaking posterior Plots ...")
-    plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    if not params['mldc']:
+        plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    else:
+        plotmaker(post_samples, params, parameters, inj, lisa.Model)
     if not params['mldc']:
         fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
     else:
@@ -628,9 +635,9 @@ def blip(paramsfile='params.ini',resume=False):
     ## make a map if there is a map to be made
     if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
         if 'healpy_proj' in params.keys():
-            mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection, coord=params['healpy_proj'])
+            mapmaker(post_samples, params, parameters, lisa.Model, coord=params['healpy_proj'])
         else:
-            mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+            mapmaker(post_samples, params, parameters, lisa.Model)
         
     
 
