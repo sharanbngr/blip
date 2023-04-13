@@ -27,7 +27,7 @@ class emcee_engine():
 
 
     @classmethod
-    def define_engine(cls, model, nlive, pool, randst):
+    def define_engine(cls, model, nlive, randst, pool=None):
         '''
         Defines the emcee engine.
         

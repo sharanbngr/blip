@@ -581,7 +581,7 @@ def blip(paramsfile='params.ini',resume=False):
             pool=None
 
         # Create engine
-        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, pool, randst)
+        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, randst, pool=pool)
         unit_samples, post_samples = emcee_engine.run_engine(engine, lisa.Model, init_samples,params['Nburn'],params['Nsamples'])
 
         # Save posteriors to file
