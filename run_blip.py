@@ -621,7 +621,10 @@ def blip(paramsfile='params.ini',resume=False):
 
     print("\nMaking posterior Plots ...")
     plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
-    fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    if not params['mldc']:
+        fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    else:
+        fitmaker(post_samples, params, parameters, inj, lisa.Model)
     ## make a map if there is a map to be made
     if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
         if 'healpy_proj' in params.keys():
