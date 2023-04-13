@@ -1,0 +1,9 @@
+LICENSE
+README.md
+setup.py
+BLiP.egg-info/PKG-INFO
+BLiP.egg-info/SOURCES.txt
+BLiP.egg-info/dependency_links.txt
+BLiP.egg-info/requires.txt
+BLiP.egg-info/top_level.txt
+blip/run_blip
