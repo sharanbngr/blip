@@ -1,11 +1,13 @@
+#!/bin/env python3
+
 import pickle
 import numpy as np
 import sys, configparser, subprocess
-from src.makeLISAdata import LISAdata
-from src.models import Model, Injection
-from tools.plotmaker import plotmaker
-from tools.plotmaker import mapmaker
-from tools.plotmaker import fitmaker
+from blip.src.makeLISAdata import LISAdata
+from blip.src.models import Model, Injection
+from blip.tools.plotmaker import plotmaker
+from blip.tools.plotmaker import mapmaker
+from blip.tools.plotmaker import fitmaker
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import time
