@@ -461,6 +461,7 @@ def blip(paramsfile='params.ini',resume=False):
 
     # some run parameters
     params['out_dir']            = str(config.get("run_params", "out_dir"))
+
     params['doPreProc']          = int(config.get("run_params", "doPreProc", fallback=0))
     params['input_spectrum']     = str(config.get("run_params", "input_spectrum", fallback='data_spectrum.npz'))
     params['projection']         = str(config.get("run_params", "projection", fallback='E'))
@@ -469,6 +470,12 @@ def blip(paramsfile='params.ini',resume=False):
         params['seed']               = int(config.get("run_params", "seed"))
     nlive                        = int(config.get("run_params", "nlive", fallback=2000))
     nthread                      = int(config.get("run_params", "Nthreads", fallback=1))
+   
+    try:
+        params['colormap']       = str(config.get("run_params", "colormap"))
+    except:
+        params['colormap']       = 'magma'
+    
     
     ## sampler selection
     params['sampler'] = str(config.get("run_params", "sampler"))
@@ -624,7 +631,10 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(parameters, outfile)
 
     print("\nMaking posterior Plots ...")
-    plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    if not params['mldc']:
+        plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    else:
+        plotmaker(post_samples, params, parameters, inj, lisa.Model)
     if not params['mldc']:
         fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
     else:
