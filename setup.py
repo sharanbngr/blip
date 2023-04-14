@@ -15,7 +15,10 @@ setup(
     author="Sharan Banagiri and others",
     author_email="sharan.banagiri@gmail.com",
     license="MIT",
-    packages=["blip"],
+    packages=["blip",
+        "blip.src",
+        "blip.tools",
+        ],
     package_dir={"blip":"blip"},
     scripts=["blip/run_blip"],
     install_requires=[
