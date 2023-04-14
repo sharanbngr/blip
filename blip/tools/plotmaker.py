@@ -502,7 +502,11 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
         plt.savefig(params['out_dir'] + 'corners.png', dpi=200)
     print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
-
+    
+    # plot walkers
+    fig = cc.plotter.plot_walks(truth=truevals, convolve=10)
+    plt.savefig(params['out_dir'] + 'plotwalks.png', dpi=200)
+    plt.close()
 
 
 if __name__ == '__main__':

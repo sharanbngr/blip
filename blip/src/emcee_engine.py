@@ -1,7 +1,6 @@
 import numpy as np
 import emcee
 
-
 class emcee_engine():
 
     '''
@@ -28,7 +27,7 @@ class emcee_engine():
 
 
     @classmethod
-    def define_engine(cls, model, nlive, randst):
+    def define_engine(cls, model, nlive, randst, pool=None):
         '''
         Defines the emcee engine.
         
@@ -56,9 +55,12 @@ class emcee_engine():
         ## get initial samples on the unit cube
         init_samples = np.array([rng.uniform(0,1,nlive) for i in range(Npar)]).T
         
+        # define moves
+        moves = emcee.moves.StretchMove(a=2.0)
+        #moves = emcee.moves.KDEMove(bw_method=.8)
         
         # set up the sampler
-        engine = emcee.EnsembleSampler(nlive, Npar, cls.logpost, args=(model.prior, model.likelihood))
+        engine = emcee.EnsembleSampler(nlive, Npar, cls.logpost, args=(model.prior, model.likelihood), moves=moves, pool=pool)
 
 
         return engine, parameters, init_samples
