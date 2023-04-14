@@ -92,7 +92,9 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             post_i = post[:,start_idx:(start_idx+sm.Npar)]
             
             print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
+            
             for ii in range(post.shape[0]):
+                
                 ## get Omega(f=1mHz)
                 Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
                 
@@ -539,7 +541,7 @@ if __name__ == '__main__':
         fitmaker(post, params, parameters, inj, Model, Injection)
     if not args.nomap:
         if 'healpy_proj' in params.keys():
-            mapmaker(post, params, parameters, inj, Model, Injection, coord=params['healpy_proj'])
+            mapmaker(post, params, parameters, Model, coord=params['healpy_proj'])
         else:
-            mapmaker(post, params, parameters, inj, Model, Injection)
+            mapmaker(post, params, parameters, Model)
 

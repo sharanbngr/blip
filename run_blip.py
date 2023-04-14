@@ -628,9 +628,9 @@ def blip(paramsfile='params.ini',resume=False):
     ## make a map if there is a map to be made
     if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
         if 'healpy_proj' in params.keys():
-            mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection, coord=params['healpy_proj'])
+            mapmaker(post_samples, params, parameters, lisa.Model,  coord=params['healpy_proj'])
         else:
-            mapmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+            mapmaker(post_samples, params, parameters, lisa.Model)
         
     
 
