@@ -239,7 +239,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         notation_handlelength = None
     
     ## get frequencies
-    frange = Injection.frange
+    frange = Model.fs
     ffilt = (frange>params['fmin'])*(frange<params['fmax'])
     ## commenting for testing version
 #    fs = frange[ffilt][::10]

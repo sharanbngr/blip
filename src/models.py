@@ -845,6 +845,7 @@ class Model():
         
         '''
         
+        self.fs = fs
         self.params = params
         
         ## separate into submodels
