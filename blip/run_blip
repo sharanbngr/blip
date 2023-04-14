@@ -401,7 +401,7 @@ def blip(paramsfile='params.ini',resume=False):
 
     params['tdi_lev'] = str(config.get("params", "tdi_lev", fallback='xyz'))
     params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))
-    params['nside'] = int(config.get("params", "nside")
+    params['nside'] = int(config.get("params", "nside"))
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
