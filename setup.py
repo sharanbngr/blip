@@ -25,6 +25,10 @@ setup(
         "chainconsumer",
         "sympy",
         "legwork",
+        "dill",
+        "dynesty",
+        "emcee",
+        "nessai"
     ],
     classifiers=[
         "Programming Language :: Python :: 3.9",
