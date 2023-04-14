@@ -2,13 +2,13 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import healpy as hp
-from src.geometry import geometry
-from src.sph_geometry import sph_geometry
-from src.clebschGordan import clebschGordan
-from src.astro import Population
-from src.likelihoods import likelihoods
-from src.instrNoise import instrNoise
-import src.astro as astro
+from blip.src.geometry import geometry
+from blip.src.sph_geometry import sph_geometry
+from blip.src.clebschGordan import clebschGordan
+from blip.src.astro import Population
+from blip.src.likelihoods import likelihoods
+from blip.src.instrNoise import instrNoise
+import blip.src.astro as astro
 
 
 
