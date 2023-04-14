@@ -1,10 +1,8 @@
 import numpy as np
-from scipy.special import lpmn, sph_harm
+from scipy.special import sph_harm
 import numpy.linalg as LA
-import types
 import healpy as hp
-from healpy import Alm
-from src.clebschGordan import clebschGordan
+from blip.src.clebschGordan import clebschGordan
 
 class sph_geometry(clebschGordan):
 
@@ -12,7 +10,7 @@ class sph_geometry(clebschGordan):
         clebschGordan.__init__(self)
 
 
-    def asgwb_mich_response(self, f0, tsegmid):
+    def asgwb_mich_response(self, f0, tsegmid, set_almax=None):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using michelson channels,
@@ -27,6 +25,11 @@ class sph_geometry(clebschGordan):
 
         f0   : float
             A numpy array of scaled frequencies (see above for def)
+        tsegmid : float
+            A numpy array of the time series midpoints.
+        set_almax : int
+            Allows the user to manually set the almax used in the response function calculations.
+            If None, almax will default to the globally set self.almax. Otherwise almax will be the value given.
 
         Returns
         ---------
@@ -38,8 +41,14 @@ class sph_geometry(clebschGordan):
 
         print('calculating the anisotropic responses')
 
+        ## set almax
+        if set_almax is None:
+            almax = self.almax
+        else:
+            almax = set_almax
+        
         ## array size of almax
-        alm_size = (self.almax + 1)**2
+        alm_size = (almax + 1)**2
 
         npix = hp.nside2npix(self.params['nside'])
 
@@ -116,7 +125,7 @@ class sph_geometry(clebschGordan):
 
         ## Get the spherical harmonics
         for ii in range(alm_size):
-            lval, mval = self.idxtoalm(self.almax, ii)
+            lval, mval = self.idxtoalm(almax, ii)
             Ylms[:, ii] = sph_harm(mval, lval, phi, theta)
 
 
@@ -180,7 +189,7 @@ class sph_geometry(clebschGordan):
         return response_mat
 
 
-    def asgwb_xyz_response(self, f0, tsegmid):
+    def asgwb_xyz_response(self, f0, tsegmid, set_almax=None):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using X,Y,Z TDI channels,
@@ -195,8 +204,11 @@ class sph_geometry(clebschGordan):
 
         f0   : float
             A numpy array of scaled frequencies (see above for def)
-
-
+        tsegmid : float
+            A numpy array of the time series midpoints.
+        set_almax : int
+            Allows the user to manually set the almax used in the response function calculations.
+            If None, almax will default to the globally set self.almax. Otherwise almax will be the value given.
 
         Returns
         ---------
@@ -206,13 +218,13 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        mich_response_mat = self.asgwb_mich_response(f0, tsegmid)
+        mich_response_mat = self.asgwb_mich_response(f0, tsegmid, set_almax)
         xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
 
         return xyz_response_mat
 
 
-    def asgwb_aet_response(self, f0, tsegmid):
+    def asgwb_aet_response(self, f0, tsegmid, set_almax=None):
 
         '''
         Calculate the Antenna pattern/ detector transfer function functions to acSGWB using X,Y,Z TDI channels,
@@ -229,7 +241,11 @@ class sph_geometry(clebschGordan):
 
         f0   : float
             A numpy array of scaled frequencies (see above for def)
-
+        tsegmid : float
+            A numpy array of the time series midpoints.
+        set_almax : int
+            Allows the user to manually set the almax used in the response function calculations.
+            If None, almax will default to the globally set self.almax. Otherwise almax will be the value given.
 
 
         Returns
@@ -240,7 +256,7 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        xyz_response_mat = self.asgwb_xyz_response(f0, tsegmid)
+        xyz_response_mat = self.asgwb_xyz_response(f0, tsegmid, set_almax)
 
         ## Upnack xyz matrix to make assembling the aet matrix easier
         RXX, RYY, RZZ = xyz_response_mat[0, 0], xyz_response_mat[1, 1], xyz_response_mat[2, 2]

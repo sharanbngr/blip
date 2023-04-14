@@ -1,3 +1,17 @@
+Metadata-Version: 2.1
+Name: BLiP
+Version: 0.0.0
+Summary: A bayesian pipeline for detecting stochastic backgrounds with LISA.
+Home-page: https://github.com/sharanbngr/blip
+Author: Sharan Banagiri and others
+Author-email: sharan.banagiri@gmail.com
+License: MIT
+Classifier: Programming Language :: Python :: 3.9
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.9
+License-File: LICENSE
+
 #  BLIP: Bayesian LISA Pipeline
 
 
