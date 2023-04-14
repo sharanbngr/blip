@@ -387,21 +387,21 @@ def blip(paramsfile='params.ini',resume=False):
     params['fmin']     = float(config.get("params", "fmin"))
     params['fmax']     = float(config.get("params", "fmax"))
     params['dur']      = float(config.get("params", "duration"))
-    params['seglen']   = float(config.get("params", "seglen"))
-    params['fs']       = float(config.get("params", "fs"))
-    params['Shfile']   = config.get("params", "Shfile")
-    params['mldc'] = int(config.get("params", "mldc"))
-    params['datatype'] = str(config.get("params", "datatype"))
-    params['datafile']  = str(config.get("params", "datafile"))
-    params['fref'] = float(config.get("params", "fref"))
+    params['seglen']   = float(config.get("params", "seglen", fallback=1e5))
+    params['fs']       = float(config.get("params", "fs", fallback=0.25))
+    params['Shfile']   = config.get("params", "Shfile", fallback='LISA_2017_PSD_M.npy')
+    params['mldc'] = int(config.get("params", "mldc", fallback=0))
+    params['datatype'] = str(config.get("params", "datatype", fallback='strain'))
+    params['datafile']  = str(config.get("params", "datafile", fallback=None))
+    params['fref'] = float(config.get("params", "fref", fallback=25))
     
     params['model'] = str(config.get("params", "model"))
 
-    params['tdi_lev'] = str(config.get("params", "tdi_lev"))
-    params['lisa_config'] = str(config.get("params", "lisa_config"))
-    params['nside'] = int(config.get("params", "nside"))
+    params['tdi_lev'] = str(config.get("params", "tdi_lev", fallback='xyz'))
+    params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))
+    params['nside'] = int(config.get("params", "nside")
     params['lmax'] = int(config.get("params", "lmax"))
-    params['tstart'] = float(config.get("params", "tstart"))
+    params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
     ## see if we need to initialize the spherical harmonic subroutines
     sph_check = [sublist.split('_')[-1] for sublist in params['model'].split('+')]
@@ -446,15 +446,12 @@ def blip(paramsfile='params.ini',resume=False):
                     raise err
     
     if inj['doInj'] and inj['pop_flag']:
-        inj['popfile']     = str(config.get("inj","popfile"))
-        try:
-            inj['SNRcut']  = float(config.get("inj","SNRcut"))
-        except configparser.NoOptionError:
-            inj['SNRcut'] = 7
-        colnames = str(config.get("inj","columns"))
+        inj['popfile']     = str(config.get("inj","popfile",fallback=None))
+        inj['SNRcut']  = float(config.get("inj","SNRcut", fallback=7))
+        colnames = str(config.get("inj","columns",fallback=None))
         colnames = colnames.split(',')
         inj['columns'] = colnames
-        delimiter = str(config.get("inj","delimiter"))
+        delimiter = str(config.get("inj","delimiter",fallback=None))
         if delimiter == 'space':
             delimiter = ' '
         elif delimiter == 'tab':
@@ -464,17 +461,21 @@ def blip(paramsfile='params.ini',resume=False):
 
     # some run parameters
     params['out_dir']            = str(config.get("run_params", "out_dir"))
-    params['doPreProc']          = int(config.get("run_params", "doPreProc"))
-    params['input_spectrum']     = str(config.get("run_params", "input_spectrum"))
-    params['projection']         = str(config.get("run_params", "projection"))
+
+    params['doPreProc']          = int(config.get("run_params", "doPreProc", fallback=0))
+    params['input_spectrum']     = str(config.get("run_params", "input_spectrum", fallback='data_spectrum.npz'))
+    params['projection']         = str(config.get("run_params", "projection", fallback='E'))
+    params['FixSeed']            = int(config.get("run_params", "FixSeed", fallback=0))
+    if params['FixSeed']:
+        params['seed']               = int(config.get("run_params", "seed"))
+    nlive                        = int(config.get("run_params", "nlive", fallback=2000))
+    nthread                      = int(config.get("run_params", "Nthreads", fallback=1))
+   
     try:
         params['colormap']       = str(config.get("run_params", "colormap"))
     except:
         params['colormap']       = 'magma'
-    params['FixSeed']            = str(config.get("run_params", "FixSeed"))
-    params['seed']               = int(config.get("run_params", "seed"))
-    nlive                        = int(config.get("run_params", "nlive"))
-    nthread                      = int(config.get("run_params", "Nthreads"))
+    
     
     ## sampler selection
     params['sampler'] = str(config.get("run_params", "sampler"))
@@ -483,25 +484,26 @@ def blip(paramsfile='params.ini',resume=False):
     ## dynesty
     if params['sampler'] == 'dynesty':
         from src.dynesty_engine import dynesty_engine
+        params['sample_method'] = str(config.get("run_params", "sample_method", fallback='rwalk'))
     # nessai
     elif params['sampler'] == 'nessai':
         from src.nessai_engine import nessai_engine
         ## flow tuning
-        params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons"))
+        params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons", fallback='scale_greedy'))
         if params['nessai_neurons']=='manual':
-            params['n_neurons']      = int(config.get("run_params", "n_neurons"))
-        params['reset_flow']         = int(config.get("run_params", "reset_flow"))
+            params['n_neurons']      = int(config.get("run_params", "n_neurons", fallback=20))
+        params['reset_flow']         = int(config.get("run_params", "reset_flow", fallback=16))
     ## emcee
     elif params['sampler'] == 'emcee':
         from src.emcee_engine import emcee_engine
-        params['Nburn'] = int(config.get("run_params", "Nburn"))
-        params['Nsamples'] = int(config.get("run_params", "Nsamples"))
+        params['Nburn'] = int(config.get("run_params", "Nburn", fallback=4))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples", fallback=4))
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
     if params['sampler']=='dynesty' or params['sampler'] == 'nessai':
-        params['checkpoint']            = int(config.get("run_params", "checkpoint"))
-        params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval"))
+        params['checkpoint']            = int(config.get("run_params", "checkpoint", fallback=0))
+        params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval", fallback=3600))
 
     # Fix random seed
     if params['FixSeed']:
@@ -578,9 +580,14 @@ def blip(paramsfile='params.ini',resume=False):
         np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
 
     elif params['sampler'] == 'emcee':
+        # multiprocessing
+        if nthread>1:
+            pool=Pool(nthread)
+        else:
+            pool=None
 
         # Create engine
-        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, randst)
+        engine, parameters, init_samples = emcee_engine.define_engine(lisa.Model, nlive, randst, pool=pool)
         unit_samples, post_samples = emcee_engine.run_engine(engine, lisa.Model, init_samples,params['Nburn'],params['Nsamples'])
 
         # Save posteriors to file
@@ -635,7 +642,7 @@ def blip(paramsfile='params.ini',resume=False):
     ## make a map if there is a map to be made
     if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
         if 'healpy_proj' in params.keys():
-            mapmaker(post_samples, params, parameters, lisa.Model, coord=params['healpy_proj'])
+            mapmaker(post_samples, params, parameters, lisa.Model,  coord=params['healpy_proj'])
         else:
             mapmaker(post_samples, params, parameters, lisa.Model)
         

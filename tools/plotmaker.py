@@ -92,7 +92,9 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             post_i = post[:,start_idx:(start_idx+sm.Npar)]
             
             print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
+            
             for ii in range(post.shape[0]):
+                
                 ## get Omega(f=1mHz)
                 Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
                 
@@ -500,7 +502,11 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
         plt.savefig(params['out_dir'] + 'corners.png', dpi=200)
     print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
-
+    
+    # plot walkers
+    fig = cc.plotter.plot_walks(truth=truevals, convolve=10)
+    plt.savefig(params['out_dir'] + 'plotwalks.png', dpi=200)
+    plt.close()
 
 
 if __name__ == '__main__':
