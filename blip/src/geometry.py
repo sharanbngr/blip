@@ -2,7 +2,7 @@ import numpy as np
 import numpy.linalg as LA
 #from scipy.special import lpmn, sph_harm
 import healpy as hp
-from src.sph_geometry import sph_geometry
+from blip.src.sph_geometry import sph_geometry
 
 class geometry(sph_geometry):
 
