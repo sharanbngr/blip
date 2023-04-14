@@ -2,3 +2,9 @@ numpy
 matplotlib
 healpy==1.15.2
 chainconsumer
+sympy
+legwork
+dill
+dynesty
+emcee
+nessai
