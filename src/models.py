@@ -846,6 +846,7 @@ class Model(likelihoods):
         
         '''
         
+        self.fs = fs
         self.params = params
         
         ## separate into submodels
