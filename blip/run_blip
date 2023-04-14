@@ -4,7 +4,7 @@ import pickle
 import numpy as np
 import sys, configparser, subprocess
 from blip.src.makeLISAdata import LISAdata
-from src.models import Model, Injection
+from blip.src.models import Model, Injection
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker

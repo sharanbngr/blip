@@ -22,7 +22,9 @@ setup(
         "numpy",
         "matplotlib",
         "healpy==1.15.2",
-        "chainconsumer"
+        "chainconsumer",
+        "sympy",
+        "legwork",
     ],
     classifiers=[
         "Programming Language :: Python :: 3.9",
