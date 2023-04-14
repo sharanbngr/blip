@@ -210,7 +210,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     '''
     
     ## check that an injection was specified if we're not using external data
-    if not params['mldc']:
+    if not params['load_data']:
         if Injection is None:
             print("Warning: Not using externally generated data, but no Injection object has been provided to the fitmaker. Returning without making plots...")
             return
@@ -231,7 +231,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     ## the population injection looks funky with a dashed line, but we still need to make it clear that it's an injection.
     ## this makes the Notation Legend "Injection" label be a split dashed/solid line
-    if params['mldc']:
+    
+    if params['load_data']:
         notation_legend_elements = [Line2D([0], [0], color='k', ls='-'),
                                     Patch(color='k',alpha=0.25)]
         notation_legend_labels = ['Median Fit','$95\%$ C.I.']
@@ -297,7 +298,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         plt.loglog(fs,Sgw_median,color=sm.color)
         plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.25,color=sm.color)
         
-    if not params['mldc']:
+    if not params['load_data']:
         ## plot the injected spectra, if known
         for component_name in Injection.component_names:
             if component_name != 'noise':
@@ -390,7 +391,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
             
         ## now make the convolved spectral fit
         
-        if not params['mldc']:
+        if not params['load_data']:
             ## plot the injected spectra, if known
             for component_name in Injection.component_names:
                 ## this will overwrite the default linestyle if 'ls' is given in cm.plot_kwargs
@@ -461,7 +462,7 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
     all_parameters = Model.parameters['all']
     
     ## get truevals if not using an external injection
-    if not params['mldc']:
+    if not params['load_data']:
         if Injection is None:
             print("Warning: Not using externally generated data, but no Injection object has been provided to the corner plotmaker. Returning without making plots...")
             return
@@ -540,10 +541,11 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
     print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
     plt.close()
     
-    # plot walkers
-    fig = cc.plotter.plot_walks(truth=truevals, convolve=10)
-    plt.savefig(params['out_dir'] + 'plotwalks.png', dpi=200)
-    plt.close()
+    if not params['load_data']:    
+        # plot walkers
+        fig = cc.plotter.plot_walks(truth=truevals, convolve=10)
+        plt.savefig(params['out_dir'] + 'plotwalks.png', dpi=200)
+        plt.close()
 
 
 if __name__ == '__main__':
@@ -570,7 +572,7 @@ if __name__ == '__main__':
     ## grab the model and injection
     with open(args.rundir + '/model.pickle', 'rb') as modelfile:
         Model = pickle.load(modelfile)
-    if not params['mldc']:
+    if not params['load_data']:
         with open(args.rundir + '/injection.pickle', 'rb') as injectionfile:
             Injection = pickle.load(injectionfile)
     else:
