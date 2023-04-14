@@ -2,7 +2,8 @@
 
 import pickle
 import numpy as np
-import sys, configparser, subprocess
+import sys, os,configparser, subprocess
+sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
 from blip.tools.plotmaker import plotmaker

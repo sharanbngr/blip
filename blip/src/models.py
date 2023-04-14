@@ -6,7 +6,6 @@ from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
 from blip.src.clebschGordan import clebschGordan
 from blip.src.astro import Population
-from blip.src.likelihoods import likelihoods
 from blip.src.instrNoise import instrNoise
 import blip.src.astro as astro
 
@@ -820,7 +819,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 ###################################################
 
 
-class Model(likelihoods):
+class Model():
     '''
     Class to house all model attributes in a modular fashion.
     '''
@@ -846,6 +845,7 @@ class Model(likelihoods):
         
         '''
         
+        self.fs = fs
         self.params = params
         
         ## separate into submodels
