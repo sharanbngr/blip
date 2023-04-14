@@ -28,7 +28,7 @@ class dynesty_engine():
         
         
         engine = NestedSampler(lisaobj.Model.likelihood, lisaobj.Model.prior, lisaobj.Model.Npar,\
-                    bound='multi', sample='rwalk', nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
+                    bound='multi', sample=params['sample_method'], nlive=nlive, pool=pool, queue_size=pool_size, rstate = randst)
         
         
         # print npar
