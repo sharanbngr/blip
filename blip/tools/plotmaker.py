@@ -231,7 +231,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     ## the population injection looks funky with a dashed line, but we still need to make it clear that it's an injection.
     ## this makes the Notation Legend "Injection" label be a split dashed/solid line
-    if params['load_data']:
+    if params['mldc']:
         notation_legend_elements = [Line2D([0], [0], color='k', ls='-'),
                                     Patch(color='k',alpha=0.25)]
         notation_legend_labels = ['Median Fit','$95\%$ C.I.']
@@ -570,7 +570,7 @@ if __name__ == '__main__':
     ## grab the model and injection
     with open(args.rundir + '/model.pickle', 'rb') as modelfile:
         Model = pickle.load(modelfile)
-    if not params['load_data']:
+    if not params['mldc']:
         with open(args.rundir + '/injection.pickle', 'rb') as injectionfile:
             Injection = pickle.load(injectionfile)
     else:

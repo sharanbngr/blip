@@ -6,7 +6,6 @@ from src.geometry import geometry
 from src.sph_geometry import sph_geometry
 from src.clebschGordan import clebschGordan
 from src.astro import Population
-from src.likelihoods import likelihoods
 from src.instrNoise import instrNoise
 import src.astro as astro
 
@@ -820,7 +819,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 ###################################################
 
 
-class Model(likelihoods):
+class Model():
     '''
     Class to house all model attributes in a modular fashion.
     '''
