@@ -1,9 +1,9 @@
 import numpy as np
 import legwork as lw
 import pandas as pd
-from src.instrNoise import instrNoise
-from src.geometry import geometry
-from src.sph_geometry import sph_geometry
+from blip.src.instrNoise import instrNoise
+from blip.src.geometry import geometry
+from blip.src.sph_geometry import sph_geometry
 from scipy.interpolate import interp1d as intrp
 import matplotlib.pyplot as plt
 import healpy as hp

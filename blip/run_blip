@@ -1,11 +1,14 @@
+#!/bin/env python3
+
 import pickle
 import numpy as np
-import sys, configparser, subprocess
-from src.makeLISAdata import LISAdata
-from src.models import Model, Injection
-from tools.plotmaker import plotmaker
-from tools.plotmaker import mapmaker
-from tools.plotmaker import fitmaker
+import sys, os,configparser, subprocess
+sys.path.append(os.getcwd()) ## this lets python find src
+from blip.src.makeLISAdata import LISAdata
+from blip.src.models import Model, Injection
+from blip.tools.plotmaker import plotmaker
+from blip.tools.plotmaker import mapmaker
+from blip.tools.plotmaker import fitmaker
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import time
@@ -449,11 +452,11 @@ def blip(paramsfile='params.ini',resume=False):
     ## sampler setup and late-time imports to reduce dependencies
     ## dynesty
     if params['sampler'] == 'dynesty':
-        from src.dynesty_engine import dynesty_engine
+        from blip.src.dynesty_engine import dynesty_engine
         params['sample_method'] = str(config.get("run_params", "sample_method", fallback='rwalk'))
     # nessai
     elif params['sampler'] == 'nessai':
-        from src.nessai_engine import nessai_engine
+        from blip.src.nessai_engine import nessai_engine
         ## flow tuning
         params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons", fallback='scale_greedy'))
         if params['nessai_neurons']=='manual':
@@ -461,9 +464,9 @@ def blip(paramsfile='params.ini',resume=False):
         params['reset_flow']         = int(config.get("run_params", "reset_flow", fallback=16))
     ## emcee
     elif params['sampler'] == 'emcee':
-        from src.emcee_engine import emcee_engine
-        params['Nburn'] = int(config.get("run_params", "Nburn", fallback=4))
-        params['Nsamples'] = int(config.get("run_params", "Nsamples", fallback=4))
+        from blip.src.emcee_engine import emcee_engine
+        params['Nburn'] = int(config.get("run_params", "Nburn"))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples"))
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
@@ -473,7 +476,7 @@ def blip(paramsfile='params.ini',resume=False):
 
     # Fix random seed
     if params['FixSeed']:
-        from tools.SetRandomState import SetRandomState as setrs
+        from blip.tools.SetRandomState import SetRandomState as setrs
         seed = params['seed']
         randst = setrs(seed)
     else:

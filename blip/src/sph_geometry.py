@@ -2,7 +2,7 @@ import numpy as np
 from scipy.special import sph_harm
 import numpy.linalg as LA
 import healpy as hp
-from src.clebschGordan import clebschGordan
+from blip.src.clebschGordan import clebschGordan
 
 class sph_geometry(clebschGordan):
 
