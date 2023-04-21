@@ -600,10 +600,21 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(parameters, outfile)
 
     print("\nMaking posterior Plots ...")
-    if not params['load_data']:
-        plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    if params['sph_flag']:
+        if not params['load_data']:
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'all', lisa.Injection)
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'spectral', lisa.Injection)
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'spatial', lisa.Injection)
+        else:
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'all')
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'spectral')
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'spatial')
     else:
-        plotmaker(post_samples, params, parameters, inj, lisa.Model)
+        if not params['load_data']:
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'all', lisa.Injection)
+        else:
+            plotmaker(post_samples, params, parameters, inj, lisa.Model, 'all')
+
     if not params['load_data']:
         fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
     else:
