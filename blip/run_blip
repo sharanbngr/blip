@@ -48,8 +48,16 @@ class LISA(LISAdata, Model):
             pickle.dump(self.Model, outfile)
         
         if not params['load_data']:
+            Injection_reduced = self.Injection
+            for cmn in Injection_reduced.component_names:
+                if hasattr(Injection_reduced.components[cmn],'response_mat'):
+                    del Injection_reduced.components[cmn].response_mat
+                if hasattr(Injection_reduced.components[cmn],'summ_response_mat'):
+                    del Injection_reduced.components[cmn].summ_response_mat
+                if hasattr(Injection_reduced.components[cmn],'inj_response_mat'):
+                    del Injection_reduced.components[cmn].inj_response_mat
             with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
-                pickle.dump(self.Injection, outfile)
+                pickle.dump(Injection_reduced, outfile)
             
 
     def makedata(self):
