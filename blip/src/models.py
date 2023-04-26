@@ -9,6 +9,9 @@ from blip.src.astro import Population
 from blip.src.instrNoise import instrNoise
 import blip.src.astro as astro
 
+import jax
+import jax.numpy as jnp
+
 
 
 class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
@@ -429,7 +432,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         fcut = 10**log_fcut
         fscale = 10**log_fscale
-        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
     
     def compute_Sgw(self,fs,omegaf_args):
         '''
@@ -448,7 +451,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         H0 = 2.2*10**(-18)
         Omegaf = self.omegaf(fs,*omegaf_args)
-        Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
+        Sgw = Omegaf*(3/(4*fs**3))*(H0/jnp.pi)**2
         return Sgw
     
     #############################
@@ -496,7 +499,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Calculate lmax from the size of theta blm arrays. The shape is
         # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
-        lmax = np.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
+        lmax = jnp.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
 
         if lmax.is_integer():
             lmax = int(lmax)
@@ -518,7 +521,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 else:
                     ## prior on amplitude, phase
                     sph_theta.append(3* theta[cnt])
-                    sph_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    sph_theta.append(2*jnp.pi*theta[cnt+1] - jnp.pi)
                     cnt = cnt + 2
 
         return spectral_theta+sph_theta
@@ -689,7 +692,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         cov_noise = self.instr_noise_spectrum(self.fs,self.f0, Np, Na)
 
         ## repeat C_Noise to have the same time-dimension as everything else
-        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.time_dim, axis=3)
+        cov_noise = jnp.repeat(cov_noise[:, :, :, jnp.newaxis], self.time_dim, axis=3)
         
         return cov_noise
     
@@ -884,7 +887,7 @@ class Model():
         
 
     
-
+    @jax.jit
     def prior(self,unit_theta):
         '''
         Unified prior function to interatively perform prior draws for each submodel in the proper order
@@ -910,7 +913,7 @@ class Model():
         
         return theta
     
-    
+    @jax.jit
     def likelihood(self,theta):
         '''
         Unified likelihood function to compare the combined covariance contributions of a generic set of noise/SGWB models to the data.
@@ -934,15 +937,15 @@ class Model():
                 cov_mat = cov_mat + sm.cov(theta_i)
 
         ## change axis order to make taking an inverse easier
-        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+        cov_mat = jnp.moveaxis(cov_mat, [-2, -1], [0, 1])
 
         ## take inverse and determinant
         inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -jnp.einsum('ijkl,ijkl', inv_cov, self.rmat) - jnp.einsum('ij->', jnp.log(jnp.pi * self.params['seglen'] * jnp.abs(det_cov)))
 
 
-        loglike = np.real(logL)
+        loglike = jnp.real(logL)
 
         return loglike
     
@@ -1312,14 +1315,14 @@ def bespoke_inv(A):
     """
 
 
-    AI = np.empty_like(A)
+    AI = jnp.empty_like(A)
 
     for i in range(3):
-        AI[...,i,:] = np.cross(A[...,i-2,:], A[...,i-1,:])
+        AI[...,i,:] = jnp.cross(A[...,i-2,:], A[...,i-1,:])
 
-    det = np.einsum('...i,...i->...', AI, A).mean(axis=-1)
+    det = jnp.einsum('...i,...i->...', AI, A).mean(axis=-1)
 
     inv_T =  AI / det[...,None,None]
 
     # inverse by swapping the inverse transpose
-    return np.swapaxes(inv_T, -1,-2), det
+    return jnp.swapaxes(inv_T, -1,-2), det

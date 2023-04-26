@@ -6,100 +6,47 @@ Home-page: https://github.com/sharanbngr/blip
 Author: Sharan Banagiri and others
 Author-email: sharan.banagiri@gmail.com
 License: MIT
-Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: ==3.10
 License-File: LICENSE
 
-#  BLIP: Bayesian LISA Pipeline
+#  BLIP: Bayesian LISA Inference Package
+
+This is a fully Bayesian Python package for detecting/characterizing stochastic gravitational wave backgrounds and foregrounds with LISA.
 
 
+1) We recommend creating a dedicated conda environment for BLIP. Conda is a common python virtual environment manager; if you already have Conda, start at step 2; otherwise [install conda.](https://docs.conda.io/projects/conda/en/latest/user-guide/install/)
 
-This is a bayesian pipeline for detecting stochastic backgrounds with LISA. BLIP stands for Bayesian LIsa Pipeline fully written in python
+2) Create an environment. We require Python 3.10 or later:
 
+`conda create --name blip-env python=3.10`
 
-1) It is easier to maintain and run python code in virtual environments. Make a new virtualenv by doing
+3) Use the provided requirements yaml to install the remainder.
 
-`python3 -m venv lisaenv`
+`conda env update -n blip-env --file=requirements.yml`
 
-2) Source it on linux or Mac by doing
+4) Activate it via
 
-`source lisaenv/bin/activate`
+`conda activate blip-env`
 
-For Windows, source it by 
+5) You can now install the package via pip by running
 
-`activate`  while in `\lisawork\Scripts`
+`pip install .`
 
+in this directory.
 
-3) We need numpy, scipy, astropy, and sympy for running this and matplotlib and chainconsumer are required for plotting. Install them all by doing
+You should now be ready to go! To run BLIP, you only need to provide a configuration file. In this directory, you will find params_default.ini, a pre-constructed config file with reasonable settings and accompanying parameter explanations.
 
-`pip install numpy scipy astropy sympy matplotlib chainconsumer`
+To run, call
 
-4) We also need the healpy, the skymap package
+`run_blip params_default.ini`
 
-`pip install healpy`
+This will (by default) inject and recover a power law isotropic SGWB, with LISA detector noise at the level specified in the LISA proposal (Amaro-Seoane et al., 2017), for 3 months of data.
 
-5) The sampler [dynesty](https://dynesty.readthedocs.io/en/latest/) is used for nested sampling. We get both the posteriors and bayesian evidence from it. The latter is the detection statistic. Install dynesty by doing
+Two other helpful parameter files are also included: test_params.ini, which has settings ideal for (more) rapid code testing, and minimal_params.ini, which only includes the bare bones, minimal necessary settings for BLIP to run.
 
-`pip install dynesty`
+Posterior plots will be automatically created in the specified output directory, along with some diagnostics. All statistical model information is saved in Model.pickle; all information used to perform the injection is likewise saved in Injection.pickle. The posterior samples are saved to post_samples.txt.
 
-6) Some functionality also needs cython
-
-`pip install cython`
-
-7) You can change the parameters and the signal model in params.ini
-
-To run do `python run_blip.py params.ini`
-
-Posterior plots are automatically made in the output directory specified in params.ini
-
-
-8) If you want to generate local documentation pages you also need sphinx
-
-`pip install sphinx`
-
-**Note**: The code is setup to work with python 3 and might not work with python2
-More documentation at https://blip.readthedocs.io/en/latest/
-
-## Conda Installation
-
-1) Conda is a common python virtual environment manager. If you already have conda, start at step 2; otherwise [install conda](https://docs.conda.io/projects/conda/en/latest/user-guide/install/) or use the method above.
-
-2) Create an environment. Chainconsumer (at time of writing) only works with python 3.6 or earlier, so we'll specify python 3.6.
-
-`conda create --name lisawork python=3.6`
-
-3) Activate it by
-
-`conda activate lisawork`
-
-4) You will likely need to add the conda-forge channel to install some packages:
-
-`conda config --add channels conda-forge`
-
-5) We need numpy, scipy, sympy, and astropy for running this; matplotlib is required for plotting. Install them all by doing
-
-`conda install numpy scipy astropy sympy matplotlib`
-
-6) Chainconsumer is also needed for plotting but needs to be installed by doing
-
-`conda install -c samreay chainconsumer`
-
-7) We also need the healpy, the skymap package
-
-`conda install healpy`
-
-8) The sampler [dynesty](https://dynesty.readthedocs.io/en/latest/) is used for nested sampling. We get both the posteriors and bayesian evidence from it. The latter is the detection statistic. Install dynesty by doing
-
-`conda install dynesty`
-
-9) Some functionality also needs cython
-
-`conda install cython`
-
-10) You can change the parameters and the signal model in params.ini
-
-To run do `python run_blip.py params.ini`
-
-Posterior plots are automatically made in the output directory specified in params.ini
+More details can be found in [the code documentation](https://blip.readthedocs.io/en/latest/).
