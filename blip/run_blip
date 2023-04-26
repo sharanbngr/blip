@@ -439,12 +439,8 @@ def blip(paramsfile='params.ini',resume=False):
         params['seed']               = int(config.get("run_params", "seed"))
     nlive                        = int(config.get("run_params", "nlive", fallback=2000))
     nthread                      = int(config.get("run_params", "Nthreads", fallback=1))
-   
-    try:
-        params['colormap']       = str(config.get("run_params", "colormap"))
-    except:
-        params['colormap']       = 'magma'
     
+    params['colormap']       = str(config.get("run_params", "colormap", fallback='magma'))    
     
     ## sampler selection
     params['sampler'] = str(config.get("run_params", "sampler"))
@@ -465,8 +461,8 @@ def blip(paramsfile='params.ini',resume=False):
     ## emcee
     elif params['sampler'] == 'emcee':
         from blip.src.emcee_engine import emcee_engine
-        params['Nburn'] = int(config.get("run_params", "Nburn"))
-        params['Nsamples'] = int(config.get("run_params", "Nsamples"))
+        params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
