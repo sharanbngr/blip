@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import jax.numpy as jnp
 from scipy.interpolate import interp1d as intrp
 
 class instrNoise():
@@ -36,7 +37,7 @@ class instrNoise():
         '''
 
         Sp = Np*(1 + (2e-3/freqs)**4)
-        Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
+        Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*jnp.pi*freqs)**4)
 
         return Sp, Sa
 
@@ -78,22 +79,22 @@ class instrNoise():
 
 
         ## construct AET matrix elements
-        CAA = (1/9) * (4*CXX + CYY + CZZ - 2*CXY - 2*np.conj(CXY) - 2*CXZ - 2*np.conj(CXZ) + \
-                        CYZ  + np.conj(CYZ))
+        CAA = (1/9) * (4*CXX + CYY + CZZ - 2*CXY - 2*jnp.conj(CXY) - 2*CXZ - 2*jnp.conj(CXZ) + \
+                        CYZ  + jnp.conj(CYZ))
 
-        CEE = (1/3) * (CZZ + CYY - CYZ - np.conj(CYZ))
+        CEE = (1/3) * (CZZ + CYY - CYZ - jnp.conj(CYZ))
 
-        CTT = (1/9) * (CXX + CYY + CZZ + CXY + np.conj(CXY) + CXZ + np.conj(CXZ) + CYZ + np.conj(CYZ))
+        CTT = (1/9) * (CXX + CYY + CZZ + CXY + jnp.conj(CXY) + CXZ + jnp.conj(CXZ) + CYZ + jnp.conj(CYZ))
 
-        CAE = (1/(3*np.sqrt(3))) * (CYY - CZZ - CYZ + np.conj(CYZ) + 2*CXZ - 2*CXY)
+        CAE = (1/(3*jnp.sqrt(3))) * (CYY - CZZ - CYZ + jnp.conj(CYZ) + 2*CXZ - 2*CXY)
 
-        CAT = (1/9) * (2*CXX - CYY - CZZ + 2*CXY - np.conj(CXY) + 2*CXZ - np.conj(CXZ) - CYZ - np.conj(CYZ))
+        CAT = (1/9) * (2*CXX - CYY - CZZ + 2*CXY - jnp.conj(CXY) + 2*CXZ - jnp.conj(CXZ) - CYZ - jnp.conj(CYZ))
 
-        CET = (1/(3*np.sqrt(3))) * (CZZ - CYY - CYZ + np.conj(CYZ) + np.conj(CXZ) - np.conj(CXY))
+        CET = (1/(3*jnp.sqrt(3))) * (CZZ - CYY - CYZ + jnp.conj(CYZ) + jnp.conj(CXZ) - jnp.conj(CXY))
 
-        C_aet = np.array([ [CAA, CAE, CAT] , \
-                                    [np.conj(CAE), CEE, CET], \
-                                    [np.conj(CAT), np.conj(CET), CTT] ])
+        C_aet = jnp.array([ [CAA, CAE, CAT] , \
+                                    [jnp.conj(CAE), CEE, CET], \
+                                    [jnp.conj(CAT), jnp.conj(CET), CTT] ])
 
 
         return C_aet
@@ -129,7 +130,7 @@ class instrNoise():
         C_mich = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        C_xyz =  4 * np.sin(2*f0)**2 * C_mich
+        C_xyz =  4 * jnp.sin(2*f0)**2 * C_mich
 
         return C_xyz
 
@@ -168,10 +169,10 @@ class instrNoise():
 
 
         ## Noise spectra of the michelson channels
-        S_auto  = 4.0 * (2.0 * Sa * (1.0 + (np.cos(2*f0))**2)  + Sp)
-        S_cross =  (-2 * Sp - 8 * Sa) * np.cos(2*f0)
+        S_auto  = 4.0 * (2.0 * Sa * (1.0 + (jnp.cos(2*f0))**2)  + Sp)
+        S_cross =  (-2 * Sp - 8 * Sa) * jnp.cos(2*f0)
 
-        C_mich = np.array([[S_auto, S_cross, S_cross], [S_cross, S_auto, S_cross], [S_cross, S_cross, S_auto]])
+        C_mich = jnp.array([[S_auto, S_cross, S_cross], [S_cross, S_auto, S_cross], [S_cross, S_cross, S_auto]])
 
         return C_mich
 

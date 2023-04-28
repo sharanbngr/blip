@@ -9,9 +9,11 @@ from blip.src.astro import Population
 from blip.src.instrNoise import instrNoise
 import blip.src.astro as astro
 
+from jax import config
+config.update("jax_enable_x64", True)
 import jax
 import jax.numpy as jnp
-
+from jax.tree_util import register_pytree_node_class
 
 
 class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
@@ -821,7 +823,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 ###      UNIFIED MODEL PRIOR & LIKELIHOOD       ###
 ###################################################
 
-
+@register_pytree_node_class
 class Model():
     '''
     Class to house all model attributes in a modular fashion.
@@ -849,8 +851,10 @@ class Model():
         '''
         
         self.fs = fs
+        self.f0 = f0
+        self.tsegmid = tsegmid
         self.params = params
-        
+        self.inj = inj
         ## separate into submodels
         self.submodel_names = params['model'].split('+')
         
@@ -887,7 +891,7 @@ class Model():
         
 
     
-    @jax.jit
+#    @jax.jit
     def prior(self,unit_theta):
         '''
         Unified prior function to interatively perform prior draws for each submodel in the proper order
@@ -913,7 +917,7 @@ class Model():
         
         return theta
     
-    @jax.jit
+#    @jax.jit
     def likelihood(self,theta):
         '''
         Unified likelihood function to compare the combined covariance contributions of a generic set of noise/SGWB models to the data.
@@ -948,6 +952,18 @@ class Model():
         loglike = jnp.real(logL)
 
         return loglike
+    
+    ## this allows for jax/numpyro to properly perform jitting of the class
+    ## all attributes of the model class should be static
+    ## may need to tweak this if/when we implement any kind of RJMCMC approach
+    def tree_flatten(self):
+        children = []  # arrays / dynamic values
+        aux_data = {'params':self.params,'inj':self.inj,'fs':self.fs,'f0':self.f0,'tsegmid':self.tsegmid,'rmat':self.rmat} # static values
+        return (children, aux_data)
+    
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children, **aux_data)
     
 
 ###################################################
@@ -1299,7 +1315,7 @@ def gen_blm_parameters(blmax):
     
     return blm_parameters
 
-
+@jax.jit
 def bespoke_inv(A):
 
 
@@ -1318,7 +1334,8 @@ def bespoke_inv(A):
     AI = jnp.empty_like(A)
 
     for i in range(3):
-        AI[...,i,:] = jnp.cross(A[...,i-2,:], A[...,i-1,:])
+#        AI[...,i,:] = jnp.cross(A[...,i-2,:], A[...,i-1,:])
+        AI = AI.at[...,i,:].set(jnp.cross(A[...,i-2,:], A[...,i-1,:])) ## jax version
 
     det = jnp.einsum('...i,...i->...', AI, A).mean(axis=-1)
 
