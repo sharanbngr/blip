@@ -2,6 +2,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import healpy as hp
+import logging
+from blip.src.utils import log_manager
 from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
 from blip.src.clebschGordan import clebschGordan
@@ -49,6 +51,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.armlength = 2.5e9 ## armlength in meters
         self.fs = fs
         self.f0= f0
+        self.tsegmid = tsegmid
         self.time_dim = tsegmid.size
         self.name = submodel_name
         self.injection = injection
@@ -741,9 +744,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         return cov_sgwb
 
        
-    #############################
-    ##   Skymap Calculations   ##
-    #############################
+    ##########################################
+    ##   Skymap and Response Calculations   ##
+    ##########################################
     
     def compute_skymap_alms(self,blm_params):
         '''
@@ -810,7 +813,50 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.inj_response_mat = self.summ_response_mat
         
         return
-
+    
+    
+    def recompute_response(self,f0=None,tsegmid=None):
+        '''
+        Function to recompute the LISA response matrices if needed.
+        
+        When we save the Injection object, we delete the LISA response of each injection, as to do otherwise takes up egregious amounts of disk space.
+        This allows us to recompute them identically as desired.
+        
+        Arguments
+        -------------
+        f0 (array)      : LISA-characteristic-frequency-scaled frequency array at which to compute the response (f0=fs/(2*fstar))
+        tsegmid (array)     : array of time segment midpoints at which to compute the response
+        
+        Returns
+        --------------
+        response_mat (array) : The associated response for this submodel. 
+        '''
+        ## allow for respecification of frequency/time grid, but avoid needless computation of extant response matrices
+        fsame = True
+        tsame = True
+        if f0 is not None:
+            if f0.shape != self.f0.shape:
+                fsame = False
+            elif not np.all(f0==self.f0):
+                fsame = False
+        else:
+            f0 = self.f0
+        if tsegmid is not None:
+            if tsegmid.shape != self.tsegmid.shape:
+                tsame = False
+            elif not np.all(tsegmid==self.tsegmid):
+                tsame = False
+        else:
+            tsegmid = self.tsegmid
+        
+        tf_same = tsame and fsame
+        
+        ## if we're using the same frequencies and times, first check to see if there's already a response connected to the submodel:
+        if tf_same and hasattr(self,'response_mat'):
+            print("Attempted to recompute response matrix, but there is already an attached response matrix at these times and frequencies. Returning the original...")
+            return self.response_mat
+        else:
+            return self.response(f0,tsegmid,**self.response_kwargs)
 
 
 
@@ -1009,7 +1055,11 @@ class Injection():#geometry,sph_geometry):
     
     def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
         '''
-        Wrapper to convolve the frozen response with the frozen injected GW spectra for the desired channels.
+        Wrapper to return the frozen injected detector-convolved GW spectra for the desired channels.
+        
+        Useful note - these frozen spectra are computed in diag_spectra(), as they are calculated and saved at the analysis frequencies.
+        
+        Also note that this is meant for plotting purposes only, and includes interpolation/absolute values that are not desirable in a data generation/analysis environment.
         
         Arguments
         -----------
@@ -1029,38 +1079,33 @@ class Injection():#geometry,sph_geometry):
         cm = self.components[component_name]
         ## split the channel indicators
         c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
-        ## populations need some finessing due to frequency subtleties
-        if hasattr(cm,"ispop") and cm.ispop:
-#            if fs_new is not None and not np.array_equal(fs_new,cm.population.frange_true):
-#                print("Warning: population spectra cannot be aribtrarily rebinned. Calculating convolved signal at data frequencies...")
-            fs = cm.population.frange_true
-            if not imaginary:
-                PSD = np.mean(cm.population.Sgw_true[:,None] * np.real(cm.inj_response_mat_true[c1_idx,c2_idx,:,:]),axis=1)
-            else:
-                PSD = np.mean(cm.population.Sgw_true[:,None] * 1j * np.imag(cm.inj_response_mat_true[c1_idx,c2_idx,:,:]),axis=1)
-            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
-                PSD_interp = interp1d(fs,PSD)
-                PSD = PSD_interp(fs_new)
-                fs = fs_new
-
+        
+        if not imaginary:
+            PSD = np.abs(np.real(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
         else:
-            if not imaginary:
-                PSD = np.mean(cm.frozen_spectra[:,None] * np.real(cm.inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
-            else:
-                PSD = np.mean(cm.frozen_spectra[:,None] * 1j * np.imag(cm.inj_response_mat[c1_idx,c2_idx,:,:]),axis=1)
+            PSD = 1j * np.abs(np.imag(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
         
+        ## populations need some finessing due to frequency subtleties                
+        if hasattr(cm,"ispop") and cm.ispop:
+            fs = cm.population.frange_true
+            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
+                with log_manager(logging.ERROR):
+                    PSD_interp = interp1d(fs,PSD)
+                    PSD = PSD_interp(fs_new)
+                    fs = fs_new
+        else:
+            fs = self.frange
             if fs_new is not None:
-                PSD_interp = interp1d(self.frange,np.log10(PSD))
-                PSD = 10**PSD_interp(fs_new)
-                fs = fs_new
-            else:
-                fs = self.frange
-        
+                with log_manager(logging.ERROR):
+                    PSD_interp = interp1d(fs,np.log10(PSD))
+                    PSD = 10**PSD_interp(fs_new)
+                    fs = fs_new
+
         if return_fs:
             return fs, PSD
         else:
             return PSD
-
+        
     
     def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,ymins=None,**plt_kwargs):
         '''
@@ -1086,7 +1131,7 @@ class Injection():#geometry,sph_geometry):
         PSD (array, optional) : Power spectral density of the specified channels' auto/cross-correlation at the desired frequencies.
 
         '''
-        ## grav component
+        ## grab component
         cm = self.components[component_name]
         
         ## set axes
@@ -1118,12 +1163,11 @@ class Injection():#geometry,sph_geometry):
                 PSD = cm.population.Sgw_true
                 fs = cm.population.frange_true
                 if fs_new is not None and not np.array_equal(fs_new,cm.population.frange_true):
-#                    print("Warning: population spectra cannot be aribtrarily rebinned. Plotting at data frequencies...")
-##                    PSD = cm.population.rebin_PSD(fs_new)
-##                    fs = fs_new
-                    PSD_interp = interp1d(fs,PSD)
-                    PSD = PSD_interp(fs_new)
-                    fs = fs_new
+                    ## the interpolator gets grumpy sometimes, but it's not an actual issue hence the logging wrapper
+                    with log_manager(logging.ERROR):
+                        PSD_interp = interp1d(fs,PSD)
+                        PSD = PSD_interp(fs_new)
+                        fs = fs_new
             else:
                 PSD = cm.frozen_spectra
                 ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
@@ -1135,9 +1179,10 @@ class Injection():#geometry,sph_geometry):
                 ## downsample (or upsample, but why) if desired
                 ## do the interpolation in log-space for better low-f fidelity
                 if fs_new is not None:
-                    PSD_interp = interp1d(self.frange,np.log10(PSD))
-                    PSD = 10**PSD_interp(fs_new)
-                    fs = fs_new
+                    with log_manager(logging.ERROR):
+                        PSD_interp = interp1d(self.frange,np.log10(PSD))
+                        PSD = 10**PSD_interp(fs_new)
+                        fs = fs_new
                 else:
                     fs = self.frange
         
