@@ -39,7 +39,7 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        print('calculating the anisotropic responses')
+        print('Calculating the anisotropic responses...')
 
         ## set almax
         if set_almax is None:

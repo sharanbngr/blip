@@ -249,7 +249,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     self.truevals[param] = val
                 
                 ## get alms
-                self.alms_inj = self.compute_skymap_alms(inj['blms'])
+                self.alms_inj = self.compute_skymap_alms(inj['blms']).tolist()
+                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
                 ## get response integrated over the Ylms
@@ -501,13 +502,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Calculate lmax from the size of theta blm arrays. The shape is
         # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
-        lmax = jnp.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
-
-        if lmax.is_integer():
-            lmax = int(lmax)
-        else:
-            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
-
+#        lmax = jnp.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
+        lmax = self.lmax
+        
+        
+        ## removing the lmax safety check to be compatible with JAX/jit.
+#        if lmax.is_integer():
+#            lmax = int(lmax)
+#        else:
+#            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+        
+#        lmax = int(lmax)
+        
         # The rest of the priors define the blm parameter space
         sph_theta = []
 
