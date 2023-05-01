@@ -3,6 +3,7 @@
 import pickle
 import numpy as np
 import sys, os,configparser, subprocess
+from copy import copy
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
@@ -42,14 +43,6 @@ class LISA(LISAdata, Model):
             self.plot_spectra()
         else:
             self.diag_spectra()
-        
-        ## save the Model and Injection as needed
-        with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
-            pickle.dump(self.Model, outfile)
-        
-        if not params['load_data']:
-            with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
-                pickle.dump(self.Injection, outfile)
             
 
     def makedata(self):
@@ -193,9 +186,15 @@ class LISA(LISAdata, Model):
                 else:
                     self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
 
-            
-        
-        
+        ## compute and save the time-averaged response-convolved spectrum for plotting, etc.
+        for cmn in self.Injection.sgwb_component_names:
+            cm = self.Injection.components[cmn]
+            if hasattr(cm,"ispop") and cm.ispop:
+                Sgw_convolved = np.mean(cm.population.Sgw_true[None,None,:,None] * cm.inj_response_mat_true,axis=-1)
+            else:
+                Sgw_convolved = np.mean(cm.frozen_spectra[None,None,:,None] * cm.inj_response_mat,axis=-1)
+            cm.frozen_convolved_spectra = Sgw_convolved
+
         plt.close()
         ymins = []
         for component_name in self.Injection.sgwb_component_names:
@@ -292,6 +291,7 @@ class LISA(LISAdata, Model):
             plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
             plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
@@ -594,6 +594,31 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(params, outfile)
         pickle.dump(inj, outfile)
         pickle.dump(parameters, outfile)
+
+    ## save the Model and Injection as needed
+    ## the Model tends to be more lightweight, so we can maybe avoid deleting its responses, as we need those more...
+    with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
+        pickle.dump(lisa.Model, outfile)
+#    save_Model = copy(lisa.Model)
+#    for smn in save_Model.submodel_names:
+#        if hasattr(save_Model.submodel_names.components[smn],'response_mat'):
+#            del save_Model.submodel_names.components[smn].response_mat
+#        if hasattr(save_Model.submodel_names.components[smn],'summ_response_mat'):
+#            del save_Model.submodel_names.components[smn].summ_response_mat
+#    with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
+#        pickle.dump(save_Model, outfile)
+    
+    if not params['load_data']:
+        save_Injection = copy(lisa.Injection)
+        for cmn in save_Injection.component_names:
+            if hasattr(save_Injection.components[cmn],'response_mat'):
+                del save_Injection.components[cmn].response_mat
+            if hasattr(save_Injection.components[cmn],'summ_response_mat'):
+                del save_Injection.components[cmn].summ_response_mat
+            if hasattr(save_Injection.components[cmn],'inj_response_mat'):
+                del save_Injection.components[cmn].inj_response_mat
+        with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
+            pickle.dump(save_Injection, outfile)
 
     print("\nMaking posterior Plots ...")
     if not params['load_data']:
