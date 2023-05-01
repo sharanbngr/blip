@@ -249,8 +249,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     self.truevals[param] = val
                 
                 ## get alms
-                self.alms_inj = self.compute_skymap_alms(inj['blms']).tolist()
-                import pdb; pdb.set_trace()
+                self.alms_inj = np.array(self.compute_skymap_alms(inj['blms']).tolist())
+#                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
                 ## get response integrated over the Ylms
@@ -774,7 +774,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         alm_vals = self.blm_2_alm(blm_vals)
 
         ## normalize and return
-        return alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
+        return alm_vals/(alm_vals[0] * jnp.sqrt(4*jnp.pi))
     
     def compute_summed_response(self,alms):
         '''
@@ -789,7 +789,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         summ_response_mat (array) : the sky/alm-integrated response (3 x 3 x frequency x time)
         
         '''
-        return np.einsum('ijklm,m', self.response_mat, alms)
+        return jnp.einsum('ijklm,m', self.response_mat, alms)
     
     def process_astro_skymap(self,skymap):
         '''
@@ -812,7 +812,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         for param, val in zip(blm_parameters,inj_blms):
             self.truevals[param] = val
         
-        self.alms_inj = self.blm_2_alm(self.astro_blms)
+        self.alms_inj = np.array(self.blm_2_alm(self.astro_blms))
         self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
         self.sph_skymap = hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
         ## get response integrated over the Ylms
