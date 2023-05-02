@@ -57,10 +57,22 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.injection = injection
         geometry.__init__(self)
         
-        
+        ## remove the duplicate identifier if needed (powerlaw_isgwb-3 -> powerlaw_isgwb)
+        submodel_full_name = submodel_name
+        submodel_split = submodel_full_name.split('-')
+        submodel_name = submodel_split[0]
+        if len(submodel_split) == 1:
+            submodel_count = ''
+        elif len(submodel_split) == 2:
+            submodel_count = ' ({})'.format(submodel_split[1])
+        else:
+            raise ValueError("'{}' is not a valid submodel/component specfication.".format(submodel_full_name))
         
         if injection:
             self.truevals = {}
+            ## for ease of use, assign the trueval dict to a variable
+            if submodel_full_name in self.inj['truevals'].keys():
+                self.injvals = self.inj['truevals'][submodel_full_name]
         
         ## plot kwargs dict to allow for case-by-case exceptions to our usual plotting approach
         ## e.g., the population spectra look real weird as dotted lines.
@@ -98,10 +110,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.cov = self.compute_cov_noise
             else:
                 ## truevals
-                self.truevals[r'$\log_{10} (Np)$'] = self.inj['log_Np']
-                self.truevals[r'$\log_{10} (Na)$'] = self.inj['log_Na']
+                self.truevals[r'$\log_{10} (Np)$'] = self.injvals['log_Np']
+                self.truevals[r'$\log_{10} (Na)$'] = self.injvals['log_Na']
                 ## save the frozen noise spectra
-                self.frozen_spectra = self.instr_noise_spectrum(self.fs,self.f0,Np=10**self.inj['log_Np'],Na=10**self.inj['log_Na'])
+                self.frozen_spectra = self.instr_noise_spectrum(self.fs,self.f0,Np=10**self.injvals['log_Np'],Na=10**self.injvals['log_Na'])
             
             return
 
@@ -125,39 +137,39 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         if self.spectral_model_name == 'powerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
             self.omegaf = self.powerlaw_spectrum
-            self.fancyname = "Power Law SGWB"
+            self.fancyname = "Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.powerlaw_prior
             else:
-                self.truevals[r'$\alpha$'] = self.inj['alpha']
-                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
+                self.truevals[r'$\alpha$'] = self.injvals['alpha']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
         elif self.spectral_model_name == 'brokenpowerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
             self.omegaf = self.broken_powerlaw_spectrum
-            self.fancyname = "Broken Power Law SGWB"
+            self.fancyname = "Broken Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.broken_powerlaw_prior
             else:
-                self.truevals[r'$\alpha_1$'] = self.inj['alpha1']
-                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
-                self.truevals[r'$\alpha_2$'] = self.inj['alpha2']
-                self.truevals[r'$\log_{10} (f_{break})$'] = self.inj['log_fbreak']
+                self.truevals[r'$\alpha_1$'] = self.injvals['alpha1']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[r'$\alpha_2$'] = self.injvals['alpha2']
+                self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
         
         elif self.spectral_model_name == 'truncatedpowerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             self.omegaf = self.truncated_powerlaw_spectrum
-            self.fancyname = "Truncated Power Law SGWB"
+            self.fancyname = "Truncated Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.truncated_powerlaw_prior
             else:
-                self.truevals[r'$\alpha$'] = self.inj['alpha']
-                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.inj['log_omega0']
-                self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.inj['log_fcut']
-                self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.inj['log_fscale']
+                self.truevals[r'$\alpha$'] = self.injvals['alpha']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
+                self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.injvals['log_fscale']
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
-            self.fancyname = "DWD Population"
+            self.fancyname = "DWD Population"+submodel_count
             self.population = Population(self.params,self.inj,self.fs)
             self.compute_Sgw = self.population.Sgw_wrapper
             self.omegaf = self.population.omegaf_wrapper
@@ -291,7 +303,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.subscript = "_{\mathrm{G}}"
                 self.color = 'mediumorchid'
                 ## generate skymap
-                self.skymap = astro.generate_galactic_foreground(self.inj['rh'],self.inj['zh'],self.params['nside'])
+                self.skymap = astro.generate_galactic_foreground(self.injvals['rh'],self.injvals['zh'],self.params['nside'])
             elif self.spatial_model_name == 'lmc':
                 ## plotting stuff
                 self.fancyname = "LMC"
@@ -301,31 +313,31 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.skymap = astro.generate_sdg(self.params['nside']) ## sdg defaults are for the LMC
             elif self.spatial_model_name == 'dwarfgalaxy':
                 ## plotting stuff
-                self.fancyname = "Dwarf Galaxy"
+                self.fancyname = "Dwarf Galaxy"+submodel_count
                 self.subscript = "_{\mathrm{DG}}"
                 self.color = 'maroon'
                 ## generate skymap
-                self.skymap = astro.generate_sdg(self.params['nside'],ra=self.inj['sdg_RA'], dec=self.inj['sdg_DEC'], D=self.inj['sdg_dist'], r=self.inj['sdg_rad'], N=self.inj['sdg_N'])
+                self.skymap = astro.generate_sdg(self.params['nside'],ra=self.injvals['sdg_RA'], dec=self.injvals['sdg_DEC'], D=self.injvals['sdg_dist'], r=self.injvals['sdg_rad'], N=self.injvals['sdg_N'])
             elif self.spatial_model_name == 'pointsource':
                 ## plotting stuff
-                self.fancyname = "Point Source"
+                self.fancyname = "Point Source"+submodel_count
                 self.subscript = "_{\mathrm{1P}}"
                 self.color = 'forestgreen'
                 ## generate skymap
-                self.skymap = astro.generate_point_source(self.inj['theta'],self.inj['phi'],self.params['nside'])
+                self.skymap = astro.generate_point_source(self.injvals['theta'],self.injvals['phi'],self.params['nside'])
             elif self.spatial_model_name == 'twopoints':
                 ## revisit this when I have duplicates sorted, maybe unnecessary (could just have 2x point source injection components)
                 ## plotting stuff
-                self.fancyname = "Two Point Sources"
+                self.fancyname = "Two Point Sources"+submodel_count
                 self.subscript = "_{\mathrm{2P}}"
                 self.color = 'gold'
                 ## generate skymap
-                self.skymap = astro.generate_two_point_source(self.inj['theta_1'],self.inj['phi_1'],self.inj['theta_2'],self.inj['phi_2'],self.params['nside'])
+                self.skymap = astro.generate_two_point_source(self.injvals['theta_1'],self.injvals['phi_1'],self.injvals['theta_2'],self.injvals['phi_2'],self.params['nside'])
             elif self.spatial_model_name == 'population':
                 ## flag the fact that we have a population skymap
                 self.skypop = True
                 ## plotting stuff
-                self.fancyname = "DWD Population"
+                self.fancyname = "DWD Population"+submodel_count
                 self.subscript = "_{\mathrm{P}}"
                 self.color = 'midnightblue'
                 if self.spectral_model_name != 'population':
@@ -598,8 +610,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
-        alpha       =  10*theta[0]-5
-        log_omega0  = -10*theta[1] - 4
+        alpha       =  10*theta[0] - 5
+        log_omega0  = -22*theta[1] + 8
         
         return [alpha, log_omega0]
     
@@ -626,7 +638,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha_1 = 10*theta[0] - 4
-        log_omega0 = -10*theta[1] - 4
+        log_omega0 = -22*theta[1] + 8
         alpha_2 = 40*theta[2]
         log_fbreak = -2*theta[3] - 2
 
@@ -655,7 +667,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha = 10*theta[0] - 5
-        log_omega0 = -10*theta[1] - 4
+        log_omega0 = -22*theta[1] + 8
         log_fcut = -2*theta[2] - 2
         log_fscale = -2*theta[3] - 2
         
@@ -925,10 +937,11 @@ class Model():
         self.parameters['spatial'] = spatial_parameters
         self.parameters['all'] = all_parameters
         
+        ## update colors as needed
+        catch_color_duplicates(self)
+        
         ## assign reference to data for use in likelihood
         self.rmat = rmat
-        
-
     
 
     def prior(self,unit_theta):
@@ -1029,15 +1042,17 @@ class Injection():#geometry,sph_geometry):
         self.tsegmid = tsegmid
         
         ## separate into components
-        base_component_names = inj['injection'].split('+')
+        self.component_names = inj['injection'].split('+')
         
+        ### commenting this out because we're switching to active specification of duplicates in the params file
         ## check for and differentiate duplicate injections
         ## this will append 1 (then 2, then 3, etc.) to any duplicate component names
         ## we will also generate appropriate variable suffixes to use in plots, etc..
-        self.component_names = catch_duplicates(base_component_names)
+#        self.component_names = catch_duplicates(base_component_names)
+        
         ## it's useful to have a version of this without the detector noise
         self.sgwb_component_names = [name for name in self.component_names if name!='noise']
-        suffixes = gen_suffixes(base_component_names)
+        suffixes = gen_suffixes(self.component_names)
                         
         ## initialize components
         self.components = {}
@@ -1045,11 +1060,12 @@ class Injection():#geometry,sph_geometry):
         for component_name, suffix in zip(self.component_names,suffixes):
             cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
             self.components[component_name] = cm
-            self.truevals.update(cm.truevals)
+            self.truevals[component_name] = cm.truevals
             if cm.has_map:
                 self.plot_skymaps(component_name)
-    
         
+        ## update colors as needed
+        catch_color_duplicates(self)
     
     
     
@@ -1283,7 +1299,7 @@ def gen_suffixes(names):
     suffixes (list of str) : parameter suffixes for each respective model or injection submodel
     '''
     ## grab the spatial designation (or just 'noise' for the noise case)
-    end_lst = [name.split('_')[-1] for name in names]
+    end_lst = [name.split('-')[0].split('_')[-1] for name in names]
     ## if we just have noise and a lone signal, we don't need to do this.
     if ('noise' in end_lst) and len(end_lst)==2:
         suffixes = ['','']
@@ -1314,6 +1330,75 @@ def gen_suffixes(names):
             shorthand[end]['count'] += 1
 
     return suffixes
+
+def catch_color_duplicates(Object,color_pool=None,sacred_labels=[]):
+    '''
+    Function to catch duplicate plotting colors and reassign from a default or user-specified pool of matplotlib colors.
+    
+    Arguments
+    ------------
+    Object : Model or Injection with attached submodels.
+    color_pool : List of matplotlib color namestrings; see https://matplotlib.org/stable/gallery/color/named_colors.html
+    sacred_labels : List of submodel names whose colors should be treated as inviolate.
+    
+    '''
+    if color_pool is None:
+        ## this is meant to be a decently large pool, all of which are reasonably distinct from one another
+        ## we include all the default colors assigned to submodels above, as its rare that all of them will be in use
+        color_pool = ['fuschia','sienna','turquoise','deeppink','goldenrod',
+                      'darkmagenta','midnightblue','gold','crimson','mediumorchid','darkorange','maroon','forestgreen','teal']
+        
+    
+    ## handle Model vs. Injection differences
+    if hasattr(Object,"component_names"):
+        labels = Object.component_names
+        items = Object.components
+    elif hasattr(Object,"submodel_names"):
+        labels = Object.submodel_names
+        items = Object.submodels
+    else:
+        raise TypeError("Provided Object is not a properly-constructed Model or Injection.")
+    
+    ## remove in-use colors from the pool
+    for idx, color in enumerate(color_pool):
+        if color in [items[label].color for label in labels]:
+            del color_pool[idx]
+
+    ## step through the submodels and re-assign any duplicated colors
+    color_list = [items[label].color for label in sacred_labels]
+    for label in labels:
+        if (items[label].color in color_list) and (label not in sacred_labels):
+            items[label].color = color_pool.pop(0)
+        color_list.append(items[label].color)
+    
+    return
+
+def ensure_color_matching(Model,Injection):
+    '''
+    Function to ensure linked Model and Injection models share a color in the final posterior fitmaker plot.
+    
+    (i.e., pairwise matching between submodels and injection components that share a name.)
+    
+    Arguments
+    -----------
+    Model       : Model object
+    Injection   : Injection object
+    
+    '''
+    
+    ## find matches
+    matching_keys = [key for key in Injection.component_names if key in Model.submodel_names]
+    
+    ## ensure color matching
+    for key in matching_keys:
+        if Injection.components[key].color != Model.submodels[key].color:
+            Injection.components[key].color = Model.submodels[key].color
+    
+    ## reassign unmatched color duplicates as needed
+    catch_color_duplicates(Injection,sacred_labels=matching_keys)
+    
+    return
+    
 
 def gen_blm_parameters(blmax):
     '''
