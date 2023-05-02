@@ -255,7 +255,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     ## get frequencies
     frange = Model.fs
-    ffilt = (frange>params['fmin'])*(frange<params['fmax'])
+    ffilt = np.logical_and(frange >= params['fmin'], frange <= params['fmax'])
+#    ffilt = (frange>params['fmin'])*(frange<params['fmax'])
     ## commenting for testing version
 #    fs = frange[ffilt][::10]
     fs = frange[ffilt]
@@ -308,7 +309,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 ## overwrite color if specified in the the high-level kwargs
                 if component_name in astro_kwargs['color_dict'].keys():
                     kwargs['color'] = astro_kwargs['color_dict'][component_name]
-                Injection.plot_injected_spectra(component_name,legend=False,ymins=ymins,**kwargs)
+                Injection.plot_injected_spectra(component_name,fs_new=fs,legend=False,ymins=ymins,**kwargs)
                 if component_name not in Model.submodel_names:
                     model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
     
@@ -353,7 +354,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
             model_legend_elements.append(Line2D([0],[0],color=sm.color,lw=3,label=sm.fancyname))
             
             fdata = sm.fs
-            filt = (fdata>params['fmin'])*(fdata<params['fmax'])
+#            filt = (fdata>params['fmin'])*(fdata<params['fmax'])
+            filt = np.logical_and(frange >= params['fmin'], frange <= params['fmax'])
             fdata = fdata[filt]
             f0 = sm.f0[filt]
 
@@ -403,7 +405,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 if component_name == 'noise':
                     Injection.plot_injected_spectra(component_name,channels='22',ymins=ymins,**kwargs)
                 else:
-                    Injection.plot_injected_spectra(component_name,convolved=True,ymins=ymins,**kwargs)
+                    Injection.plot_injected_spectra(component_name,fs_new=fdata,convolved=True,ymins=ymins,**kwargs)
                     if component_name not in Model.submodel_names:
                         model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
         
