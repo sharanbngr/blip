@@ -1,7 +1,7 @@
 import numpy as np
 from healpy import Alm
 from sympy.physics.quantum.cg import CG
-
+import jax.numpy as jnp
 
 class clebschGordan():
 
@@ -97,7 +97,7 @@ class clebschGordan():
         '''
 
         ## Array of blm values for both +ve and -ve indices
-        blms_full = np.zeros(2*self.blm_size - self.blmax - 1, dtype='complex')
+        blms_full = jnp.zeros(2*self.blm_size - self.blmax - 1, dtype='complex')
 
 
         for jj in range(blms_full.size):
@@ -105,11 +105,12 @@ class clebschGordan():
             lval, mval = self.bl_idx[jj], self.bm_idx[jj]
 
             if mval >= 0:
-                blms_full[jj] = blms_in[Alm.getidx(self.blmax, lval, mval)]
-
+#                blms_full[jj] = blms_in[Alm.getidx(self.blmax, lval, mval)]
+                blms_full = blms_full.at[jj].set(blms_in[Alm.getidx(self.blmax, lval, mval)])
             elif mval < 0:
                 mval = -mval
-                blms_full[jj] = (-1)**mval *  np.conj(blms_in[Alm.getidx(self.blmax, lval, mval)])
+#                blms_full[jj] = (-1)**mval *  jnp.conj(blms_in[Alm.getidx(self.blmax, lval, mval)])
+                blms_full = blms_full.at[jj].set((-1)**mval *  jnp.conj(blms_in[Alm.getidx(self.blmax, lval, mval)]))
 
         return blms_full
 
@@ -125,7 +126,7 @@ class clebschGordan():
         ## convert blm array into a full blm array with -m values too
         blm_full = self.calc_blm_full(blms_in)
 
-        alm_vals = np.einsum('ijk,j,k', self.beta_vals, blm_full, blm_full)
+        alm_vals = jnp.einsum('ijk,j,k', self.beta_vals, blm_full, blm_full)
 
         return alm_vals
 
@@ -138,11 +139,12 @@ class clebschGordan():
         '''
 
         ## initialize blm_vals array
-        blm_vals = np.zeros(self.blm_size, dtype='complex')
+        blm_vals = jnp.zeros(self.blm_size, dtype='complex')
 
         ## this is b00, alsways set to 1
-        blm_vals[0] = 1
-
+#        blm_vals[0] = 1
+        blm_vals = blm_vals.at[0].set(1)
+        
         ## counter for blm_vals
         cnt = 0
 
@@ -152,12 +154,14 @@ class clebschGordan():
                 idx = Alm.getidx(self.blmax, lval, mval)
 
                 if mval == 0:
-                    blm_vals[idx] = blm_params[cnt]
+                    blm_vals = blm_vals.at[idx].set(blm_params[cnt])
+#                    blm_vals[idx] = blm_params[cnt]
                     cnt = cnt + 1
                 else:
                     #blm_vals[idx] = blm_params[cnt] + 1j * blm_params[cnt+1]
                     ## prior on amplitude, phase
-                    blm_vals[idx] = blm_params[cnt] * np.exp(1j * blm_params[cnt+1])
+                    blm_vals = blm_vals.at[idx].set(blm_params[cnt] * jnp.exp(1j * blm_params[cnt+1]))
+#                    blm_vals[idx] = blm_params[cnt] * np.exp(1j * blm_params[cnt+1])
                     cnt = cnt + 2
 
         return blm_vals
@@ -175,9 +179,9 @@ class clebschGordan():
                 idx = Alm.getidx(self.blmax, lval, mval)
 
                 if mval == 0:
-                    blm_params.append(np.real(blms[idx]))
+                    blm_params.append(jnp.real(blms[idx]))
                 else:
-                    blm_params.append(np.abs(blms[idx]))
-                    blm_params.append(np.angle(blms[idx]))
+                    blm_params.append(jnp.abs(blms[idx]))
+                    blm_params.append(jnp.angle(blms[idx]))
         
         return blm_params

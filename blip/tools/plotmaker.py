@@ -99,7 +99,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                 Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
                 
                 ## convert blm params to full blms
-                blm_vals = sm.blm_params_2_blms(post_i[ii,sm.blm_start:])
+                blm_vals = np.array(sm.blm_params_2_blms(post_i[ii,sm.blm_start:]))
                 
                 ## normalize, convert to map, and sum
                 norm = np.sum(blm_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(sm.lmax + 1):])**2)
@@ -141,7 +141,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             ## blms.
             blms_median = np.append([1], med_vals[sm.blm_start:])
             
-            blm_median_vals = sm.blm_params_2_blms(blms_median)
+            blm_median_vals = np.array(sm.blm_params_2_blms(blms_median))
         
             norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
 

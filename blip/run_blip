@@ -477,8 +477,15 @@ def blip(paramsfile='params.ini',resume=False):
         from blip.src.emcee_engine import emcee_engine
         params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
         params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
+    ## numpyro
+    elif params['sampler'] == 'numpyro':
+        if nthread > 1:
+            os.environ["XLA_FLAGS"] = '--xla_force_host_platform_device_count={}'.format(nthread)
+        from blip.src.numpyro_engine import numpyro_engine
+        params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
     else:
-        raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
+        raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', 'numpyro', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
     if params['sampler']=='dynesty' or params['sampler'] == 'nessai':
         params['checkpoint']            = int(config.get("run_params", "checkpoint", fallback=0))
@@ -588,6 +595,12 @@ def blip(paramsfile='params.ini',resume=False):
         np.savetxt(params['out_dir'] + "/unit_samples.txt",unit_samples)
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
 
+    elif params['sampler'] == 'numpyro':
+        ## create engine
+        engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], params['Nsamples'], nthread, params['seed'])
+        ## run sampler
+        post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
+    
     elif params['sampler'] == 'nessai':
         # Create engine
         if not resume:
@@ -615,7 +628,7 @@ def blip(paramsfile='params.ini',resume=False):
 #        np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
     
     else:
-        raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, & emcee are supported')
+        raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, numpyro, & emcee are supported')
 
 
     # Save parameters as a pickle
