@@ -471,15 +471,19 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
         
         inj_truevals = Injection.truevals
         
-        truevals = {param:inj_truevals[param] for param in all_parameters if param in inj_truevals.keys()}
-        
+        truevals = {}
+        for smn in Model.submodel_names:
+            for cmn in Injection.component_names:
+                if smn == cmn or (hasattr(Model.submodels[smn],"alias") and Model.submodels[smn].alias == cmn):
+                    truevals |= {param:inj_truevals[cmn][param] for param in Model.submodels[smn].parameters if param in inj_truevals[cmn].keys()}
+                    
         if len(truevals) > 0:
             knowTrue = 1 ## Bit for whether we know the true vals or not
         else:
             knowTrue = 0
     else:
         knowTrue = 0
-
+    
     npar = Model.Npar
 
     if params['out_dir'][-1] != '/':

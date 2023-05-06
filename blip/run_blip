@@ -368,6 +368,8 @@ def blip(paramsfile='params.ini',resume=False):
     params['fref'] = float(config.get("params", "fref", fallback=25))
     
     params['model'] = str(config.get("params", "model"))
+    
+    params['alias'] = eval(str(config.get("params","alias",fallback="{}")))
 
     params['tdi_lev'] = str(config.get("params", "tdi_lev", fallback='xyz'))
     params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))

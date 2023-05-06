@@ -73,6 +73,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         else:
             raise ValueError("'{}' is not a valid submodel/component specfication.".format(submodel_full_name))
         
+        if submodel_full_name in params['alias'].keys():
+            self.alias = params['alias'][submodel_full_name]
+        
         if injection:
             self.truevals = {}
             ## for ease of use, assign the trueval dict to a variable
