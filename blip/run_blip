@@ -368,6 +368,8 @@ def blip(paramsfile='params.ini',resume=False):
     params['fref'] = float(config.get("params", "fref", fallback=25))
     
     params['model'] = str(config.get("params", "model"))
+    
+    params['alias'] = eval(str(config.get("params","alias",fallback="{}")))
 
     params['tdi_lev'] = str(config.get("params", "tdi_lev", fallback='xyz'))
     params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))
@@ -600,6 +602,7 @@ def blip(paramsfile='params.ini',resume=False):
         engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], params['Nsamples'], nthread, params['seed'])
         ## run sampler
         post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
+        np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     
     elif params['sampler'] == 'nessai':
         # Create engine

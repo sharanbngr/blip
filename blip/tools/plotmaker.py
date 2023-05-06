@@ -276,6 +276,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     ymins = []
     ## loop over submodels
     signal_model_names = [sm_name for sm_name in Model.submodel_names if sm_name!='noise']
+    signal_aliases = [Model.submodels[sm_name].alias for sm_name in signal_model_names if hasattr(Model.submodels[sm_name],"alias")]
     for i, sm_name in enumerate(signal_model_names):
         sm = Model.submodels[sm_name]
         model_legend_elements.append(Line2D([0],[0],color=sm.color,lw=3,label=sm.fancyname))
@@ -310,7 +311,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 if component_name in astro_kwargs['color_dict'].keys():
                     kwargs['color'] = astro_kwargs['color_dict'][component_name]
                 Injection.plot_injected_spectra(component_name,fs_new=fs,legend=False,ymins=ymins,**kwargs)
-                if component_name not in Model.submodel_names:
+                if component_name not in Model.submodel_names and component_name not in signal_aliases:
                     model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
     
     ## avoid plot squishing due to signal spectra with cutoffs, etc.
@@ -333,6 +334,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     plt.title(astro_kwargs['title'],fontsize=astro_kwargs['title_fontsize'])
     plt.xlabel(astro_kwargs['xlabel'],fontsize=astro_kwargs['xlabel_fontsize'])
     plt.ylabel(astro_kwargs['ylabel'],fontsize=astro_kwargs['ylabel_fontsize'])
+    
     if saveto is not None:
         plt.savefig(saveto + '/spectral_fit_astro.png', dpi=astro_kwargs['dpi'])
     else:
@@ -406,7 +408,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                     Injection.plot_injected_spectra(component_name,channels='22',ymins=ymins,**kwargs)
                 else:
                     Injection.plot_injected_spectra(component_name,fs_new=fdata,convolved=True,ymins=ymins,**kwargs)
-                    if component_name not in Model.submodel_names:
+                    if component_name not in Model.submodel_names and component_name not in signal_aliases:
                         model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
@@ -471,15 +473,19 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
         
         inj_truevals = Injection.truevals
         
-        truevals = {param:inj_truevals[param] for param in all_parameters if param in inj_truevals.keys()}
-        
+        truevals = {}
+        for smn in Model.submodel_names:
+            for cmn in Injection.component_names:
+                if smn == cmn or (hasattr(Model.submodels[smn],"alias") and Model.submodels[smn].alias == cmn):
+                    truevals |= {param:inj_truevals[cmn][param] for param in Model.submodels[smn].parameters if param in inj_truevals[cmn].keys()}
+                    
         if len(truevals) > 0:
             knowTrue = 1 ## Bit for whether we know the true vals or not
         else:
             knowTrue = 0
     else:
         knowTrue = 0
-
+    
     npar = Model.Npar
 
     if params['out_dir'][-1] != '/':
@@ -582,6 +588,8 @@ if __name__ == '__main__':
     
     
     post = np.loadtxt(params['out_dir'] + "/post_samples.txt")
+    
+    matplotlib.rcParams.update(matplotlib.rcParamsDefault)
     
     if not args.nocorner:
         plotmaker(post, params, parameters, inj, Model, Injection)    
