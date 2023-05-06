@@ -148,6 +148,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 self.truevals[r'$\alpha$'] = self.injvals['alpha']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+        elif self.spectral_model_name == 'twothirdspowerlaw':
+            ## it may be worth implementing a more general fixed powerlaw model
+            ## but this suffices for investigating the effects of the stellar-origin binary background
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$']
+            self.omegaf = self.twothirdspowerlaw_spectrum
+            self.fancyname = r'$\alpha$'+" Power Law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.fixedpowerlaw_prior
+            else:
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
         elif self.spectral_model_name == 'brokenpowerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
             self.omegaf = self.broken_powerlaw_spectrum
@@ -408,6 +418,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
+    def twothirdspowerlaw_spectrum(self,fs,log_omega0):
+        '''
+        Function to calculate a simple power law spectrum, fixed to the alpha=2/3 prediction for the stellar origin binary background.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        log_omega0 (float)   : power law amplitude in units of log dimensionless GW energy density at f_ref
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        
+        '''
+        return 10**(log_omega0)*(fs/self.params['fref'])**(2/3)
     
     def broken_powerlaw_spectrum(self,fs,alpha_1,log_omega0,alpha_2,log_fbreak):
         '''
@@ -625,6 +650,33 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         log_omega0  = -22*theta[1] + 8
         
         return [alpha, log_omega0]
+    
+    def fixedpowerlaw_prior(self,theta):
+
+
+        '''
+        Prior function for a power law with fixed slope.
+        
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha and log(Omega0)
+
+        '''
+
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        log_omega0  = -22*theta[0] + 8
+        
+        return [log_omega0]
     
     def broken_powerlaw_prior(self,theta):
 

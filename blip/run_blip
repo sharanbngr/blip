@@ -600,6 +600,7 @@ def blip(paramsfile='params.ini',resume=False):
         engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], params['Nsamples'], nthread, params['seed'])
         ## run sampler
         post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
+        np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     
     elif params['sampler'] == 'nessai':
         # Create engine
