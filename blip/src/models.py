@@ -156,7 +156,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             ## but this suffices for investigating the effects of the stellar-origin binary background
             self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$']
             self.omegaf = self.twothirdspowerlaw_spectrum
-            self.fancyname = r'$\alpha$'+" Power Law"+submodel_count
+            self.fancyname = r'$\alpha=2/3$'+" Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.fixedpowerlaw_prior
             else:
