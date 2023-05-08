@@ -489,9 +489,13 @@ def blip(paramsfile='params.ini',resume=False):
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', 'numpyro', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
-    if params['sampler']=='dynesty' or params['sampler'] == 'nessai':
+    if params['sampler']=='dynesty' or params['sampler'] == 'nessai' or params['sampler'] == 'numpyro':
         params['checkpoint']            = int(config.get("run_params", "checkpoint", fallback=0))
-        params['checkpoint_interval']   = float(config.get("run_params", "checkpoint_interval", fallback=3600))
+        ## numpyro's checkpoint_interval is in number of samples, vs. seconds for dynesty/nessai
+        if params['sampler'] == 'numpyro':
+            params['checkpoint_interval']   = int(config.get("run_params", "checkpoint_interval", fallback=100))
+        else:
+            params['checkpoint_interval']   = int(config.get("run_params", "checkpoint_interval", fallback=3600))
 
     # Fix random seed
     if params['FixSeed']:
@@ -599,9 +603,35 @@ def blip(paramsfile='params.ini',resume=False):
 
     elif params['sampler'] == 'numpyro':
         ## create engine
-        engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], params['Nsamples'], nthread, params['seed'])
+        if not resume:
+            ## without checkpointing, set up the engine to run for Nsamples samples
+            ## with checkpointing, set it up to run for checkpoint_interval samples (and set the starting chain to None)
+            if params['checkpoint']:
+                Nrun = params['checkpoint_interval']
+                chain = None
+            else:
+                Nrun = params['Nsamples']
+                
+            engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['seed'])
+            lisaModel = lisa.Model
+        else:
+            resume_file = params['out_dir']+'/checkpoint.pickle'
+            engine, rng_key, chain = numpyro_engine.load_engine(resume_file)
+            with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
+                lisaModel = pickle.load(modfile)
+            parameters = lisaModel.parameters
+
         ## run sampler
-        post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
+        if params['checkpoint']:
+            checkpoint_file = params['out_dir']+'/checkpoint.pickle'
+            t1 = time.time()
+            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,params['Nsamples'])
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
+        else:
+            post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
+        
+        ## save chain
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     
     elif params['sampler'] == 'nessai':
@@ -632,30 +662,37 @@ def blip(paramsfile='params.ini',resume=False):
     
     else:
         raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, numpyro, & emcee are supported')
-
-
+    
+    ## reload the Model and Injection if needed
+    if not resume:
+        plotModel, plotInjection = lisa.Model, lisa.Injection
+    else:
+        with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
+            plotModel = pickle.load(modfile)
+        with open(params['out_dir'] + '/injection.pickle', 'rb') as injfile:
+            plotInjection = pickle.load(injfile)
+    
     # Save parameters as a pickle
     with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
         pickle.dump(params, outfile)
         pickle.dump(inj, outfile)
         pickle.dump(parameters, outfile)
-
-
+       
     print("\nMaking posterior Plots ...")
     if not params['load_data']:
-        plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+        plotmaker(post_samples, params, parameters, inj, plotModel, plotInjection)
     else:
-        plotmaker(post_samples, params, parameters, inj, lisa.Model)
+        plotmaker(post_samples, params, parameters, inj, plotModel)
     if not params['load_data']:
-        fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+        fitmaker(post_samples, params, parameters, inj, plotModel, plotInjection)
     else:
-        fitmaker(post_samples, params, parameters, inj, lisa.Model)
+        fitmaker(post_samples, params, parameters, inj, plotModel)
     ## make a map if there is a map to be made
-    if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
+    if np.any([plotModel.submodels[sm_name].has_map for sm_name in plotModel.submodel_names]):
         if 'healpy_proj' in params.keys():
-            mapmaker(post_samples, params, parameters, lisa.Model,  coord=params['healpy_proj'])
+            mapmaker(post_samples, params, parameters, plotModel,  coord=params['healpy_proj'])
         else:
-            mapmaker(post_samples, params, parameters, lisa.Model)
+            mapmaker(post_samples, params, parameters, plotModel)
         
     
 
