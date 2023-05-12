@@ -5,7 +5,7 @@ import numpy as np
 import sys, os,configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
-from blip.src.models import Model, Injection
+from blip.src.models import Model, Injection, ensure_color_matching
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
@@ -36,20 +36,16 @@ class LISA(LISAdata, Model):
         print("Building Bayesian model...")
         self.make_data_correlation_matrix()
         self.Model = Model(params,inj,self.fdata,self.f0,self.tsegmid,self.rmat)
-
+        
+        # make sure matching injections/models have matching colors
+        if not self.params['load_data']:
+            ensure_color_matching(self.Model,self.Injection)
+        
         # Make some simple diagnostic plots to contrast spectra
         if self.params['load_data']:
             self.plot_spectra()
         else:
             self.diag_spectra()
-        
-        ## save the Model and Injection as needed
-        with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
-            pickle.dump(self.Model, outfile)
-        
-        if not params['load_data']:
-            with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
-                pickle.dump(self.Injection, outfile)
             
 
     def makedata(self):
@@ -164,7 +160,7 @@ class LISA(LISAdata, Model):
         data_PSD1,data_PSD2, data_PSD3 = data_PSD1[idx], data_PSD2[idx], data_PSD3[idx]
 
         # The last two elements are the position and the acceleration noise levels.
-        Np, Na = 10**self.inj['log_Np'], 10**self.inj['log_Na']
+        Np, Na = 10**self.Injection.components['noise'].injvals['log_Np'], 10**self.Injection.components['noise'].injvals['log_Na']
 
         # Modelled Noise PSD
         C_noise = self.Injection.components['noise'].instr_noise_spectrum(self.fdata,self.f0, Np, Na)
@@ -193,33 +189,39 @@ class LISA(LISAdata, Model):
                 else:
                     self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
 
-            
-        
-        
+        ## compute and save the time-averaged response-convolved spectrum for plotting, etc.
+        for cmn in self.Injection.sgwb_component_names:
+            cm = self.Injection.components[cmn]
+            if hasattr(cm,"ispop") and cm.ispop:
+                Sgw_convolved = np.mean(cm.population.Sgw_true[None,None,:,None] * cm.inj_response_mat_true,axis=-1)
+            else:
+                Sgw_convolved = np.mean(cm.frozen_spectra[None,None,:,None] * cm.inj_response_mat,axis=-1)
+            cm.frozen_convolved_spectra = Sgw_convolved
+
         plt.close()
+        
+        # noise budget plot
+        plt.loglog(psdfreqs, data_PSD3,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
+        plt.loglog(self.fdata, C_noise[2, 2, :], label='Instrumental Noise ', lw=0.75,color='dimgrey')
+        
         ymins = []
         for component_name in self.Injection.sgwb_component_names:
             S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
             ymins.append(S1_gw.min())
             S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
-       
-            plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
-
-
-        # noise budget plot
-        plt.loglog(psdfreqs, data_PSD3,label='PSD, data series', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.fdata, C_noise[2, 2, :], label='Simulated instrumental noise spectrum', lw=0.75,color='dimgrey')
         
+        plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
+
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         ymin = np.min(ymins)
         if ymin < 1e-43:
             plt.ylim(bottom=1e-43)
         
-        plt.legend()
+        plt.legend(loc='upper right')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
         plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
         plt.close()
@@ -231,7 +233,7 @@ class LISA(LISAdata, Model):
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
@@ -249,7 +251,7 @@ class LISA(LISAdata, Model):
         plt.ylim([-1.50, 1.50])
         plt.legend()
         plt.grid()
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
 
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
@@ -284,7 +286,7 @@ class LISA(LISAdata, Model):
         plt.ylabel('Power in 1/Hz')
         plt.legend()
         plt.ylim([1e-44, 5e-40])
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
         plt.grid()
 
         plt.subplot(2, 1, 2)
@@ -292,11 +294,12 @@ class LISA(LISAdata, Model):
             plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
             plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel(' Power in 1/Hz')
         plt.legend()
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
         plt.ylim([1e-44, 5e-40])
         plt.grid()
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
@@ -325,7 +328,7 @@ class LISA(LISAdata, Model):
         plt.ylabel('PSD 1/Hz ')
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
-        plt.xlim(0.5*self.params['fmin'], 2*self.params['fmax'])
+        plt.xlim(self.params['fmin'], self.params['fmax'])
     
         plt.savefig(self.params['out_dir'] + '/data_psd.png', dpi=200)
         print('Data spectra plot made in ' + self.params['out_dir'] + '/data_psd.png')
@@ -365,6 +368,8 @@ def blip(paramsfile='params.ini',resume=False):
     params['fref'] = float(config.get("params", "fref", fallback=25))
     
     params['model'] = str(config.get("params", "model"))
+    
+    params['alias'] = eval(str(config.get("params","alias",fallback="{}")))
 
     params['tdi_lev'] = str(config.get("params", "tdi_lev", fallback='xyz'))
     params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))
@@ -373,7 +378,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
     ## see if we need to initialize the spherical harmonic subroutines
-    sph_check = [sublist.split('_')[-1] for sublist in params['model'].split('+')]
+    sph_check = [sublist.split('-')[0].split('_')[-1] for sublist in params['model'].split('+')]
 
     # Injection Dict
     inj['doInj']         = int(config.get("inj", "doInj"))
@@ -383,16 +388,26 @@ def blip(paramsfile='params.ini',resume=False):
         
         ## get the injection truevals, passed as a dict
         truevals = eval(str(config.get("inj","truevals")))
+        ## enforce that the keys of the truevals dict correspond to the injected models
+        ## at this point we will only make sure that all the keys are in the injection string
+        ## (not all injections will have truevals; e.g., population injections)
+        inj_component_names = inj['injection'].split('+')
+        if not np.all([key in inj_component_names for key in truevals.keys()]):
+            raise ValueError("Truevals dictionary has an invalid key. Truevals must be provided as a nested dictionary with top-level keys corresponding to the injections specified in the 'injection' parameter.")
+        ## build the truevals dict
         ## some quantities we want to use as log values, so convert them
+        inj['truevals'] = {}
         log_list = ["Np","Na","omega0","fbreak","fcut","fscale"]
-        for item in truevals.keys():
-            if item in log_list:
-                new_name = "log_"+item
-                inj[new_name] = np.log10(truevals[item])
-            else:
-                inj[item] = truevals[item]
+        for component_name in truevals.keys():
+            inj['truevals'][component_name] = {}
+            for name in truevals[component_name].keys():
+                if name in log_list:
+                    new_name = "log_"+name
+                    inj['truevals'][component_name][new_name] = np.log10(truevals[component_name][name])
+                else:
+                    inj['truevals'][component_name][name] = truevals[component_name][name]
         ## add injections to the spherical harmonic check if needed
-        sph_check = sph_check + [sublist.split('_')[-1] for sublist in inj['injection'].split('+')]
+        sph_check = sph_check + [sublist.split('-')[0].split('_')[-1] for sublist in inj['injection'].split('+')]
         
     ## set sph flags
     params['sph_flag'] = ('sph' in sph_check) or ('hierarchical' in sph_check)
@@ -437,14 +452,9 @@ def blip(paramsfile='params.ini',resume=False):
     params['FixSeed']            = int(config.get("run_params", "FixSeed", fallback=0))
     if params['FixSeed']:
         params['seed']               = int(config.get("run_params", "seed"))
-    nlive                        = int(config.get("run_params", "nlive", fallback=2000))
     nthread                      = int(config.get("run_params", "Nthreads", fallback=1))
-   
-    try:
-        params['colormap']       = str(config.get("run_params", "colormap"))
-    except:
-        params['colormap']       = 'magma'
     
+    params['colormap']       = str(config.get("run_params", "colormap", fallback='magma'))    
     
     ## sampler selection
     params['sampler'] = str(config.get("run_params", "sampler"))
@@ -453,10 +463,12 @@ def blip(paramsfile='params.ini',resume=False):
     ## dynesty
     if params['sampler'] == 'dynesty':
         from blip.src.dynesty_engine import dynesty_engine
+        nlive                   = int(config.get("run_params", "nlive", fallback=800))
         params['sample_method'] = str(config.get("run_params", "sample_method", fallback='rwalk'))
     # nessai
     elif params['sampler'] == 'nessai':
         from blip.src.nessai_engine import nessai_engine
+        nlive                        = int(config.get("run_params", "nlive", fallback=2000))
         ## flow tuning
         params['nessai_neurons']     = str(config.get("run_params", "nessai_neurons", fallback='scale_greedy'))
         if params['nessai_neurons']=='manual':
@@ -465,8 +477,8 @@ def blip(paramsfile='params.ini',resume=False):
     ## emcee
     elif params['sampler'] == 'emcee':
         from blip.src.emcee_engine import emcee_engine
-        params['Nburn'] = int(config.get("run_params", "Nburn"))
-        params['Nsamples'] = int(config.get("run_params", "Nsamples"))
+        params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
@@ -498,7 +510,22 @@ def blip(paramsfile='params.ini',resume=False):
         # Initialize lisa class
         lisa =  LISA(params, inj)
         
-        
+        ## save the Model and Injection as needed
+        ## the Model tends to be more lightweight
+        with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
+            pickle.dump(lisa.Model, outfile)
+        ## but the Injection is massive, so discard the responses we no longer need
+        ## saving & discarding now, as opposed to at the end of the run also saves space in the dynesty/nessai checkpoint files.
+        if not params['load_data']:
+            for cmn in lisa.Injection.component_names:
+                if hasattr(lisa.Injection.components[cmn],'response_mat'):
+                    del lisa.Injection.components[cmn].response_mat
+                if hasattr(lisa.Injection.components[cmn],'summ_response_mat'):
+                    del lisa.Injection.components[cmn].summ_response_mat
+                if hasattr(lisa.Injection.components[cmn],'inj_response_mat'):
+                    del lisa.Injection.components[cmn].inj_response_mat
+            with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
+                pickle.dump(lisa.Injection, outfile)
     else:
         print("Resuming a previous analysis. Reloading data and sampler state...")
 
@@ -598,6 +625,7 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(params, outfile)
         pickle.dump(inj, outfile)
         pickle.dump(parameters, outfile)
+
 
     print("\nMaking posterior Plots ...")
     if not params['load_data']:
