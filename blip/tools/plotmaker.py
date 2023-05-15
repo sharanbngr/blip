@@ -316,9 +316,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     ## avoid plot squishing due to signal spectra with cutoffs, etc.
     if astro_kwargs['ymin'] is None:
-        ymin = np.min(ymins)
-        if ymin < 1e-43:
-            plt.ylim(bottom=1e-43)
+        if len(ymins) > 0:
+            ymin = np.min(ymins)
+            if ymin < 1e-43:
+                plt.ylim(bottom=1e-43)
     else:
         plt.ylim(bottom=astro_kwargs['ymin'])
     plt.ylim(top=astro_kwargs['ymax'])
@@ -413,9 +414,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         if det_kwargs['ymin'] is None:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
+            if len(ymins) > 0:
+                ymin = np.min(ymins)
+                if ymin < 1e-43:
+                    plt.ylim(bottom=1e-43)
         else:
             plt.ylim(bottom=det_kwargs['ymin'])
         plt.ylim(top=det_kwargs['ymax'])

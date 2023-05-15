@@ -45,8 +45,6 @@ class numpyro_engine():
         else:
             raise TypeError("Numpyro sampler requires a defined seed.")
         
-#        wrapped_model = numpyro_wrapper(lisaobj.Model)
-        
         kernel = NUTS(numpyro_model)
         
         engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,progress_bar=prog)
