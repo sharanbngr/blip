@@ -484,6 +484,7 @@ def blip(paramsfile='params.ini',resume=False):
         if nthread > 1:
             os.environ["XLA_FLAGS"] = '--xla_force_host_platform_device_count={}'.format(nthread)
         from blip.src.numpyro_engine import numpyro_engine
+        params['show_progress'] = int(config.get("run_params", "show_progress", fallback=1))
         params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
         params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
     else:
@@ -537,6 +538,8 @@ def blip(paramsfile='params.ini',resume=False):
                     del lisa.Injection.components[cmn].inj_response_mat
             with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
                 pickle.dump(lisa.Injection, outfile)
+        
+        print("Generating sampling engine...")
     else:
         print("Resuming a previous analysis. Reloading data and sampler state...")
 
@@ -612,7 +615,7 @@ def blip(paramsfile='params.ini',resume=False):
             else:
                 Nrun = params['Nsamples']
                 
-            engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['seed'])
+            engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['show_progress'], params['seed'])
             lisaModel = lisa.Model
         else:
             resume_file = params['out_dir']+'/checkpoint.pickle'

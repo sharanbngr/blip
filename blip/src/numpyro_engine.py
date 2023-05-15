@@ -35,7 +35,7 @@ class numpyro_engine():
     '''
     
     @classmethod
-    def define_engine(cls, lisaobj, Nburn, Nsamples, Nthreads, seed):
+    def define_engine(cls, lisaobj, Nburn, Nsamples, Nthreads, prog, seed):
         
         ## multithreading setup, will need to tweak if we port to GPU
         numpyro.set_host_device_count(Nthreads)
@@ -49,7 +49,7 @@ class numpyro_engine():
         
         kernel = NUTS(numpyro_model)
         
-        engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads)
+        engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,progress_bar=prog)
 
         # print npar
         print("Npar = " + str(lisaobj.Model.Npar))
@@ -60,8 +60,9 @@ class numpyro_engine():
     def run_engine(engine,lisaobj,rng_key):
         
         # -------------------- Run HMC sampler ---------------------------
+        print("Beginning sampling...")
         engine.run(rng_key,lisaobj.Model)
-        
+        print("Sampling complete. Retrieving posterior and plotting results...")
         ## retrive samples and reformat
         post_samples = np.array(engine.get_samples()['theta_transformed']).T
         
@@ -88,6 +89,10 @@ class numpyro_engine():
     @staticmethod
     def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal):
 
+        if chain is None:
+            print("Beginning sampling, starting warmup phase...")
+            
+        
         while True:
             
             engine.run(rng_key,lisaModel)
