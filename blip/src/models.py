@@ -271,10 +271,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population','fixedgalaxy','hotpixel']:
             
-            ## the astrophysical spatial models are generally injection-only
-            if not injection:
+            ## the astrophysical spatial models are mostly injection-only, with some exceptions.
+            if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
                 raise ValueError("This model is injection-only.")
             
             self.has_map = True
@@ -297,6 +297,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## model-specific quantities
+            ## injection-only models
             if self.spatial_model_name == 'galaxy':
                 ## store the high-level MW truevals for the hierarchical analysis
                 self.truevals[r'$r_{\mathrm{h}}$'] = inj['rh']
@@ -347,7 +348,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     ## generate population if still needed
                     self.population = Population(self.params,self.inj,self.fs)
                 self.skymap = self.population.skymap
-            
+            ## inference models
+            elif self.spatial_model_name == 'fixedgalaxy':
+                ## store the high-level MW truevals for the hierarchical analysis
+                self.truevals[r'$r_{\mathrm{h}}$'] = inj['rh']
+                self.truevals[r'$z_{\mathrm{h}}$'] = inj['zh']
+                ## plotting stuff
+                self.fancyname = "Galactic Foreground"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                ## generate skymap
+                self.skymap = astro.generate_galactic_foreground(self.injvals['rh'],self.injvals['zh'],self.params['nside'])
+                
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             

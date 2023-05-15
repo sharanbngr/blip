@@ -22,7 +22,7 @@ class LISA(LISAdata, Model):
     '''
 
     def __init__(self,  params, inj):
-
+        
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
