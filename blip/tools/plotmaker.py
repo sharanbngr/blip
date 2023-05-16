@@ -99,7 +99,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                 Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
                 
                 ## convert blm params to full blms
-                blm_vals = sm.blm_params_2_blms(post_i[ii,sm.blm_start:])
+                blm_vals = np.array(sm.blm_params_2_blms(post_i[ii,sm.blm_start:]))
                 
                 ## normalize, convert to map, and sum
                 norm = np.sum(blm_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(sm.lmax + 1):])**2)
@@ -141,7 +141,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             ## blms.
             blms_median = np.append([1], med_vals[sm.blm_start:])
             
-            blm_median_vals = sm.blm_params_2_blms(blms_median)
+            blm_median_vals = np.array(sm.blm_params_2_blms(blms_median))
         
             norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
 
@@ -316,9 +316,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     ## avoid plot squishing due to signal spectra with cutoffs, etc.
     if astro_kwargs['ymin'] is None:
-        ymin = np.min(ymins)
-        if ymin < 1e-43:
-            plt.ylim(bottom=1e-43)
+        if len(ymins) > 0:
+            ymin = np.min(ymins)
+            if ymin < 1e-43:
+                plt.ylim(bottom=1e-43)
     else:
         plt.ylim(bottom=astro_kwargs['ymin'])
     plt.ylim(top=astro_kwargs['ymax'])
@@ -334,6 +335,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     plt.title(astro_kwargs['title'],fontsize=astro_kwargs['title_fontsize'])
     plt.xlabel(astro_kwargs['xlabel'],fontsize=astro_kwargs['xlabel_fontsize'])
     plt.ylabel(astro_kwargs['ylabel'],fontsize=astro_kwargs['ylabel_fontsize'])
+    
     if saveto is not None:
         plt.savefig(saveto + '/spectral_fit_astro.png', dpi=astro_kwargs['dpi'])
     else:
@@ -412,9 +414,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         if det_kwargs['ymin'] is None:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
+            if len(ymins) > 0:
+                ymin = np.min(ymins)
+                if ymin < 1e-43:
+                    plt.ylim(bottom=1e-43)
         else:
             plt.ylim(bottom=det_kwargs['ymin'])
         plt.ylim(top=det_kwargs['ymax'])
