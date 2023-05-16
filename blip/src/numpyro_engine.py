@@ -35,10 +35,27 @@ class numpyro_engine():
     '''
     
     @classmethod
-    def define_engine(cls, lisaobj, Nburn, Nsamples, Nthreads, prog, seed):
+    def define_engine(cls, lisaobj, Nburn, Nsamples, Nthreads, prog, seed, gpu=False):
         
-        ## multithreading setup, will need to tweak if we port to GPU
-        numpyro.set_host_device_count(Nthreads)
+        ## multithreading setup
+        ## default to parallel chains
+        chain_method = 'parallel'
+        if gpu:
+            ## check number of available gpus
+            N_GPU = jax.local_device_count(backend='gpu')
+            if N_GPU == 1:
+                if Nthreads > 1:
+                    print("Nthreads = {}, but only one GPU is available. Setting numpyro chain_method to 'vectorized'.".format(Nthreads))
+                    chain_method = 'vectorized'
+            elif N_GPU > 1:
+                if Nthreads > N_GPU:
+                    print("Nthreads ({}) > N_GPU ({}) but vectorized parallel sampling has not yet been implemented. Setting Nthreads = N_GPU.".format(Nthreads,N_GPU))
+                    Nthreads = N_GPU
+            else:
+                raise ValueError("GPU usage was requested but no GPUs are available!")
+        else:
+            numpyro.set_host_device_count(Nthreads)
+        
         
         if seed is not None:
             rng_key = jax.random.PRNGKey(seed)
@@ -47,7 +64,7 @@ class numpyro_engine():
         
         kernel = NUTS(numpyro_model)
         
-        engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,progress_bar=prog)
+        engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,chain_method=chain_method,progress_bar=prog)
 
         # print npar
         print("Npar = " + str(lisaobj.Model.Npar))

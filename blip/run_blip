@@ -513,11 +513,17 @@ def blip(paramsfile='params.ini',resume=False):
     if params['FixSeed']:
         params['seed']               = int(config.get("run_params", "seed"))
     nthread                      = int(config.get("run_params", "Nthreads", fallback=1))
+    N_GPU                        = int(config.get("run_params", "N_GPU", fallback=0))
+    
     
     params['colormap']       = str(config.get("run_params", "colormap", fallback='magma'))    
     
     ## sampler selection
     params['sampler'] = str(config.get("run_params", "sampler"))
+    
+    ## only numpyro has GPU support
+    if N_GPU > 0 and params['sampler']!='numpyro':
+        raise ValueError("Only numpyro supports GPU acceleration but N_GPU ({}) > 0 and sampler is {}.".format(N_GPU,params['sampler']))
     
     ## sampler setup and late-time imports to reduce dependencies
     ## dynesty
@@ -691,8 +697,10 @@ def blip(paramsfile='params.ini',resume=False):
                 chain = None
             else:
                 Nrun = params['Nsamples']
-                
-            engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['show_progress'], params['seed'])
+            
+            if N_GPU > 0:
+                use_gpu = True
+            engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['show_progress'], params['seed'], gpu=use_gpu)
             lisaModel = lisa.Model
         else:
             resume_file = params['out_dir']+'/checkpoint.pickle'
