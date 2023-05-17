@@ -717,8 +717,10 @@ def blip(paramsfile='params.ini',resume=False):
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:
+            t1 = time.time()
             post_samples = numpyro_engine.run_engine(engine,lisa,rng_key)
-        
+            t2= time.time()
+            print("Elapsed time to converge: {} s".format(t2-t1))
         ## save chain
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
     
