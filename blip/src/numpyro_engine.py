@@ -138,6 +138,7 @@ class numpyro_engine():
             engine.post_warmup_state = state
             rng_key = engine.post_warmup_state.rng_key
         
+        print("Initializing sampling...")
         while True:
             
             engine.run(rng_key,lisaModel)

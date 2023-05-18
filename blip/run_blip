@@ -710,7 +710,7 @@ def blip(paramsfile='params.ini',resume=False):
                 use_gpu = True
             engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['show_progress'], params['seed'], gpu=use_gpu)
             lisaModel = lisa.Model
-            import pdb; pdb.set_trace()
+            
         else:
             resume_file = params['out_dir']+'/checkpoint.pickle'
             engine, rng_key, chain = numpyro_engine.load_engine(resume_file)
@@ -730,6 +730,7 @@ def blip(paramsfile='params.ini',resume=False):
                     print("WARNING: {} additional samples were requested, but the original run isn't finished ({}/{} samples remaining)".format(params['additional_samples'],params['Nsamples'],params['Nsamples']))
                     print("WARNING: Disregarding and continuing the original run...")
                 else:
+                    print("Run was previously completed and {} additional samples have been requested. Resuming chain sampling from final state...".format(params['additional_samples']))
                     ## new total = old total + additional
                     Ntotal = N_current + params['additional_samples']
                     ## if not sampling in N=checkpoint_interval chunks, set the requested # of samples
@@ -737,7 +738,7 @@ def blip(paramsfile='params.ini',resume=False):
                         engine.num_samples = params['additional_samples']
             ## if we're not doing additional samples and the run is over, raise a helpful error.
             elif N_current==params['Nsamples']:
-                raise ValueError("Run was resumed but has already finished. If you want to continue adding samples to the chain, specify 'additional_samples=[N desired]' in the *run directory* params file before resuming.")
+                raise ValueError("Run was resumed but has already finished. If you want to continue adding samples to the chain, specify additional_samples=[N desired] in the run directory params file before resuming.")
 
         ## run sampler
         if params['checkpoint']:
