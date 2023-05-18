@@ -700,9 +700,11 @@ def blip(paramsfile='params.ini',resume=False):
             ## with checkpointing, set it up to run for checkpoint_interval samples (and set the starting chain to None)
             if params['checkpoint'] and params['checkpoint_while_sampling']:
                 Nrun = params['checkpoint_interval']
-                chain = None
             else:
                 Nrun = Ntotal
+            
+            ## set initial chain to None
+            chain = None
             
             if N_GPU > 0:
                 use_gpu = True
