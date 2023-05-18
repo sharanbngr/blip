@@ -706,6 +706,7 @@ def blip(paramsfile='params.ini',resume=False):
                 use_gpu = True
             engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['show_progress'], params['seed'], gpu=use_gpu)
             lisaModel = lisa.Model
+            import pdb; pdb.set_trace()
         else:
             resume_file = params['out_dir']+'/checkpoint.pickle'
             engine, rng_key, chain = numpyro_engine.load_engine(resume_file)
