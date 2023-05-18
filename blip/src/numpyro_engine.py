@@ -103,11 +103,40 @@ class numpyro_engine():
     
     
     @staticmethod
-    def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal):
+    def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_sampling=False):
+        '''
+        Runs the numpyro sampler with sampler state checkpointing. 
+        
+        Arguments
+        -------------------
+        [fill in]
+        checkpoint_sampling (bool)  : Whether to also checkpoint during sampling. If False, checkpoint files will only be saved at the end of the warmup phase and at the end of the sampling phase.
+                                      (For longer datasets/complicated models, the latency to load the sampler on/off the GPU, recompile, etc. is equivalent to or greater than the actual sampling time.)
+        
+        Returns
+        --------------------
+        post_samples (array)        : Posterior samples.
+        
+        '''
+        
 
         if chain is None:
             print("Beginning sampling, starting warmup phase...")
+            ## run warmup phase
+            engine.warmup(rng_key,lisaModel)
+            state = engine.post_warmup_state
+            print("Warmup phase complete. Checkpointing before initializing sampling...")
+            ## save
+            if dill.pickles([engine,state,chain]):
+                temp_file = checkpoint_file + ".temp"
+                with open(temp_file, "wb") as file:
+                    pickle.dump([engine,state,chain], file)
+                shutil.move(temp_file, checkpoint_file)
+            else:
+                print("Warning: Cannot write checkpoint file, job cannot resume if interrupted.")
             
+            engine.post_warmup_state = state
+            rng_key = engine.post_warmup_state.rng_key
         
         while True:
             
@@ -124,9 +153,12 @@ class numpyro_engine():
             else:
                 chain = chain_update
             
-            ## check to see if we have the desired number of samples yet
-            Ncurrent = len(chain['theta_transformed'][0])
-            if Ncurrent >= Ntotal:
+            if checkpoint_sampling:
+                ## check to see if we have the desired number of samples yet
+                Ncurrent = len(chain['theta_transformed'][0])
+                if Ncurrent >= Ntotal:
+                    break
+            else:
                 break
 
             print("Checkpointing ({}/{} samples)...".format(Ncurrent,Ntotal))
@@ -143,9 +175,18 @@ class numpyro_engine():
             engine.post_warmup_state = state
             ## grab rng_key for running
             rng_key = engine.post_warmup_state.rng_key
-
+        
+        ## save the final state
+        print("Sampling complete. Saving final sampler state to {}...".format(checkpoint_file))
+        if dill.pickles([engine,state,chain]):
+            temp_file = checkpoint_file + ".temp"
+            with open(temp_file, "wb") as file:
+                pickle.dump([engine,state,chain], file)
+            shutil.move(temp_file, checkpoint_file)
+        else:
+            print("Warning: Failed to save checkpoint file, cannot resume sampling later.")
+    
         ## retrive samples and reformat
         post_samples = np.array(chain['theta_transformed']).T
         
         return post_samples
-

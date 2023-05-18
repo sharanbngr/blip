@@ -553,6 +553,7 @@ def blip(paramsfile='params.ini',resume=False):
         params['show_progress'] = int(config.get("run_params", "show_progress", fallback=1))
         params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
         params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
+        
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', 'numpyro', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
@@ -561,6 +562,8 @@ def blip(paramsfile='params.ini',resume=False):
         ## numpyro's checkpoint_interval is in number of samples, vs. seconds for dynesty/nessai
         if params['sampler'] == 'numpyro':
             params['checkpoint_interval']   = int(config.get("run_params", "checkpoint_interval", fallback=100))
+            params['checkpoint_while_sampling'] = int(config.get("run_params", "checkpoint_while_sampling", fallback=0))
+            params['additional_samples'] = int(config.get("run_params", "additional_samples", fallback=None))
         else:
             params['checkpoint_interval']   = int(config.get("run_params", "checkpoint_interval", fallback=3600))
 
@@ -689,14 +692,15 @@ def blip(paramsfile='params.ini',resume=False):
 
     elif params['sampler'] == 'numpyro':
         ## create engine
+        Ntotal = params['Nsamples']
         if not resume:
             ## without checkpointing, set up the engine to run for Nsamples samples
             ## with checkpointing, set it up to run for checkpoint_interval samples (and set the starting chain to None)
-            if params['checkpoint']:
+            if params['checkpoint'] and params['checkpoint_while_sampling']:
                 Nrun = params['checkpoint_interval']
                 chain = None
             else:
-                Nrun = params['Nsamples']
+                Nrun = Ntotal
             
             if N_GPU > 0:
                 use_gpu = True
@@ -708,12 +712,27 @@ def blip(paramsfile='params.ini',resume=False):
             with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
                 lisaModel = pickle.load(modfile)
             parameters = lisaModel.parameters
+            if params['additional_samples'] is not None and params['additional_samples'] > 0:
+                ## check to make sure the run is done
+                if chain is None:
+                    N_current = 0
+                else:
+                    N_current = len(chain['theta_transformed'][0])
+                if N_current <= params['Nsamples']:
+                    print("WARNING: {} additional samples were requested, but the original run isn't finished ({}/{} samples remaining)".format(params['additional_samples'],params['Nsamples'],params['Nsamples']))
+                    print("WARNING: Disregarding and continuing the original run...")
+                else:
+                    ## new total = old total + additional
+                    Ntotal = N_current + params['additional_samples']
+                    ## if not sampling in N=checkpoint_interval chunks, set the requested # of samples
+                    if not params['checkpoint_while_sampling']:
+                        engine.num_samples = params['additional_samples']
 
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
             t1 = time.time()
-            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,params['Nsamples'])
+            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_sampling=params['checkpoint_while_sampling'])
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:
