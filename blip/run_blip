@@ -744,7 +744,7 @@ def blip(paramsfile='params.ini',resume=False):
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
             t1 = time.time()
-            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_sampling=params['checkpoint_while_sampling'])
+            post_samples = numpyro_engine.run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_sampling=params['checkpoint_while_sampling'],resume=resume)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:

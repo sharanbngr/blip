@@ -103,7 +103,7 @@ class numpyro_engine():
     
     
     @staticmethod
-    def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_sampling=False):
+    def run_engine_with_checkpointing(engine,lisaModel,rng_key,chain,checkpoint_file,Ntotal,checkpoint_sampling=False,resume=False):
         '''
         Runs the numpyro sampler with sampler state checkpointing. 
         
@@ -112,7 +112,7 @@ class numpyro_engine():
         [fill in]
         checkpoint_sampling (bool)  : Whether to also checkpoint during sampling. If False, checkpoint files will only be saved at the end of the warmup phase and at the end of the sampling phase.
                                       (For longer datasets/complicated models, the latency to load the sampler on/off the GPU, recompile, etc. is equivalent to or greater than the actual sampling time.)
-        
+        resume (bool)               : Whether the run is being resumed. If so, skip the warmup phase.
         Returns
         --------------------
         post_samples (array)        : Posterior samples.
@@ -120,7 +120,7 @@ class numpyro_engine():
         '''
         
 
-        if chain is None:
+        if chain is None and not resume:
             print("Beginning sampling, starting warmup phase...")
             ## run warmup phase
             engine.warmup(rng_key,lisaModel)
