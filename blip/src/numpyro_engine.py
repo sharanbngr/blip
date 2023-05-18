@@ -178,7 +178,7 @@ class numpyro_engine():
             rng_key = engine.post_warmup_state.rng_key
         
         ## save the final state
-        print("Sampling complete. Saving final sampler state to {}...".format(checkpoint_file))
+        print("Sampling complete. Saving final sampler state to {}".format(checkpoint_file))
         if dill.pickles([engine,state,chain]):
             temp_file = checkpoint_file + ".temp"
             with open(temp_file, "wb") as file:
