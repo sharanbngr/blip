@@ -563,7 +563,9 @@ def blip(paramsfile='params.ini',resume=False):
         if params['sampler'] == 'numpyro':
             params['checkpoint_interval']   = int(config.get("run_params", "checkpoint_interval", fallback=100))
             params['checkpoint_while_sampling'] = int(config.get("run_params", "checkpoint_while_sampling", fallback=0))
-            params['additional_samples'] = int(config.get("run_params", "additional_samples", fallback=None))
+            params['additional_samples'] = int(config.get("run_params", "additional_samples", fallback=0))
+            if params['additional_samples'] == 0:
+                params['additional_samples'] = None
         else:
             params['checkpoint_interval']   = int(config.get("run_params", "checkpoint_interval", fallback=3600))
 
