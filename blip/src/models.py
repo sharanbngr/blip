@@ -1123,6 +1123,7 @@ class Injection():#geometry,sph_geometry):
         
         ## separate into components
         self.component_names = inj['injection'].split('+')
+        N_inj = len(self.component_names)
         
         ### commenting this out because we're switching to active specification of duplicates in the params file
         ## check for and differentiate duplicate injections
@@ -1137,7 +1138,8 @@ class Injection():#geometry,sph_geometry):
         ## initialize components
         self.components = {}
         self.truevals = {}
-        for component_name, suffix in zip(self.component_names,suffixes):
+        for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+            print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
             cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
             self.components[component_name] = cm
             self.truevals[component_name] = cm.truevals
