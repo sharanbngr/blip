@@ -46,6 +46,7 @@ class numpyro_engine():
             if N_GPU == 1:
                 if Nthreads > 1:
                     print("Nthreads = {}, but only one GPU is available. Setting numpyro chain_method to 'vectorized'.".format(Nthreads))
+                    print(" WARNING: Vectorized GPU sampling is an experimental feature and is not stable for all BLIP configurations. If you get an XLA GEMM error, this is probably the cause; revert to standard parallelization in such cases.")
                     chain_method = 'vectorized'
             elif N_GPU > 1:
                 if Nthreads > N_GPU:
