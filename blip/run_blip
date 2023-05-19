@@ -22,7 +22,7 @@ class LISA(LISAdata, Model):
     '''
 
     def __init__(self,  params, inj):
-
+        
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
@@ -397,6 +397,30 @@ def blip(paramsfile='params.ini',resume=False):
     params['fref'] = float(config.get("params", "fref", fallback=25))
     
     params['model'] = str(config.get("params", "model"))
+    
+    ## get the model fixed values, passed as a dict
+    fixedvals = eval(str(config.get("params","fixedvals",fallback='None')))
+    
+    params['fixedvals'] = {}
+    if fixedvals is not None:
+        ## enforce that the keys of the fixedvals dict correspond to the desired models
+        ## at this point we will only make sure that all the keys are in the model string
+        submodel_names = params['model'].split('+')
+        if not np.all([key in submodel_names for key in fixedvals.keys()]):
+            raise ValueError("Fixedvals dictionary has an invalid key. Fixedvals must be provided as a nested dictionary with top-level keys corresponding to the models specified in the 'model' parameter.")
+        ## build the fixedvals dict
+        ## some quantities we want to use as log values, so convert them
+        log_list = ["Np","Na","omega0","fbreak","fcut","fscale"]
+        for submodel_name in fixedvals.keys():
+            params['fixedvals'][submodel_name] = {}
+            for name in fixedvals[submodel_name].keys():
+                if name in log_list:
+                    new_name = "log_"+name
+                    params['fixedvals'][submodel_name][new_name] = np.log10(fixedvals[submodel_name][name])
+                else:
+                    params['fixedvals'][submodel_name][name] = fixedvals[submodel_name][name]
+    
+    
     
     params['alias'] = eval(str(config.get("params","alias",fallback="{}")))
 
