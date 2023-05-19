@@ -81,6 +81,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             ## for ease of use, assign the trueval dict to a variable
             if submodel_full_name in self.inj['truevals'].keys():
                 self.injvals = self.inj['truevals'][submodel_full_name]
+        else:
+            self.fixedvals = {}
+            if submodel_full_name in self.params['fixedvals'].keys():
+                self.fixedvals |= self.params['fixedvals'][submodel_full_name]
         
         ## plot kwargs dict to allow for case-by-case exceptions to our usual plotting approach
         ## e.g., the population spectra look real weird as dotted lines.
@@ -174,16 +178,32 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
         
         elif self.spectral_model_name == 'truncatedpowerlaw':
-            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
-            self.omegaf = self.truncated_powerlaw_spectrum
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$']
+            self.omegaf = self.truncated_powerlaw_3par_spectrum
             self.fancyname = "Truncated Power Law"+submodel_count
             if not injection:
-                self.spectral_prior = self.truncated_powerlaw_prior
+                if 'log_fscale' not in self.fixedvals.keys():
+                    print("Warning: Truncated power law spectral model selected, but no scaling parameter (fscale) was provided. Defaulting to fscale=3e-4 Hz.")
+                    self.fixedvals['log_fscale'] = np.log10(3e-4)
+                self.spectral_prior = self.truncated_powerlaw_3par_prior
+            else:
+                self.truevals[r'$\alpha$'] = self.injvals['alpha']
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
+                self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = np.log10(4e-4)
+        
+        elif self.spectral_model_name == 'truncatedpowerlaw4par':
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.omegaf = self.truncated_powerlaw_4par_spectrum
+            self.fancyname = "4-Parameter Truncated Power Law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.truncated_powerlaw_4par_prior
             else:
                 self.truevals[r'$\alpha$'] = self.injvals['alpha']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
                 self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
                 self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.injvals['log_fscale']
+                
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
@@ -267,6 +287,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.spatial_parameters = self.spatial_parameters + blm_parameters
             
             if not injection:
+                self.fixed_map = False
                 self.prior = self.sph_prior
                 self.cov = self.compute_cov_asgwb
             else:
@@ -287,10 +308,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel']:
             
-            ## the astrophysical spatial models are generally injection-only
-            if not injection:
+            ## the astrophysical spatial models are mostly injection-only, with some exceptions.
+            if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
                 raise ValueError("This model is injection-only.")
             
             self.has_map = True
@@ -313,10 +334,11 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## model-specific quantities
+            ## injection-only models
             if self.spatial_model_name == 'galaxy':
                 ## store the high-level MW truevals for the hierarchical analysis
-                self.truevals[r'$r_{\mathrm{h}}$'] = inj['rh']
-                self.truevals[r'$z_{\mathrm{h}}$'] = inj['zh']
+                self.truevals[r'$r_{\mathrm{h}}$'] = self.injvals['rh']
+                self.truevals[r'$z_{\mathrm{h}}$'] = self.injvals['zh']
                 ## plotting stuff
                 self.fancyname = "Galactic Foreground"
                 self.subscript = "_{\mathrm{G}}"
@@ -343,7 +365,32 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.subscript = "_{\mathrm{1P}}"
                 self.color = 'forestgreen'
                 ## generate skymap
-                self.skymap = astro.generate_point_source(self.injvals['theta'],self.injvals['phi'],self.params['nside'])
+                ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
+                if 'ra' in self.injvals.keys() and 'dec' in self.injvals.keys():
+                    coord1, coord2 = self.injvals['ra'], self.injvals['dec']
+                    convention = 'radec'
+                elif 'theta' in self.injvals.keys() and 'phi' in self.injvals.keys():
+                    coord1, coord2 = self.injvals['theta'], self.injvals['phi']
+                    convention = 'healpy'
+                else:
+                    raise ValueError("Using pointsource spatial model but either no coordinates were provided to the truevals dict or invalid notation was used.")
+                self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention)
+            elif self.spatial_model_name == 'pointsources':
+                ## plotting stuff
+                self.fancyname = "Multiple Point Sources"+submodel_count
+                self.subscript = "_{\mathrm{NP}}"
+                self.color = 'forestgreen'
+                ## generate skymap
+                ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
+                if 'radec_list' in self.injvals.keys():
+                    coord_list = self.injvals['radec_list']
+                    convention = 'radec'
+                elif 'thetaphi_list' in self.injvals.keys():
+                    coord_list = self.injvals['thetaphi_list']
+                    convention = 'healpy'
+                else:
+                    raise ValueError("Using pointsources spatial model but either no coordinates were provided to the truevals dict or invalid notation was used.")
+                self.skymap = astro.generate_point_sources(coord_list,self.params['nside'],convention=convention)
             elif self.spatial_model_name == 'twopoints':
                 ## revisit this when I have duplicates sorted, maybe unnecessary (could just have 2x point source injection components)
                 ## plotting stuff
@@ -363,11 +410,52 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     ## generate population if still needed
                     self.population = Population(self.params,self.inj,self.fs)
                 self.skymap = self.population.skymap
-            
+            ## inference models
+            elif self.spatial_model_name == 'fixedgalaxy':
+                ## get the fixed values
+                if 'rh' in self.fixedvals.keys():
+                    rh = self.fixedvals['rh']
+                else:
+                    print("Warning: Using fixedgalaxy spatial model but no 'rh' fixed value was provided. Defaulting to Breivik+2020 thin disk galaxy (rh = 2.9 kpc.)")
+                    rh = 2.9
+                if 'zh' in self.fixedvals.keys():
+                    zh = self.fixedvals['zh']
+                else:
+                    print("Warning: Using fixedgalaxy spatial model but no 'zh' fixed value was provided. Defaulting to Breivik+2020 thin disk galaxy (zh = 0.3 kpc).")
+                    zh = 0.3
+                ## plotting stuff
+                self.fancyname = "Galactic Foreground"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                ## generate skymap
+                self.skymap = astro.generate_galactic_foreground(rh,zh,self.params['nside'])
+                self.fixed_map = True
+            elif self.spatial_model_name == 'hotpixel':
+                ## get the fixed values
+                ## some flexibility, can be defined in either (RA,DEC) or (theta,phi)
+                if 'ra' in self.fixedvals.keys() and 'dec' in self.fixedvals.keys():
+                    coord1, coord2 = self.fixedvals['ra'], self.fixedvals['dec']
+                    convention = 'radec'
+                elif 'theta' in self.fixedvals.keys() and 'phi' in self.fixedvals.keys():
+                    coord1, coord2 = self.fixedvals['theta'], self.fixedvals['phi']
+                    convention = 'healpy'
+                else:
+                    raise ValueError("Using hotpixel spatial model but either no coordinates were provided to the fixedvals dict or invalid notation was used.")
+                ## plotting stuff
+                self.fancyname = "Point Source"
+                self.subscript = "_{\mathrm{1P}}"
+                self.color = 'forestgreen'
+                self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention,pad=True)
+                self.fixed_map = True
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             
-            self.process_astro_skymap(self.skymap)
+            if not injection:
+                self.process_astro_skymap_model(self.skymap)
+                self.prior = self.fixedsky_prior
+                self.cov = self.compute_cov_fixed_asgwb
+            else:
+                self.process_astro_skymap_injection(self.skymap)
             
 
         elif self.spatial_model_name == 'hierarchical':
@@ -459,7 +547,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         norm = (fbreak/self.params['fref'])**alpha_1 / 1.25989194 ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
         return norm * (10**log_omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
     
-    def truncated_powerlaw_spectrum(self,fs,alpha,log_omega0,log_fcut,log_fscale):
+    def truncated_powerlaw_4par_spectrum(self,fs,alpha,log_omega0,log_fcut,log_fscale):
         '''
         Function to calculate a tanh-truncated power law spectrum.
         
@@ -479,6 +567,26 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         fcut = 10**log_fcut
         fscale = 10**log_fscale
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
+    
+    def truncated_powerlaw_3par_spectrum(self,fs,alpha,log_omega0,log_fcut):
+        '''
+        Function to calculate a tanh-truncated power law spectrum with a set truncation scale of 3e-4 Hz.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        alpha (float)        : slope of the power law
+        log_omega0 (float)   : power law amplitude of the power law in units of log dimensionless GW energy density at f_ref (if left un-truncated)
+        log_fcut (float)     : log of the cut frequency ("knee") in Hz
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting truncated power law spectrum
+        
+        '''
+        fcut = 10**log_fcut
+        fscale = 10**self.fixedvals['log_fscale']
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
     
     def compute_Sgw(self,fs,omegaf_args):
         '''
@@ -506,6 +614,25 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     def isotropic_prior(self,theta):
         '''
         Isotropic prior transform. Just serves as a wrapper for the spectral prior, as no additional foofaraw is necessary.
+        
+        Arguments
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled for the spectral parameters.
+            
+        '''
+        return self.spectral_prior(theta)
+    
+    def fixedsky_prior(self,theta):
+        '''
+        Fixed sky prior transform. Just serves as a wrapper for the spectral prior, as no additional foofaraw is necessary.
         
         Arguments
         -----------
@@ -710,11 +837,11 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha_1, log_omega0, alpha_2, log_fbreak]
     
-    def truncated_powerlaw_prior(self,theta):
+    def truncated_powerlaw_4par_prior(self,theta):
 
 
         '''
-        Prior function for a stochastic signal search with a truncated power law spectral model.
+        Prior function for a stochastic signal search with a 4-parameter truncated power law spectral model.
 
         Parameters
         -----------
@@ -740,7 +867,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha, log_omega0, log_fcut, log_fscale]
     
-    
+    def truncated_powerlaw_3par_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 3-parameter truncated power law spectral model.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), and log(f_cut)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        alpha = 10*theta[0] - 5
+        log_omega0 = -22*theta[1] + 8
+        log_fcut = -2*theta[2] - 2
+        
+
+        return [alpha, log_omega0, log_fcut]
     
     
     
@@ -821,7 +975,30 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         return cov_sgwb
 
-       
+    def compute_cov_fixed_asgwb(self,theta):
+        '''
+        Computes the covariance matrix contribution from an anisotropic stochastic GW signal with a known (assumed) sky distribution.
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_sgwb (array) : The corresponding 3 x 3 x frequency x time covariance matrix for an anisotropic SGWB submodel.
+        
+        '''
+        ## Signal PSD
+        Sgw = self.compute_Sgw(self.fs,theta)
+        
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        ## the response has been preconvolved with the assumed sky distribution
+        cov_sgwb = Sgw[None, None, :, None]*self.summ_response_mat
+        
+        return cov_sgwb
+    
+    
     ##########################################
     ##   Skymap and Response Calculations   ##
     ##########################################
@@ -861,7 +1038,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         return jnp.einsum('ijklm,m', self.response_mat, alms)
     
-    def process_astro_skymap(self,skymap):
+    def process_astro_skymap_injection(self,skymap):
         '''
         
         Function that takes in an astrophysical pixel skymap and:
@@ -892,6 +1069,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         return
     
+    def process_astro_skymap_model(self,skymap):
+        '''
+        
+        Function that takes in an astrophysical pixel skymap and:
+            - calculates all associated sph quantities
+            - convolves with response
+            - sets sample-time response to be the map-convolved 
+        
+        This is intended for use with models that assume a fixed spatial distribution (e.g., fixedgalaxy, hotpixel).
+            
+        Arguments
+        -----------
+        skymap (healpy array) : pixel-basis astrophysical skymap
+        
+        '''
+        ## transform to blms
+        self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
+        ## and then to alms        
+        self.astro_alms = self.blm_2_alm(self.astro_blms)
+        self.astro_alms = self.astro_alms/(self.astro_alms[0] * np.sqrt(4*np.pi))
+        self.sph_skymap = hp.alm2map(self.astro_alms[0:hp.Alm.getsize(self.almax)],self.params['nside'])
+        ## get response integrated over the Ylms
+        self.summ_response_mat = self.compute_summed_response(self.astro_alms)
+        ## backup the unconvolved response matrix and set the default response to the skymap-convolved one
+        self.unconvolved_response_mat = self.response_mat
+        self.response_mat = self.summ_response_mat
+        
+        return
     
     def recompute_response(self,f0=None,tsegmid=None):
         '''
@@ -1331,13 +1536,22 @@ class Injection():#geometry,sph_geometry):
         ## dimensionless energy density at 1 mHz
         spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
         Omega_1mHz = cm.omegaf(1e-3,*spec_args)
+        
+        Omegamap_pix = Omega_1mHz * cm.skymap/np.sum(cm.skymap)
+        hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+        hp.graticule()
+        
+        plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
+        print('Saving pre-injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
+        plt.close()
+        
+        ## sph map
         Omegamap_inj = Omega_1mHz * cm.sph_skymap
-
         hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
         hp.graticule()
         
         plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
-        print('saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
+        print('Saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
         plt.close()
         
         return
