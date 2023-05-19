@@ -11,6 +11,11 @@ from blip.src.astro import Population
 from blip.src.instrNoise import instrNoise
 import blip.src.astro as astro
 
+from jax import config
+config.update("jax_enable_x64", True)
+import jax
+import jax.numpy as jnp
+from jax.tree_util import register_pytree_node_class
 
 
 class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
@@ -150,6 +155,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 self.truevals[r'$\alpha$'] = self.injvals['alpha']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+        elif self.spectral_model_name == 'twothirdspowerlaw':
+            ## it may be worth implementing a more general fixed powerlaw model
+            ## but this suffices for investigating the effects of the stellar-origin binary background
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$']
+            self.omegaf = self.twothirdspowerlaw_spectrum
+            self.fancyname = r'$\alpha=2/3$'+" Power Law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.fixedpowerlaw_prior
+            else:
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
         elif self.spectral_model_name == 'brokenpowerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
             self.omegaf = self.broken_powerlaw_spectrum
@@ -283,7 +298,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     self.truevals[param] = val
                 
                 ## get alms
-                self.alms_inj = self.compute_skymap_alms(inj['blms'])
+                self.alms_inj = np.array(self.compute_skymap_alms(inj['blms']).tolist())
+#                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
                 ## get response integrated over the Ylms
@@ -493,6 +509,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
+    def twothirdspowerlaw_spectrum(self,fs,log_omega0):
+        '''
+        Function to calculate a simple power law spectrum, fixed to the alpha=2/3 prediction for the stellar origin binary background.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        log_omega0 (float)   : power law amplitude in units of log dimensionless GW energy density at f_ref
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        
+        '''
+        return 10**(log_omega0)*(fs/self.params['fref'])**(2/3)
     
     def broken_powerlaw_spectrum(self,fs,alpha_1,log_omega0,alpha_2,log_fbreak):
         '''
@@ -535,7 +566,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         fcut = 10**log_fcut
         fscale = 10**log_fscale
-        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
     
     def truncated_powerlaw_3par_spectrum(self,fs,alpha,log_omega0,log_fcut):
         '''
@@ -574,7 +605,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         H0 = 2.2*10**(-18)
         Omegaf = self.omegaf(fs,*omegaf_args)
-        Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
+        Sgw = Omegaf*(3/(4*fs**3))*(H0/jnp.pi)**2
         return Sgw
     
     #############################
@@ -641,13 +672,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Calculate lmax from the size of theta blm arrays. The shape is
         # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
-        lmax = np.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
-
-        if lmax.is_integer():
-            lmax = int(lmax)
-        else:
-            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
-
+#        lmax = jnp.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
+        lmax = self.lmax
+        
+        
+        ## removing the lmax safety check to be compatible with JAX/jit.
+#        if lmax.is_integer():
+#            lmax = int(lmax)
+#        else:
+#            raise ValueError('Illegitimate theta size passed to the spherical harmonic prior')
+        
+#        lmax = int(lmax)
+        
         # The rest of the priors define the blm parameter space
         sph_theta = []
 
@@ -663,7 +699,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 else:
                     ## prior on amplitude, phase
                     sph_theta.append(3* theta[cnt])
-                    sph_theta.append(2*np.pi*theta[cnt+1] - np.pi)
+                    sph_theta.append(2*jnp.pi*theta[cnt+1] - jnp.pi)
                     cnt = cnt + 2
 
         return spectral_theta+sph_theta
@@ -744,6 +780,33 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         log_omega0  = -22*theta[1] + 8
         
         return [alpha, log_omega0]
+    
+    def fixedpowerlaw_prior(self,theta):
+
+
+        '''
+        Prior function for a power law with fixed slope.
+        
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha and log(Omega0)
+
+        '''
+
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        log_omega0  = -22*theta[0] + 8
+        
+        return [log_omega0]
     
     def broken_powerlaw_prior(self,theta):
 
@@ -861,7 +924,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         cov_noise = self.instr_noise_spectrum(self.fs,self.f0, Np, Na)
 
         ## repeat C_Noise to have the same time-dimension as everything else
-        cov_noise = np.repeat(cov_noise[:, :, :, np.newaxis], self.time_dim, axis=3)
+        cov_noise = jnp.repeat(cov_noise[:, :, :, jnp.newaxis], self.time_dim, axis=3)
         
         return cov_noise
     
@@ -958,7 +1021,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         alm_vals = self.blm_2_alm(blm_vals)
 
         ## normalize and return
-        return alm_vals/(alm_vals[0] * np.sqrt(4*np.pi))
+        return alm_vals/(alm_vals[0] * jnp.sqrt(4*jnp.pi))
     
     def compute_summed_response(self,alms):
         '''
@@ -973,7 +1036,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         summ_response_mat (array) : the sky/alm-integrated response (3 x 3 x frequency x time)
         
         '''
-        return np.einsum('ijklm,m', self.response_mat, alms)
+        return jnp.einsum('ijklm,m', self.response_mat, alms)
     
     def process_astro_skymap_injection(self,skymap):
         '''
@@ -996,7 +1059,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         for param, val in zip(blm_parameters,inj_blms):
             self.truevals[param] = val
         
-        self.alms_inj = self.blm_2_alm(self.astro_blms)
+        self.alms_inj = np.array(self.blm_2_alm(self.astro_blms))
         self.alms_inj = self.alms_inj/(self.alms_inj[0] * np.sqrt(4*np.pi))
         self.sph_skymap = hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
         ## get response integrated over the Ylms
@@ -1084,7 +1147,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 ###      UNIFIED MODEL PRIOR & LIKELIHOOD       ###
 ###################################################
 
-
+@register_pytree_node_class
 class Model():
     '''
     Class to house all model attributes in a modular fashion.
@@ -1112,8 +1175,10 @@ class Model():
         '''
         
         self.fs = fs
+        self.f0 = f0
+        self.tsegmid = tsegmid
         self.params = params
-        
+        self.inj = inj
         ## separate into submodels
         self.submodel_names = params['model'].split('+')
         
@@ -1151,7 +1216,7 @@ class Model():
         ## assign reference to data for use in likelihood
         self.rmat = rmat
     
-
+#    @jax.jit
     def prior(self,unit_theta):
         '''
         Unified prior function to interatively perform prior draws for each submodel in the proper order
@@ -1177,7 +1242,7 @@ class Model():
         
         return theta
     
-    
+#    @jax.jit
     def likelihood(self,theta):
         '''
         Unified likelihood function to compare the combined covariance contributions of a generic set of noise/SGWB models to the data.
@@ -1201,17 +1266,29 @@ class Model():
                 cov_mat = cov_mat + sm.cov(theta_i)
 
         ## change axis order to make taking an inverse easier
-        cov_mat = np.moveaxis(cov_mat, [-2, -1], [0, 1])
+        cov_mat = jnp.moveaxis(cov_mat, [-2, -1], [0, 1])
 
         ## take inverse and determinant
         inv_cov, det_cov = bespoke_inv(cov_mat)
 
-        logL = -np.einsum('ijkl,ijkl', inv_cov, self.rmat) - np.einsum('ij->', np.log(np.pi * self.params['seglen'] * np.abs(det_cov)))
+        logL = -jnp.einsum('ijkl,ijkl', inv_cov, self.rmat) - jnp.einsum('ij->', jnp.log(jnp.pi * self.params['seglen'] * jnp.abs(det_cov)))
 
 
-        loglike = np.real(logL)
+        loglike = jnp.real(logL)
 
         return loglike
+    
+    ## this allows for jax/numpyro to properly perform jitting of the class
+    ## all attributes of the model class should be static
+    ## may need to tweak this if/when we implement any kind of RJMCMC approach
+    def tree_flatten(self):
+        children = []  # arrays / dynamic values
+        aux_data = {'params':self.params,'inj':self.inj,'fs':self.fs,'f0':self.f0,'tsegmid':self.tsegmid,'rmat':self.rmat} # static values
+        return (children, aux_data)
+    
+    @classmethod
+    def tree_unflatten(cls, aux_data, children):
+        return cls(*children, **aux_data)
     
 
 ###################################################
@@ -1251,6 +1328,7 @@ class Injection():#geometry,sph_geometry):
         
         ## separate into components
         self.component_names = inj['injection'].split('+')
+        N_inj = len(self.component_names)
         
         ### commenting this out because we're switching to active specification of duplicates in the params file
         ## check for and differentiate duplicate injections
@@ -1265,7 +1343,8 @@ class Injection():#geometry,sph_geometry):
         ## initialize components
         self.components = {}
         self.truevals = {}
-        for component_name, suffix in zip(self.component_names,suffixes):
+        for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+            print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
             cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
             self.components[component_name] = cm
             self.truevals[component_name] = cm.truevals
@@ -1643,7 +1722,7 @@ def gen_blm_parameters(blmax):
     
     return blm_parameters
 
-
+@jax.jit
 def bespoke_inv(A):
 
 
@@ -1659,14 +1738,15 @@ def bespoke_inv(A):
     """
 
 
-    AI = np.empty_like(A)
+    AI = jnp.empty_like(A)
 
     for i in range(3):
-        AI[...,i,:] = np.cross(A[...,i-2,:], A[...,i-1,:])
+#        AI[...,i,:] = jnp.cross(A[...,i-2,:], A[...,i-1,:])
+        AI = AI.at[...,i,:].set(jnp.cross(A[...,i-2,:], A[...,i-1,:])) ## jax version
 
-    det = np.einsum('...i,...i->...', AI, A).mean(axis=-1)
+    det = jnp.einsum('...i,...i->...', AI, A).mean(axis=-1)
 
     inv_T =  AI / det[...,None,None]
 
     # inverse by swapping the inverse transpose
-    return np.swapaxes(inv_T, -1,-2), det
+    return jnp.swapaxes(inv_T, -1,-2), det

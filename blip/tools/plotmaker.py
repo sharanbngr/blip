@@ -115,13 +115,13 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             ## select relevant posterior columns
             post_i = post[:,start_idx:(start_idx+sm.Npar)]
             
+
             if hasattr(sm,"fixed_map") and sm.fixed_map:
                 print("Generating assumed skymap at spectral posterior mean for submodel: {}...".format(submodel_name))
                 skip_median = True
                 post_map_kwargs_i['title'] = 'Assumed sky distribution evaluated at spectral posterior mean of $\\Omega(f= 1mHz) $'
                 norm_map = sm.sph_skymap
                 for ii in range(post.shape[0]):
-                
                     ## get Omega(f=1mHz)
                     Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:])
                     omega_map = omega_map + Omega_1mHz * norm_map
@@ -164,6 +164,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             
             
             
+
             ## now do the median skymap
             if not skip_median:
                 print("Computing median posterior skymap for submodel {}...".format(submodel_name))
@@ -353,9 +354,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     ## avoid plot squishing due to signal spectra with cutoffs, etc.
     if astro_kwargs['ymin'] is None:
-        ymin = np.min(ymins)
-        if ymin < 1e-43:
-            plt.ylim(bottom=1e-43)
+        if len(ymins) > 0:
+            ymin = np.min(ymins)
+            if ymin < 1e-43:
+                plt.ylim(bottom=1e-43)
     else:
         plt.ylim(bottom=astro_kwargs['ymin'])
     plt.ylim(top=astro_kwargs['ymax'])
@@ -371,6 +373,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     plt.title(astro_kwargs['title'],fontsize=astro_kwargs['title_fontsize'])
     plt.xlabel(astro_kwargs['xlabel'],fontsize=astro_kwargs['xlabel_fontsize'])
     plt.ylabel(astro_kwargs['ylabel'],fontsize=astro_kwargs['ylabel_fontsize'])
+    
     if saveto is not None:
         plt.savefig(saveto + '/spectral_fit_astro.png', dpi=astro_kwargs['dpi'])
     else:
@@ -449,9 +452,10 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         if det_kwargs['ymin'] is None:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
+            if len(ymins) > 0:
+                ymin = np.min(ymins)
+                if ymin < 1e-43:
+                    plt.ylim(bottom=1e-43)
         else:
             plt.ylim(bottom=det_kwargs['ymin'])
         plt.ylim(top=det_kwargs['ymax'])

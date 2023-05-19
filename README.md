@@ -23,6 +23,10 @@ This is a fully Bayesian Python package for detecting/characterizing stochastic 
 
 in this directory.
 
+## JAX/NUMPYRO DEV BRANCH NOTE
+As of 5/08/2023, only the git-installed dev version of Numpyro has checkpointing support. See Numpyro docs for git installation instructions. Requires newest version of jax (0.4.3). Numpyro installed through standard channels should work in most cases, but checkpointing will fail.
+
+
 You should now be ready to go! To run BLIP, you only need to provide a configuration file. In this directory, you will find params_default.ini, a pre-constructed config file with reasonable settings and accompanying parameter explanations.
 
 To run, call
