@@ -1087,7 +1087,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ## transform to blms
         self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
         ## and then to alms        
-        self.astro_alms = self.blm_2_alm(self.astro_blms)
+        self.astro_alms = np.array(self.blm_2_alm(self.astro_blms))
         self.astro_alms = self.astro_alms/(self.astro_alms[0] * np.sqrt(4*np.pi))
         self.sph_skymap = hp.alm2map(self.astro_alms[0:hp.Alm.getsize(self.almax)],self.params['nside'])
         ## get response integrated over the Ylms
