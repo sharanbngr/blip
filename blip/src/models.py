@@ -183,7 +183,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.fancyname = "Truncated Power Law"+submodel_count
             if not injection:
                 if 'log_fscale' not in self.fixedvals.keys():
-                    print("Warning: Truncated power law spectral model selected, but no scaling parameter (fscale) was provided. Defaulting to fscale=3e-4 Hz.")
+                    print("Warning: Truncated power law spectral model selected, but no scaling parameter (fscale) was provided to the fixedvals dict. Defaulting to fscale=3e-4 Hz.")
                     self.fixedvals['log_fscale'] = np.log10(3e-4)
                 self.spectral_prior = self.truncated_powerlaw_3par_prior
             else:
