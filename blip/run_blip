@@ -732,6 +732,8 @@ def blip(paramsfile='params.ini',resume=False):
             
             if N_GPU > 0:
                 use_gpu = True
+            else:
+                use_gpu = False
             engine, parameters, rng_key = numpyro_engine.define_engine(lisa, params['Nburn'], Nrun, nthread, params['show_progress'], params['seed'], gpu=use_gpu)
             lisaModel = lisa.Model
             
