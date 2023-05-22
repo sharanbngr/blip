@@ -586,7 +586,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         fcut = 10**log_fcut
         fscale = 10**self.fixedvals['log_fscale']
-        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
     
     def compute_Sgw(self,fs,omegaf_args):
         '''
