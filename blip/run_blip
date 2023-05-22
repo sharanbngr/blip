@@ -214,9 +214,10 @@ class LISA(LISAdata, Model):
         plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
-        ymin = np.min(ymins)
-        if ymin < 1e-43:
-            plt.ylim(bottom=1e-43)
+        if len(ymins) > 0:
+            ymin = np.min(ymins)
+            if ymin < 1e-43:
+                plt.ylim(bottom=1e-43)
         
         plt.legend(loc='upper right')
         plt.xlabel('$f$ in Hz')
