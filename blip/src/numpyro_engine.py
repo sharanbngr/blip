@@ -65,7 +65,7 @@ class numpyro_engine():
         
         kernel = NUTS(numpyro_model)
         
-        engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,chain_method=chain_method,progress_bar=prog)
+        engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,chain_method=chain_method,progress_bar=prog,jit_model_args=True)
 
         # print npar
         print("Npar = " + str(lisaobj.Model.Npar))
