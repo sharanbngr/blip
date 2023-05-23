@@ -183,14 +183,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.fancyname = "Truncated Power Law"+submodel_count
             if not injection:
                 if 'log_fscale' not in self.fixedvals.keys():
-                    print("Warning: Truncated power law spectral model selected, but no scaling parameter (fscale) was provided to the fixedvals dict. Defaulting to fscale=3e-4 Hz.")
-                    self.fixedvals['log_fscale'] = np.log10(3e-4)
+                    print("Warning: Truncated power law spectral model selected, but no scaling parameter (fscale) was provided to the fixedvals dict. Defaulting to fscale=4e-4 Hz.")
+                    self.fixedvals['log_fscale'] = np.log10(4e-4)
                 self.spectral_prior = self.truncated_powerlaw_3par_prior
             else:
                 self.truevals[r'$\alpha$'] = self.injvals['alpha']
                 self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
                 self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
                 self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = np.log10(4e-4)
+                ## this is a bit hacky but oh well. Solves an issue that comes up if you use the 3par TPL for an injection.
+                self.fixedvals = {'log_fscale':np.log10(4e-4)}
         
         elif self.spectral_model_name == 'truncatedpowerlaw4par':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
@@ -1605,7 +1607,8 @@ def gen_suffixes(names):
                  'isgwb':{'abbrv':'I','count':1},
                  'sph':{'abbrv':'A','count':1},
                  'hotpixel':{'abbrv':'PS','count':1},
-                 'fixedgalaxy':{'abbrv':'G','count':1},
+                 'fixedgalaxy':{'abbrv':'FG','count':1},
+                 'galaxy':{'abbrv':'G','count':1},
                  'population':{'abbrv':'P','count':1},
                  'hierarchical':{'abbrv':'H','count':1} }
     
