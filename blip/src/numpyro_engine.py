@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import jax
 import numpyro
 from numpyro.infer import MCMC, NUTS
+from numpyro.distributions import constraints
 import numpyro.distributions as dist
 import pickle, dill
 import os
@@ -21,10 +22,45 @@ def numpyro_model(Model):
     '''
     
     with numpyro.plate("Npar",Model.Npar):
-        theta = numpyro.sample('theta',dist.Uniform(0,1))
+        theta = numpyro.sample('theta',dist.Uniform(0,1)) 
     
     theta_trans = numpyro.deterministic("theta_transformed", Model.prior(theta))
-#    import pdb; pdb.set_trace()
+    
+    numpyro.factor('loglike',log_factor=Model.likelihood(theta_trans))
+
+
+def numpyro_model_sph(Model):
+    '''
+    Wrapper to translate our unified prior and likelihood to Numpyro-friendly input.
+    
+    The _sph version here accounts for the fact that the phase parameter prior should be periodic.
+    
+    Arguments
+    -------------
+    parameters (list of str)    : Model parameter name list
+    prior_transform (function) : prior transform from unit cube
+    log_likelihood (function) : desired log likelihood function, should take in theta parameter vector (we will do live adaptation to numpyro format below)
+    '''
+    Npar_c = len(Model.blm_phase_idx)
+    Npar_nc = Model.Npar - Npar_c
+    
+    with numpyro.plate("Npar_nc",Npar_nc):
+        theta_nc = numpyro.sample('theta_nc',dist.Uniform(0,1))
+#        theta = numpyro.sample('theta',dist.ImproperUniform(constraints.real,(),()))
+    with numpyro.plate("Npar_c",Npar_c):
+        theta_c = numpyro.sample('theta_c',dist.ImproperUniform(constraints.real,(),()))
+    
+    theta_tot = theta_nc
+    
+    cnt = 0
+    for idx in Model.blm_phase_idx:
+        theta_tot = jnp.insert(theta_tot,idx,theta_c[cnt])
+        cnt += 1
+    
+    theta = numpyro.deterministic("theta", theta_tot)
+    
+    theta_trans = numpyro.deterministic("theta_transformed", Model.prior(theta))
+    
     numpyro.factor('loglike',log_factor=Model.likelihood(theta_trans))
 
 
@@ -63,7 +99,12 @@ class numpyro_engine():
         else:
             raise TypeError("Numpyro sampler requires a defined seed.")
         
-        kernel = NUTS(numpyro_model)
+        ## if there are phase parameters, use the sph wrapper
+        if len(lisaobj.Model.blm_phase_idx) > 0:
+            kernel = NUTS(numpyro_model_sph)
+        ## otherwise use the standard one
+        else:
+            kernel = NUTS(numpyro_model)
         
         engine = MCMC(kernel,num_warmup=Nburn,num_samples=Nsamples,num_chains=Nthreads,chain_method=chain_method,progress_bar=prog)
 

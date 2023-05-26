@@ -127,7 +127,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                     omega_map = omega_map + Omega_1mHz * norm_map
             else:
                 print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
-            
+                skip_median = False
                 for ii in range(post.shape[0]):
                     
                     ## get Omega(f=1mHz)
@@ -138,13 +138,13 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                     
                     ## normalize, convert to map, and sum
                     norm = np.sum(blm_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(sm.lmax + 1):])**2)
-                    
-                    prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
+
+                    prob_map  = (1.0/norm) * (hp.alm2map(np.array(blm_vals), nside))**2
                     
                     omega_map = omega_map + Omega_1mHz * prob_map
-
-            omega_map = omega_map/post.shape[0]
             
+            ## normalize and cast to real to stop Healpy from complaining (all imaginary components are already zero)
+            omega_map = np.real(omega_map/post.shape[0])
             
             # generating skymap
             hp.mollview(omega_map, coord=coord, cmap=cmap, **post_map_kwargs_i)
@@ -184,7 +184,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             
                 norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
     
-                Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
+                Omega_median_map  =  np.real(Omega_1mHz_median * (1.0/norm) * (hp.alm2map(np.array(blm_median_vals), nside))**2)
                 
                 hp.mollview(Omega_median_map, coord=coord, cmap=cmap, **med_map_kwargs)
                 
