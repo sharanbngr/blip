@@ -815,7 +815,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha       =  10*theta[0] - 5
-        log_omega0  = -22*theta[1] + 8
+        log_omega0  = -26*theta[1] + 12
         
         return [alpha, log_omega0]
     
@@ -842,7 +842,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
-        log_omega0  = -22*theta[0] + 8
+        log_omega0  = -26*theta[0] + 12
         
         return [log_omega0]
     
