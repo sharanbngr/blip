@@ -290,17 +290,33 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             if not injection:
                 self.fixed_map = False
+                ## set sph indices
+                self.blm_m0_idx = []
+                self.blm_amp_idx = []
+                self.blm_phase_idx = []
+                cnt = 0
+                for lval in range(1, self.lmax + 1):
+                    for mval in range(lval + 1):
+                        if mval == 0:
+                            self.blm_m0_idx.append(cnt)
+                            cnt = cnt + 1
+                        else:
+                            ## amplitude, phase
+                            self.blm_amp_idx.append(cnt)
+                            self.blm_phase_idx.append(cnt+1)
+                            cnt = cnt + 2
+                ## set prior, cov
                 self.prior = self.sph_prior
                 self.cov = self.compute_cov_asgwb
             else:
                 ## get blm truevals
-                val_list = self.blms_2_blm_params(inj['blms'])
+                val_list = self.blms_2_blm_params(self.injvals['blms'])
                 
                 for param, val in zip(blm_parameters,val_list):
                     self.truevals[param] = val
                 
                 ## get alms
-                self.alms_inj = np.array(self.compute_skymap_alms(inj['blms']).tolist())
+                self.alms_inj = np.array(self.compute_skymap_alms(self.injvals['blms']).tolist())
 #                import pdb; pdb.set_trace()
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
@@ -675,8 +691,28 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # given by size = (lmax + 1)**2 - 1. The '-1' is because b00 is
         # an independent parameter
 #        lmax = jnp.sqrt( len(theta[self.blm_start:]) + 1 ) - 1
-        lmax = self.lmax
+#        lmax = self.lmax
         
+        
+#        ## theta indices for m == 0 blms
+#        blm_m0_idx = self.blm_m0_idx + self.blm_start
+#        ## theta indices for m != 0 *amplitude* parameters
+#        blm_amp_idx = self.blm_amp_idx + self.blm_start
+#        ## theta indices for m != 0 *phase* parameters
+#        blm_phase_idx = self.blm_phase_idx + self.blm_start
+        
+        sph_base = jnp.zeros(len(theta[self.blm_start:]))
+#        sph_theta = [0 for ii in theta[self.blm_start:]]
+        
+        for ii in self.blm_m0_idx:
+            sph_base = sph_base.at[ii].set(6*theta[ii+self.blm_start] - 3)
+        for ii in self.blm_amp_idx:
+            sph_base = sph_base.at[ii].set(3*theta[ii+self.blm_start])
+        for ii in self.blm_phase_idx:
+#            sph_base = sph_base.at[ii].set(2*jnp.pi*theta[ii+self.blm_start] - jnp.pi)
+            sph_base = sph_base.at[ii].set(jnp.remainder(2*jnp.pi*theta[ii+self.blm_start],2*jnp.pi) - jnp.pi)
+        
+        sph_theta = [draw for draw in sph_base]
         
         ## removing the lmax safety check to be compatible with JAX/jit.
 #        if lmax.is_integer():
@@ -687,22 +723,22 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 #        lmax = int(lmax)
         
         # The rest of the priors define the blm parameter space
-        sph_theta = []
-
-        ## counter for the rest of theta
-        cnt = self.blm_start
-
-        for lval in range(1, lmax + 1):
-            for mval in range(lval + 1):
-
-                if mval == 0:
-                    sph_theta.append(6*theta[cnt] - 3)
-                    cnt = cnt + 1
-                else:
-                    ## prior on amplitude, phase
-                    sph_theta.append(3* theta[cnt])
-                    sph_theta.append(2*jnp.pi*theta[cnt+1] - jnp.pi)
-                    cnt = cnt + 2
+#        sph_theta = []
+#
+#        ## counter for the rest of theta
+#        cnt = self.blm_start
+#
+#        for lval in range(1, lmax + 1):
+#            for mval in range(lval + 1):
+#
+#                if mval == 0:
+#                    sph_theta.append(6*theta[cnt] - 3)
+#                    cnt = cnt + 1
+#                else:
+#                    ## prior on amplitude, phase
+#                    sph_theta.append(3* theta[cnt])
+#                    sph_theta.append(2*jnp.pi*theta[cnt+1] - jnp.pi)
+#                    cnt = cnt + 2
 
         return spectral_theta+sph_theta
     
@@ -779,7 +815,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha       =  10*theta[0] - 5
-        log_omega0  = -22*theta[1] + 8
+        log_omega0  = -26*theta[1] + 12
         
         return [alpha, log_omega0]
     
@@ -806,7 +842,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
-        log_omega0  = -22*theta[0] + 8
+        log_omega0  = -26*theta[0] + 12
         
         return [log_omega0]
     
@@ -1200,9 +1236,13 @@ class Model():
         all_parameters = []
         spectral_parameters = []
         spatial_parameters = []
+        self.blm_phase_idx = []
         for submodel_name, suffix in zip(self.submodel_names,suffixes):
             sm = submodel(params,inj,submodel_name,fs,f0,tsegmid,suffix=suffix)
             self.submodels[submodel_name] = sm
+            if hasattr(sm,"blm_phase_idx"):
+                for ii in sm.blm_phase_idx:
+                    self.blm_phase_idx.append(self.Npar+sm.blm_start+ii)
             self.Npar += sm.Npar
             self.parameters[submodel_name] = sm.parameters
             spectral_parameters += sm.spectral_parameters
@@ -1539,13 +1579,14 @@ class Injection():#geometry,sph_geometry):
         spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
         Omega_1mHz = cm.omegaf(1e-3,*spec_args)
         
-        Omegamap_pix = Omega_1mHz * cm.skymap/np.sum(cm.skymap)
-        hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
-        hp.graticule()
-        
-        plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
-        print('Saving pre-injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
-        plt.close()
+        if hasattr(cm,"skymap"):
+            Omegamap_pix = Omega_1mHz * cm.skymap/np.sum(cm.skymap)
+            hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+            hp.graticule()
+            
+            plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
+            print('Saving pre-injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
+            plt.close()
         
         ## sph map
         Omegamap_inj = Omega_1mHz * cm.sph_skymap
