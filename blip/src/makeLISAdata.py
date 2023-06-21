@@ -105,12 +105,10 @@ class LISAdata():
 
         return h1, h2, h3, tarr
 
-
-
     def read_data(self):
 
         '''
-        Read mldc domain data from an ascii txt file. Since this was used primarily for
+        Read mldc or other external domain data from an ascii txt file. Since this was used primarily for
         the MLDC, it assumes that the data is given in X,Y and Z channels.
         Returns
         ---------
@@ -140,6 +138,38 @@ class LISAdata():
 
         return h1, h2, h3, times
 
+    def process_external_data(self):
+        '''
+        Just a wrapper function to use the methods the LISAdata class to
+        read data. Return frequency domain data. Since this was used
+        primarily for the MLDC, this assumes that the data is doppler
+        tracking and converts to strain data.
+        '''
+
+        h1, h2, h3, self.timearray = self.read_data()
+
+        # Calculate other tdi combinations if necessary.
+        if self.params['tdi_lev'] == 'aet':
+            h1 = (1.0/3.0)*(2*h1 - h2 - h3)
+            h2 = (1.0/np.sqrt(3.0))*(h3 - h2)
+            h3 = (1.0/3.0)*(h1 + h2 + h3)
+
+        # Generate lisa freq domain data from time domain data
+        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
+
+        # Charactersitic frequency. Define f0
+        cspeed = 3e8
+        fstar = cspeed/(2*np.pi*self.armlength)
+        self.f0 = self.fdata/(2*fstar)
+
+        # Convert doppler data to strain if readfile datatype is doppler.
+        if self.params['datatype'] == 'doppler':
+
+            # This is needed to convert from doppler data to strain data.
+            self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
+
+        elif self.params['datatype'] == 'strain':
+            pass
 
 
     def tser2fser(self, h1, h2, h3, timearray):

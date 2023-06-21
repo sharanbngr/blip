@@ -26,9 +26,9 @@ class LISA(LISAdata, Model):
         # set up the LISAdata class
         LISAdata.__init__(self, params, inj)
 
-        # Generate or get mldc data
-        if self.params['mldc']:
-            self.read_mldc_data()
+        # Generate or get mldc or other loaded data
+        if self.params['load_data']:
+            self.process_external_data()
         else:
             self.makedata()
 
@@ -38,7 +38,7 @@ class LISA(LISAdata, Model):
         self.Model = Model(params,inj,self.fdata,self.f0,self.tsegmid,self.rmat)
 
         # Make some simple diagnostic plots to contrast spectra
-        if self.params['mldc']:
+        if self.params['load_data']:
             self.plot_spectra()
         else:
             self.diag_spectra()
@@ -47,7 +47,7 @@ class LISA(LISAdata, Model):
         with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
             pickle.dump(self.Model, outfile)
         
-        if not params['mldc']:
+        if not params['load_data']:
             with open(params['out_dir'] + '/injection.pickle', 'wb') as outfile:
                 pickle.dump(self.Injection, outfile)
             
@@ -136,40 +136,6 @@ class LISA(LISAdata, Model):
         for ii in range(self.rbar.shape[0]):
             for jj in range(self.rbar.shape[1]):
                 self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
-    
-    def read_mldc_data(self):
-        '''
-        Just a wrapper function to use the methods the LISAdata class to
-        read data. Return frequency domain data. Since this was used
-        primarily for the MLDC, this assumes that the data is doppler
-        tracking and converts to strain data.
-        '''
-
-        h1, h2, h3, self.timearray = self.read_data()
-
-        # Calculate other tdi combinations if necessary.
-        if self.params['tdi_lev'] == 'aet':
-            h1 = (1.0/3.0)*(2*h1 - h2 - h3)
-            h2 = (1.0/np.sqrt(3.0))*(h3 - h2)
-            h3 = (1.0/3.0)*(h1 + h2 + h3)
-
-        # Generate lisa freq domain data from time domain data
-        self.r1, self.r2, self.r3, self.fdata, self.tsegstart, self.tsegmid = self.tser2fser(h1, h2, h3, self.timearray)
-
-        # Charactersitic frequency. Define f0
-        cspeed = 3e8
-        fstar = cspeed/(2*np.pi*self.armlength)
-        self.f0 = self.fdata/(2*fstar)
-
-        # Convert doppler data to strain if readfile datatype is doppler.
-        if self.params['datatype'] == 'doppler':
-
-            # This is needed to convert from doppler data to strain data.
-            self.r1, self.r2, self.r3 = self.r1/(4*self.f0.reshape(self.f0.size, 1)), self.r2/(4*self.f0.reshape(self.f0.size, 1)), self.r3/(4*self.f0.reshape(self.f0.size, 1))
-
-        elif self.params['datatype'] == 'strain':
-            pass
-
 
     def diag_spectra(self):
 
@@ -393,7 +359,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['seglen']   = float(config.get("params", "seglen", fallback=1e5))
     params['fs']       = float(config.get("params", "fs", fallback=0.25))
     params['Shfile']   = config.get("params", "Shfile", fallback='LISA_2017_PSD_M.npy')
-    params['mldc'] = int(config.get("params", "mldc", fallback=0))
+    params['load_data'] = int(config.get("params", "load_data", fallback=0))
     params['datatype'] = str(config.get("params", "datatype", fallback='strain'))
     params['datafile']  = str(config.get("params", "datafile", fallback=None))
     params['fref'] = float(config.get("params", "fref", fallback=25))
@@ -473,12 +439,8 @@ def blip(paramsfile='params.ini',resume=False):
         params['seed']               = int(config.get("run_params", "seed"))
     nlive                        = int(config.get("run_params", "nlive", fallback=2000))
     nthread                      = int(config.get("run_params", "Nthreads", fallback=1))
-   
-    try:
-        params['colormap']       = str(config.get("run_params", "colormap"))
-    except:
-        params['colormap']       = 'magma'
     
+    params['colormap']       = str(config.get("run_params", "colormap", fallback='magma'))    
     
     ## sampler selection
     params['sampler'] = str(config.get("run_params", "sampler"))
@@ -499,8 +461,8 @@ def blip(paramsfile='params.ini',resume=False):
     ## emcee
     elif params['sampler'] == 'emcee':
         from blip.src.emcee_engine import emcee_engine
-        params['Nburn'] = int(config.get("run_params", "Nburn"))
-        params['Nsamples'] = int(config.get("run_params", "Nsamples"))
+        params['Nburn'] = int(config.get("run_params", "Nburn",fallback=1000))
+        params['Nsamples'] = int(config.get("run_params", "Nsamples",fallback=1000))
     else:
         raise ValueError("Unknown sampler. Can be 'dynesty', 'emcee', or 'nessai' for now.")
     # checkpointing (dynesty+nessai only for now)
@@ -634,11 +596,11 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(parameters, outfile)
 
     print("\nMaking posterior Plots ...")
-    if not params['mldc']:
+    if not params['load_data']:
         plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
     else:
         plotmaker(post_samples, params, parameters, inj, lisa.Model)
-    if not params['mldc']:
+    if not params['load_data']:
         fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
     else:
         fitmaker(post_samples, params, parameters, inj, lisa.Model)
