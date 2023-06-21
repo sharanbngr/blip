@@ -5,7 +5,8 @@ import numpy as np
 import sys, os,configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
-from blip.src.models import Model, Injection, ensure_color_matching
+from blip.src.models import Model, Injection
+from blip.src.utils import ensure_color_matching
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
