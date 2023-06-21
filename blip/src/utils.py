@@ -92,7 +92,7 @@ def catch_color_duplicates(Object,color_pool=None,sacred_labels=[]):
     if color_pool is None:
         ## this is meant to be a decently large pool, all of which are reasonably distinct from one another
         ## we include all the default colors assigned to submodels above, as its rare that all of them will be in use
-        color_pool = ['fuschia','sienna','turquoise','deeppink','goldenrod',
+        color_pool = ['fuchsia','sienna','turquoise','deeppink','goldenrod',
                       'darkmagenta','midnightblue','gold','crimson','mediumorchid','darkorange','maroon','forestgreen','teal']
         
     
