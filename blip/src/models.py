@@ -255,6 +255,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         elif self.spatial_model_name == 'sph':
             
             if injection:
+                if self.inj['inj_basis'] == 'pixel':
+                    raise ValueError("Only astrophysical injections are supported in the pixel basis. Spherical harmonic injections must use the spherical harmonic basis.")
                 self.lmax = self.inj['inj_lmax']
             else:
                 self.lmax = self.params['lmax']
@@ -334,22 +336,35 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             self.has_map = True
             
-            ## almax is twice the blmax
-            self.lmax = self.inj['inj_lmax']
-            self.almax = 2*self.lmax
-            response_kwargs['set_almax'] = self.almax
-            
-            if self.params['tdi_lev']=='michelson':
-                self.response = self.asgwb_mich_response
-            elif self.params['tdi_lev']=='xyz':
-                self.response = self.asgwb_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                self.response = self.asgwb_aet_response
+            if (Injection and inj['inj_basis']=='pixel') or (not Injection and params['model_basis']=='pixel'):
+                basis = 'pixel'
             else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+                basis = 'sph'
             
-            ## compute response matrix
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+            ## set lmax for sph case & define responses
+            if basis == 'sph':
+                ## almax is twice the blmax
+                self.lmax = self.inj['inj_lmax']
+                self.almax = 2*self.lmax
+                response_kwargs['set_almax'] = self.almax
+                if self.params['tdi_lev']=='michelson':
+                    self.response = self.asgwb_mich_response
+                elif self.params['tdi_lev']=='xyz':
+                    self.response = self.asgwb_xyz_response
+                elif self.params['tdi_lev']=='aet':
+                    self.response = self.asgwb_aet_response
+                else:
+                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            elif basis == 'pixel':
+                if self.params['tdi_lev']=='michelson':
+                    self.response = self.pixel_mich_response
+                elif self.params['tdi_lev']=='xyz':
+                    self.response = self.pixel_xyz_response
+                elif self.params['tdi_lev']=='aet':
+                    self.response = self.pixel_aet_response
+                else:
+                    raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            
             
             ## model-specific quantities
             ## injection-only models
@@ -468,13 +483,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             
-            if not injection:
-                self.process_astro_skymap_model(self.skymap)
-                self.prior = self.fixedsky_prior
-                self.cov = self.compute_cov_fixed_asgwb
-            else:
-                self.process_astro_skymap_injection(self.skymap)
+            ## compute response matrix
+            if basis == 'pixel':
+                response_kwargs['skymap_inj'] = self.skymap
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
+            ## process skymap
+            if not injection:
+                if basis == 'sph':
+                    self.process_astro_skymap_model(self.skymap)
+                    self.prior = self.fixedsky_prior
+                    self.cov = self.compute_cov_fixed_asgwb
+                elif basis=='pixel':
+                    raise ValueError("Pixel-basis models not yet supported, sorry!")
+                else:
+                    raise TypeError("Basis was not defined, or was incorrectly defined.")
+            else:
+                if basis == 'sph':
+                    self.process_astro_skymap_injection(self.skymap)
+                elif basis == 'pixel':
+                    self.inj_response_mat = self.response_mat
+                else:
+                    raise TypeError("Basis was not defined, or was incorrectly defined.")
+            
+            
+            ## compute response matrix
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+            if basis == 'pixel':
+                self.inj_response_mat = self.response_mat
 
         elif self.spatial_model_name == 'hierarchical':
             pass
@@ -1581,21 +1617,21 @@ class Injection():#geometry,sph_geometry):
         
         if hasattr(cm,"skymap"):
             Omegamap_pix = Omega_1mHz * cm.skymap/np.sum(cm.skymap)
-            hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
+            hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
             hp.graticule()
             
             plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
-            print('Saving pre-injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
+            print('Saving injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
             plt.close()
-        
-        ## sph map
-        Omegamap_inj = Omega_1mHz * cm.sph_skymap
-        hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$")
-        hp.graticule()
-        
-        plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
-        print('Saving injected skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
-        plt.close()
+        if hasattr(cm,"sph_skymap"):
+            ## sph map
+            Omegamap_inj = Omega_1mHz * cm.sph_skymap
+            hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+            hp.graticule()
+            
+            plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
+            print('Saving injected sph skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
+            plt.close()
         
         return
 

@@ -428,6 +428,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['lisa_config'] = str(config.get("params", "lisa_config", fallback='orbiting'))
     params['nside'] = int(config.get("params", "nside"))
     params['lmax'] = int(config.get("params", "lmax"))
+    params['model_basis'] = str(config.get("params", "model_basis", fallback='sph'))
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
     ## see if we need to initialize the spherical harmonic subroutines
@@ -465,6 +466,9 @@ def blip(paramsfile='params.ini',resume=False):
         else:
             inj['injection'] = str(config.get("inj", "injection"))
             
+            ## get the injection basis
+            inj['inj_basis'] = str(config.get("inj", "inj_basis", fallback='sph'))
+            
             ## get the injection truevals, passed as a dict
             truevals = eval(str(config.get("inj","truevals")))
             ## enforce that the keys of the truevals dict correspond to the injected models
@@ -492,10 +496,16 @@ def blip(paramsfile='params.ini',resume=False):
         
     ## pop out to set sph flags
     params['sph_flag'] = ('sph' in sph_check) or ('hierarchical' in sph_check)
+    ## set sph flag to false if both inj and model basis are pixel
+    if params['model_basis']=='pixel' and inj['inj_basis']=='pixel':
+        params['sph_flag'] = False
     
     ## some final flag, injection parameter setting if we aren't loading the Injection directly
     if inj['doInj'] and not inj['loadInj']:
         inj['sph_flag'] = np.any([(item not in ['noise','isgwb']) for item in sph_check])
+        ## similarly, set inj sph flag to False if we're doing pixel basis injections
+        if inj['inj_basis']=='pixel':
+            inj['sph_flag'] = False
         inj['pop_flag'] = 'population' in sph_check
         
         if inj['sph_flag']:
