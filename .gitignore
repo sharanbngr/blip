@@ -28,3 +28,5 @@ params(copy).ini
 WD_Galactic_Foreground.ipynb
 *checkpoint.ipynb
 quick_*
+build/*
+params_run*
