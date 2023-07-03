@@ -244,7 +244,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     self.truevals[param] = val
                 
                 ## get alms
-                self.alms_inj = self.compute_skymap_alms(inj['blms'])
+                self.alms_inj = self.blm_2_alm(np.array(inj['blms']))
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
                 ## get response integrated over the Ylms
