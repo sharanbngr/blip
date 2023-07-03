@@ -195,7 +195,7 @@ class instrNoise():
         delf  = 1.0/self.params['dur']
         frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
 
-        Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
+        Sp, Sa = self.fundamental_noise_spectrum(frange, Np=10**self.injvals['log_Np'], Na=10**self.injvals['log_Na'])
 
         # Generate data
         np12 = self.gaussianData(Sp, frange, self.params['fs'], 1.1*self.params['dur'])
