@@ -47,6 +47,7 @@ class LISAdata():
         N = self.Injection.Npersplice
         halfN = int(0.5*N)
         
+        ## compute the astrophysical spectrum
         injmodel_args = [injmodel.truevals[parameter] for parameter in injmodel.spectral_parameters]
         
         Sgw = injmodel.compute_Sgw(self.Injection.frange,injmodel_args)
