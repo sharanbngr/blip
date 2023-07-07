@@ -23,6 +23,7 @@ This is a fully Bayesian Python package for detecting/characterizing stochastic 
 
 `conda create --name blip-env python=3.10`
 
+
 3) Activate it via
 
 `conda activate blip-env`
