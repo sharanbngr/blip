@@ -9,7 +9,7 @@ License: MIT
 Classifier: Programming Language :: Python :: 3.10
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: ==3.10
+Requires-Python: >=3.10
 License-File: LICENSE
 
 #  BLIP: Bayesian LISA Inference Package
@@ -23,19 +23,16 @@ This is a fully Bayesian Python package for detecting/characterizing stochastic 
 
 `conda create --name blip-env python=3.10`
 
-3) Use the provided requirements yaml to install the remainder.
 
-`conda env update -n blip-env --file=requirements.yml`
-
-4) Activate it via
+3) Activate it via
 
 `conda activate blip-env`
 
-5) You can now install the package via pip by running
+4) You can now install the package via pip by running
 
-`pip install .`
+`pip install -e .`
 
-in this directory.
+in this directory. It should naturally install all dependencies. 
 
 You should now be ready to go! To run BLIP, you only need to provide a configuration file. In this directory, you will find params_default.ini, a pre-constructed config file with reasonable settings and accompanying parameter explanations.
 
