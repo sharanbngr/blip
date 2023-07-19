@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
+from scipy.stats import norm
 import healpy as hp
 import logging
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
@@ -178,7 +179,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.omegaf = self.population.omegaf_wrapper
             self.ispop = True
             self.plot_kwargs |= {'ls':'-','lw':0.75,'alpha':0.6}
-        
+
+        elif self.spectral_model_name == 'autoregressive':
+            self.spectral_parameters = self.spectral_parameters + [r'$\tau$', r'$\sigma$', r'$r$', r'$ns$']
+            self.omegaf = self.autoregressive_spectrum
+            self.fancyname = "Autoregressive Process"+submodel_count
+            if not injection:
+                self.spectral_prior = self.autoregressive_prior
+            else:
+                self.truevals[r'$\tau$'] = self.injvals['tau']
+                self.truevals[r'$\sigma$'] = self.injvals['sigma']
+                self.truevals[r'$r$'] = self.injvals['r']
+                self.truevals[r'$ns$'] = self.injvals['ns']
+
+
+
+        # elif self.spectral_model_name == 'autoregressive0':
+        #     self.spectral_parameters = self.spectral_parameters + [r'$\tau$', r'$\sigma$', r'$ns$', r'$\alpha$']
+        #     self.omegaf = self.autoregressive0_spectrum
+        #     self.fancyname = "Autoregressive Process Original"+submodel_count
+        #     if not injection:
+        #         self.spectral_prior = self.autoregressive0_prior
+        #     else:
+        #         self.truevals[r'$\tau$'] = self.injvals['tau']
+        #         self.truevals[r'$\sigma$'] = self.injvals['sigma']
+        #         self.truevals[r'$\alpha$'] = self.injvals['alpha']
+        #         self.truevals[r'$\n$'] = self.injvals['n']
+        #         val_list = self.injvals['alpha']
+
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
@@ -448,7 +476,80 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         fcut = 10**log_fcut
         fscale = 10**log_fscale
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
+    def powerlaw_spectrum(self,fs,alpha,log_omega0):
+        '''
+        Function to calculate a simple power law spectrum.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        alpha (float)        : slope of the power law
+        log_omega0 (float)   : power law amplitude in units of log dimensionless GW energy density at f_ref
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        
+        '''
+        return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
+    def autoregressive_spectrum(self,fs, tau,sigma, r, ns):
+        '''
+        Function to calculate a autoregressive process (drawing sampling from cov and mean)
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        tau (float)        : 
+        sigma (float)   : 
+        n (float) : random variables with n ~ N(0,1)
+        alpha (float) :
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        (######Change alpha)
+        '''
+        dlogf = np.zeros(fs.shape)
+        dlogf[1:] = np.log(fs[1:]) - np.log(fs[0:(fs.size - 1)])
+        
+        mean = np.full(fs.size, np.log(r))
+        cov = sigma**2 *(np.exp(-np.abs((np.log(fs)[:, np.newaxis] - np.log(fs)))/tau))
+
+        #create A, ns, return Aij*nj+ln r
+        A = np.linalg.cholesky(cov)
+        logP = np.dot(A, ns) + mean
+        #do np.exp cuz inside the bracket is ln Omega_gw(f)
+        return np.exp(logP)
+
+
+
+    def autoregressive0_spectrum(self,fs,ns,alpha,tau,sigma):
+        '''
+        Function to calculate a autoregressive process (drawing sampling from cov and mean)
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        tau (float)        : 
+        sigma (float)   : 
+        n (float) : random variable with n ~ N(0,1)
+        alpha (float) :
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        
+        '''
+        psi = np.zeros(fs.shape)
+        Omega = np.zeros(fs.shape)
+        for i,(f, n) in enumerate(zip(fs, ns)):
+            if  f == df:
+                p = sigma*n
+            else:
+                p = np.exp(-(np.log(f) - np.log(f-df)) / tau) * psi[i-1] + sigma * np.sqrt(1 - np.exp(-2 * (np.log(f) - np.log(f-df)) / tau)) * n
+            psi[i] =p
+            Omega[i]=alpha*np.exp(p)
+        return Omega		
+
     def compute_Sgw(self,fs,omegaf_args):
         '''
         Wrapper function to generically calculate the associated stochastic gravitational wave PSD (S_gw)
@@ -677,9 +778,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha, log_omega0, log_fcut, log_fscale]
     
-    
-    
-    
+    def autoregressive_prior(self,theta):
+
+
+        '''
+        Prior function for an isotropic stochastic backgound analysis.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, tau, sigma, and random variable n_i (len = N)
+            (N+3 variables in total)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        r = 1e-43*theta[0]+1e-42
+        tau  = 20*theta[1]+0.5
+        sigma  =  3*theta[2] + 0.1
+        ns = norm.ppf(theta[3:])
+        return [r, tau, sigma, ns]    
     
     
     #############################
