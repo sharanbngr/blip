@@ -191,22 +191,6 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\sigma$'] = self.injvals['sigma']
                 self.truevals[r'$r$'] = self.injvals['r']
                 self.truevals[r'$ns$'] = self.injvals['ns']
-
-
-
-        # elif self.spectral_model_name == 'autoregressive0':
-        #     self.spectral_parameters = self.spectral_parameters + [r'$\tau$', r'$\sigma$', r'$ns$', r'$\alpha$']
-        #     self.omegaf = self.autoregressive0_spectrum
-        #     self.fancyname = "Autoregressive Process Original"+submodel_count
-        #     if not injection:
-        #         self.spectral_prior = self.autoregressive0_prior
-        #     else:
-        #         self.truevals[r'$\tau$'] = self.injvals['tau']
-        #         self.truevals[r'$\sigma$'] = self.injvals['sigma']
-        #         self.truevals[r'$\alpha$'] = self.injvals['alpha']
-        #         self.truevals[r'$\n$'] = self.injvals['n']
-        #         val_list = self.injvals['alpha']
-
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
@@ -517,38 +501,11 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         #create A, ns, return Aij*nj+ln r
         A = np.linalg.cholesky(cov)
+        import pdb; pdb.set_trace()
         logP = np.dot(A, ns) + mean
         #do np.exp cuz inside the bracket is ln Omega_gw(f)
         return np.exp(logP)
-
-
-
-    def autoregressive0_spectrum(self,fs,ns,alpha,tau,sigma):
-        '''
-        Function to calculate a autoregressive process (drawing sampling from cov and mean)
-        
-        Arguments
-        -----------
-        fs (array of floats) : frequencies at which to evaluate the spectrum
-        tau (float)        : 
-        sigma (float)   : 
-        n (float) : random variable with n ~ N(0,1)
-        alpha (float) :
-        Returns
-        -----------
-        spectrum (array of floats) : the resulting power law spectrum
-        
-        '''
-        psi = np.zeros(fs.shape)
-        Omega = np.zeros(fs.shape)
-        for i,(f, n) in enumerate(zip(fs, ns)):
-            if  f == df:
-                p = sigma*n
-            else:
-                p = np.exp(-(np.log(f) - np.log(f-df)) / tau) * psi[i-1] + sigma * np.sqrt(1 - np.exp(-2 * (np.log(f) - np.log(f-df)) / tau)) * n
-            psi[i] =p
-            Omega[i]=alpha*np.exp(p)
-        return Omega		
+	
 
     def compute_Sgw(self,fs,omegaf_args):
         '''
