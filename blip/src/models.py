@@ -136,7 +136,6 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ###################################################
         ###            BUILD NEW MODELS HERE            ###
         ###################################################
-
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
@@ -179,18 +178,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.omegaf = self.population.omegaf_wrapper
             self.ispop = True
             self.plot_kwargs |= {'ls':'-','lw':0.75,'alpha':0.6}
-
+        
         elif self.spectral_model_name == 'autoregressive':
-            self.spectral_parameters = self.spectral_parameters + [r'$\tau$', r'$\sigma$', r'$r$', r'$ns$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\tau$', r'$\sigma$', r'$rr$']
+            self.spectral_parameters = self.spectral_parameters + ['$n_{' + str(i) + '}$' for i in range(self.fs.size)]
             self.omegaf = self.autoregressive_spectrum
             self.fancyname = "Autoregressive Process"+submodel_count
             if not injection:
                 self.spectral_prior = self.autoregressive_prior
             else:
-                self.truevals[r'$\tau$'] = self.injvals['tau']
-                self.truevals[r'$\sigma$'] = self.injvals['sigma']
-                self.truevals[r'$r$'] = self.injvals['r']
-                self.truevals[r'$ns$'] = self.injvals['ns']
+                ValueError("Autoregressive function is inference-only model!")
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
@@ -477,7 +474,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
-    def autoregressive_spectrum(self,fs, tau,sigma, r, ns):
+    def autoregressive_spectrum(self,fs, *args):
         '''
         Function to calculate a autoregressive process (drawing sampling from cov and mean)
         
@@ -491,17 +488,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Returns
         -----------
         spectrum (array of floats) : the resulting power law spectrum
-        (######Change alpha)
         '''
+        rr = args[0]
+        tau = args[1]
+        sigma = args[2]
+        ns = np.array(args[3:])
         dlogf = np.zeros(fs.shape)
         dlogf[1:] = np.log(fs[1:]) - np.log(fs[0:(fs.size - 1)])
         
-        mean = np.full(fs.size, np.log(r))
+        mean = np.full(fs.size, np.log(rr))
         cov = sigma**2 *(np.exp(-np.abs((np.log(fs)[:, np.newaxis] - np.log(fs)))/tau))
-
         #create A, ns, return Aij*nj+ln r
         A = np.linalg.cholesky(cov)
-        import pdb; pdb.set_trace()
         logP = np.dot(A, ns) + mean
         #do np.exp cuz inside the bracket is ln Omega_gw(f)
         return np.exp(logP)
@@ -758,12 +756,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
-        r = 1e-43*theta[0]+1e-42
-        tau  = 20*theta[1]+0.5
-        sigma  =  3*theta[2] + 0.1
+        rr = (1e-43*theta[0]+1e-42)
+        tau = (20*theta[1]+0.5)
+        sigma  = (3*theta[2] + 0.1)
         ns = norm.ppf(theta[3:])
-        return [r, tau, sigma, ns]    
-    
+        ns = ns.transpose()[0] 
+        if isinstance(rr, np.ndarray):
+            out = np.concatenate([rr,tau,sigma,ns],axis =0)
+        else: 
+            out = np.concatenate([[rr],[tau],[sigma],[ns]],axis =0)
+        return out.tolist()    
     
     #############################
     ## Covariance Calculations ##
@@ -1051,11 +1053,12 @@ class Model():
             start_idx += sm.Npar
         
         if len(theta) != len(unit_theta):
+            import pdb; pdb.set_trace()
             raise ValueError("Input theta does not have same length as output theta, something has gone wrong!")
         
         return theta
     
-    
+
     def likelihood(self,theta):
         '''
         Unified likelihood function to compare the combined covariance contributions of a generic set of noise/SGWB models to the data.
@@ -1088,8 +1091,8 @@ class Model():
 
 
         loglike = np.real(logL)
-
         return loglike
+    
     
 
 ###################################################
