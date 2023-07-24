@@ -497,7 +497,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         dlogf[1:] = np.log(fs[1:]) - np.log(fs[0:(fs.size - 1)])
         
         mean = np.full(fs.size, np.log(rr))
-        cov = sigma**2 *(np.exp(-np.abs((np.log(fs)[:, np.newaxis] - np.log(fs)))/tau))
+        try:
+            cov = sigma**2 *(np.exp(-np.abs((np.log(fs)[:, np.newaxis] - np.log(fs)))/tau))
+        except:
+            import pdb; pdb.set_trace()
         #create A, ns, return Aij*nj+ln r
         A = np.linalg.cholesky(cov)
         logP = np.dot(A, ns) + mean
@@ -753,19 +756,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             (N+3 variables in total)
 
         '''
-
+     
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
-        rr = (1e-43*theta[0]+1e-42)
-        tau = (20*theta[1]+0.5)
-        sigma  = (3*theta[2] + 0.1)
-        ns = norm.ppf(theta[3:])
-        ns = ns.transpose()[0] 
-        if isinstance(rr, np.ndarray):
-            out = np.concatenate([rr,tau,sigma,ns],axis =0)
-        else: 
-            out = np.concatenate([[rr],[tau],[sigma],[ns]],axis =0)
-        return out.tolist()    
+        theta[0] = (1e-43*theta[0]+1e-42) ## for rr
+        theta[1] = (20*theta[1]+0.5) ## for tau
+        theta[2]  = (3*theta[2] + 0.1) ## for sigma
+        theta[3:] = norm.ppf(theta[3:]) # for ns
+
+        return theta.tolist()
+        #ns = ns.transpose()[0]
+        #if isinstance(rr, np.ndarray):
+        #    out = np.concatenate([rr,tau,sigma,ns],axis =0)
+        #else: 
+        #    out = np.concatenate([[rr],[tau],[sigma],[ns]],axis =0)
+        #return out.tolist()    
     
     #############################
     ## Covariance Calculations ##
@@ -810,6 +815,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         '''
         ## Signal PSD
+        
         Sgw = self.compute_Sgw(self.fs,theta)
 
         ## The noise spectrum of the GW signal. Written down here as a full

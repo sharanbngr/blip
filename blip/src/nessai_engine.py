@@ -49,7 +49,8 @@ class nessai_model(Model):
         return log_p
     def log_likelihood(self,x):
         log_l = np.zeros(x.size)
-        theta = self.prior_transform(s2us(x[self.names]).T)
+        theta = s2us(x[self.names]).flatten()
+        theta = self.prior_transform(theta)
         log_l += self.transformed_log_likelihood(theta)
         return log_l
 
