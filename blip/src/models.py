@@ -760,11 +760,11 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         tau = (20*theta[1]+0.5)
         sigma  = (3*theta[2] + 0.1)
         ns = norm.ppf(theta[3:])
-        ns = ns.transpose()[0] 
         if isinstance(rr, np.ndarray):
+            ns = ns.transpose()[0] 
             out = np.concatenate([rr,tau,sigma,ns],axis =0)
         else: 
-            out = np.concatenate([[rr],[tau],[sigma],[ns]],axis =0)
+            out = np.concatenate([[rr],[tau],[sigma],ns],axis =0)
         return out.tolist()    
     
     #############################
@@ -1053,7 +1053,6 @@ class Model():
             start_idx += sm.Npar
         
         if len(theta) != len(unit_theta):
-            import pdb; pdb.set_trace()
             raise ValueError("Input theta does not have same length as output theta, something has gone wrong!")
         
         return theta
