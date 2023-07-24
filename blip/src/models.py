@@ -1059,7 +1059,6 @@ class Model():
             start_idx += sm.Npar
         
         if len(theta) != len(unit_theta):
-            import pdb; pdb.set_trace()
             raise ValueError("Input theta does not have same length as output theta, something has gone wrong!")
         
         return theta
