@@ -630,20 +630,31 @@ def blip(paramsfile='params.ini',resume=False):
 
 
     print("\nMaking posterior Plots ...")
-    if not params['load_data']:
-        plotmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+    if not resume:
+        plotting_Model = lisa.Model
+        plotting_Injection = lisa.Injection
     else:
-        plotmaker(post_samples, params, parameters, inj, lisa.Model)
+        ## grab the model and injection
+        with open(params['out_dir'] + '/model.pickle', 'rb') as modelfile:
+            plotting_Model = pickle.load(modelfile)
+        if not params['load_data']:
+            with open(params['out_dir'] + '/injection.pickle', 'rb') as injectionfile:
+                plotting_Injection = pickle.load(injectionfile)
+    
     if not params['load_data']:
-        fitmaker(post_samples, params, parameters, inj, lisa.Model, lisa.Injection)
+        plotmaker(post_samples, params, parameters, inj, plotting_Model, plotting_Injection)
     else:
-        fitmaker(post_samples, params, parameters, inj, lisa.Model)
+        plotmaker(post_samples, params, parameters, inj, plotting_Model)
+    if not params['load_data']:
+        fitmaker(post_samples, params, parameters, inj, plotting_Model, plotting_Injection)
+    else:
+        fitmaker(post_samples, params, parameters, inj, plotting_Model)
     ## make a map if there is a map to be made
     if np.any([lisa.Model.submodels[sm_name].has_map for sm_name in lisa.Model.submodel_names]):
         if 'healpy_proj' in params.keys():
-            mapmaker(post_samples, params, parameters, lisa.Model,  coord=params['healpy_proj'])
+            mapmaker(post_samples, params, parameters, plotting_Model,  coord=params['healpy_proj'])
         else:
-            mapmaker(post_samples, params, parameters, lisa.Model)
+            mapmaker(post_samples, params, parameters, plotting_Model)
         
     
 

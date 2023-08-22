@@ -126,9 +126,9 @@ class Population():
         lats = (dwds[coldict['lat']].to_numpy()*unitdict['lat']).to(u.deg).value
         longs = (dwds[coldict['long']].to_numpy()*unitdict['long']).to(u.deg).value
         ## filter to frequency band
-        f_filter = (fs >= fmin) & (fs <= fmax)
+#        f_filter = (fs >= fmin) & (fs <= fmax)
         ## generate pop dict
-        pop = {'fs':fs[f_filter],'hs':hs[f_filter],'lats':lats[f_filter],'longs':longs[f_filter]}
+        pop = {'fs':fs,'hs':hs,'lats':lats,'longs':longs}
         return pop
         
         
