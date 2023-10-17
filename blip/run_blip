@@ -379,6 +379,14 @@ def blip(paramsfile='params.ini',resume=False):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
+
+    params['lnrmax'] = float(config.get("params", "lnrmax"))
+    params['lnrmin'] = float(config.get("params", "lnrmin"))
+    params['sigmamax'] = float(config.get("params", "sigmamax"))
+    params['sigmamin'] = float(config.get("params", "sigmamin"))
+    params['taumax'] = float(config.get("params", "taumax"))
+    params['taumin'] = float(config.get("params", "taumin"))
+
     ## see if we need to initialize the spherical harmonic subroutines
     sph_check = [sublist.split('-')[0].split('_')[-1] for sublist in params['model'].split('+')]
 
@@ -531,6 +539,8 @@ def blip(paramsfile='params.ini',resume=False):
     else:
         print("Resuming a previous analysis. Reloading data and sampler state...")
 
+
+
     if params['sampler'] == 'dynesty':
         # Create engine
         if not resume:
@@ -620,7 +630,6 @@ def blip(paramsfile='params.ini',resume=False):
     
     else:
         raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, & emcee are supported')
-
 
     # Save parameters as a pickle
     with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:

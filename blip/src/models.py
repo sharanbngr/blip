@@ -180,7 +180,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.plot_kwargs |= {'ls':'-','lw':0.75,'alpha':0.6}
         
         elif self.spectral_model_name == 'autoregressive':
-            self.spectral_parameters = self.spectral_parameters + [r'$\tau$', r'$\sigma$', r'$rr$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\ln r$',r'$\tau$', r'$\sigma$']
             self.spectral_parameters = self.spectral_parameters + ['$n_{' + str(i) + '}$' for i in range(self.fs.size)]
             self.omegaf = self.autoregressive_spectrum
             self.fancyname = "Autoregressive Process"+submodel_count
@@ -489,14 +489,14 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         -----------
         spectrum (array of floats) : the resulting power law spectrum
         '''
-        rr = args[0]
+        lnr = args[0]
         tau = args[1]
         sigma = args[2]
         ns = np.array(args[3:])
         dlogf = np.zeros(fs.shape)
         dlogf[1:] = np.log(fs[1:]) - np.log(fs[0:(fs.size - 1)])
         
-        mean = np.full(fs.size, np.log(rr))
+        mean = np.full(fs.size, lnr)
         try:
             cov = sigma**2 *(np.exp(-np.abs((np.log(fs)[:, np.newaxis] - np.log(fs)))/tau))
         except:
@@ -736,7 +736,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha, log_omega0, log_fcut, log_fscale]
     
-    def autoregressive_prior(self,theta):
+    def autoregressive_prior(self, theta):
 
 
         '''
@@ -759,12 +759,25 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
      
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
-        theta[0] = (1e-43*theta[0]+1e-42) ## for rr
-        theta[1] = (20*theta[1]+0.5) ## for tau
-        theta[2]  = (3*theta[2] + 0.1) ## for sigma
-        theta[3:] = norm.ppf(theta[3:]) # for ns
 
-        return theta.tolist()
+
+        
+        # theta[0] = (10*theta[0]-20) ## for lnr
+        # theta[1] = (2*np.log(self.params['fmax']/self.params['fmin'])*theta[1]+0.5*np.log(1+(1/self.params['seglen'])/self.params['fmax'])) ## for tau
+        # theta[2]  = (10*theta[2] +0.01) ## for sigma
+        # theta[3:] = norm.ppf(theta[3:]) # for ns
+
+                
+        theta[0] = (self.params['lnrmax']*theta[0]+self.params['lnrmin']) ## for lnr
+        theta[1] = (self.params['taumax']*np.log(self.params['fmax']/self.params['fmin'])*theta[1]
+        +self.params['taumin']*np.log(1+(1/self.params['seglen'])/self.params['fmax'])) ## for tau
+        theta[2]  = (self.params['sigmamax']*theta[2] +self.params['sigmamin']) ## for sigma
+        theta[3:] = norm.ppf(theta[3:]) # for ns
+        if isinstance(theta, np.ndarray):
+            theta = theta.tolist()
+        elif isinstance(theta, list):
+            theta = theta
+        return theta
         #ns = ns.transpose()[0]
         #if isinstance(rr, np.ndarray):
         #    out = np.concatenate([rr,tau,sigma,ns],axis =0)

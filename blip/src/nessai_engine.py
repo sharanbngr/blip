@@ -8,6 +8,7 @@ import dill
 #import time
 import shutil, os
 import json
+import h5py
 
 ## nessai needs a defined Model
 ## we will use this as an adaptor from our existing code structure to what nessai expects
@@ -180,8 +181,7 @@ class nessai_engine():
         logger = setup_logger(output=output)
         engine.run()
         
-        with open(output+'/result.json', 'r') as file:
-            res = json.load(file)
+        res = h5py.File(output+'/result.hdf5', 'r') 
         ## samples on the n-D unit cube
         unit_samples = [np.array(res['posterior_samples'][name]) for name in parameters['all']]
         post_samples = np.vstack(model.prior_transform(unit_samples)).T
@@ -200,8 +200,7 @@ class nessai_engine():
         logger = setup_logger(output=output)
         engine.run()
         
-        with open(output+'/result.json', 'r') as file:
-            res = json.load(file)
+        res = h5py.File(output+'/result.hdf5', 'r') 
         ## samples on the n-D unit cube
         unit_samples = [np.array(res['posterior_samples'][name]) for name in parameters['all']]
         post_samples = np.vstack(model.prior_transform(unit_samples)).T
