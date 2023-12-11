@@ -38,20 +38,35 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
     
     
     
-    sph_models = []
-    hierarchical_models = []
+    
+#    sph_models = []
+#    hierarchical_models = []
+#    fixedsky_models = []
+#    
+#    for submodel_name in Model.submodel_names:
+#        
+#        ## spatial type will be the latter part of the name
+#        ## also catch duplicates (with -N appended to them_)
+#        spatial_name = submodel_name.split('_')[-1].split('-')[0]
+#        if spatial_name == 'sph':
+#            sph_models.append(submodel_name)
+#        elif spatial_name == 'hierarchical':
+#            hierarchical_models.append(submodel_name)
+#        elif spatial_name in ['fixedgalaxy','hotpixel']:
+#            fixedsky_models.append(submodel_name)
+#    if (len(sph_models)==0 ) and (len(hierarchical_models)==0) and (len(fixedsky_models)==0):
+#        print("Called mapmaker but none of the recovery models have a non-isotropic spatial model. Skipping...")
+#        return
+    
+    map_models = []
     for submodel_name in Model.submodel_names:
-        ## spatial type will be the latter part of the name
-        ## also catch duplicates (with -N appended to them_)
-        spatial_name = submodel_name.split('_')[-1].split('-')[0]
-        if spatial_name == 'sph':
-            sph_models.append(submodel_name)
-        elif spatial_name == 'hierarchical':
-            hierarchical_models.append(submodel_name)
-    if (len(sph_models)==0 ) and (len(hierarchical_models)==0):
+        sm = Model.submodels[submodel_name]
+        if sm.has_map:
+            map_models.append(submodel_name)
+
+    if (len(map_models)==0 ):
         print("Called mapmaker but none of the recovery models have a non-isotropic spatial model. Skipping...")
         return
-    
     
     ## handle projection, kwargs
     # setting coord back to E, if parameter isn't specified
@@ -82,7 +97,16 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
         omega_map = np.zeros(npix)
         
         ## only make a map if there's a map to make (this is also good life advice)
-        if submodel_name in sph_models+hierarchical_models:
+        if submodel_name in map_models:
+            
+            ## no hierarchical support yet
+            if hasattr(sm,"hierarchical") and sm.hierarchical:
+                print("Hierarchical mapmaking not yet supported, sorry!")
+                pass
+            
+            ## kwargs
+            post_map_kwargs_i = post_map_kwargs
+            
             
             ## HEALpy is really, REALLY noisy sometimes. This stops that.
             logger = logging.getLogger()
@@ -91,28 +115,39 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             ## select relevant posterior columns
             post_i = post[:,start_idx:(start_idx+sm.Npar)]
             
-            print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
-            
-            for ii in range(post.shape[0]):
-                
-                ## get Omega(f=1mHz)
-                Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
-                
-                ## convert blm params to full blms
-                blm_vals = sm.blm_params_2_blms(post_i[ii,sm.blm_start:])
-                
-                ## normalize, convert to map, and sum
-                norm = np.sum(blm_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(sm.lmax + 1):])**2)
-                
-                prob_map  = (1.0/norm) * (hp.alm2map(blm_vals, nside))**2
-                
-                omega_map = omega_map + Omega_1mHz * prob_map
 
-            omega_map = omega_map/post.shape[0]
+            if hasattr(sm,"fixed_map") and sm.fixed_map:
+                print("Generating assumed skymap at spectral posterior mean for submodel: {}...".format(submodel_name))
+                skip_median = True
+                post_map_kwargs_i['title'] = 'Assumed sky distribution evaluated at spectral posterior mean of $\\Omega(f= 1mHz) $'
+                norm_map = sm.sph_skymap
+                for ii in range(post.shape[0]):
+                    ## get Omega(f=1mHz)
+                    Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:])
+                    omega_map = omega_map + Omega_1mHz * norm_map
+            else:
+                print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
+                skip_median = False
+                for ii in range(post.shape[0]):
+                    
+                    ## get Omega(f=1mHz)
+                    Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.blm_start])
+                    
+                    ## convert blm params to full blms
+                    blm_vals = sm.blm_params_2_blms(post_i[ii,sm.blm_start:])
+                    
+                    ## normalize, convert to map, and sum
+                    norm = np.sum(blm_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_vals[(sm.lmax + 1):])**2)
+
+                    prob_map  = (1.0/norm) * (hp.alm2map(np.array(blm_vals), nside))**2
+                    
+                    omega_map = omega_map + Omega_1mHz * prob_map
             
+            ## normalize and cast to real to stop Healpy from complaining (all imaginary components are already zero)
+            omega_map = np.real(omega_map/post.shape[0])
             
             # generating skymap
-            hp.mollview(omega_map, coord=coord, cmap=cmap, **post_map_kwargs)
+            hp.mollview(omega_map, coord=coord, cmap=cmap, **post_map_kwargs_i)
             hp.graticule()
             
             ## switch logging level back to normal so we get our own status updates
@@ -127,43 +162,46 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                 logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/{}_post_skymap.png'.format(submodel_name))
             plt.close()
             
-            ## now do the median skymap
-            print("Computing median posterior skymap for submodel {}...".format(submodel_name))
             
-            ## HEALpy is really, REALLY noisy sometimes. This stops that.
-            logger.setLevel(logging.ERROR)
             
-            # median values of the posteriors
-            med_vals = np.median(post_i, axis=0)
-            
-            # Omega(f=1mHz)
-            Omega_1mHz_median = sm.omegaf(1e-3,*med_vals[:sm.blm_start])
-            ## blms.
-            blms_median = np.append([1], med_vals[sm.blm_start:])
-            
-            blm_median_vals = sm.blm_params_2_blms(blms_median)
-        
-            norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
 
-            Omega_median_map  =  Omega_1mHz_median * (1.0/norm) * (hp.alm2map(blm_median_vals, nside))**2
+            ## now do the median skymap
+            if not skip_median:
+                print("Computing median posterior skymap for submodel {}...".format(submodel_name))
+                
+                ## HEALpy is really, REALLY noisy sometimes. This stops that.
+                logger.setLevel(logging.ERROR)
+                
+                # median values of the posteriors
+                med_vals = np.median(post_i, axis=0)
+                
+                # Omega(f=1mHz)
+                Omega_1mHz_median = sm.omegaf(1e-3,*med_vals[:sm.blm_start])
+                ## blms.
+                blms_median = np.append([1], med_vals[sm.blm_start:])
+                
+                blm_median_vals = sm.blm_params_2_blms(blms_median)
             
-            hp.mollview(Omega_median_map, coord=coord, cmap=cmap, **med_map_kwargs)
+                norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
+    
+                Omega_median_map  =  np.real(Omega_1mHz_median * (1.0/norm) * (hp.alm2map(np.array(blm_median_vals), nside))**2)
+                
+                hp.mollview(Omega_median_map, coord=coord, cmap=cmap, **med_map_kwargs)
+                
+                hp.graticule()
+                
+                ## switch logging level back to normal so we get our own status updates
+                logger.setLevel(logging.INFO)
+                
+                if saveto is not None:
+                    plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
+                    logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
             
-            hp.graticule()
+                else:
+                    plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
+                    logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
             
-            ## switch logging level back to normal so we get our own status updates
-            logger.setLevel(logging.INFO)
-            
-            if saveto is not None:
-                plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
-                logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
-        
-            else:
-                plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-                logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
-        
-            plt.close()
-        
+                plt.close()
             
         
         ## increment start regardless of if we made a map

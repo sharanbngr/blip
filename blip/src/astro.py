@@ -571,33 +571,50 @@ def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     ## returning healpix skymaps
     return astro_map
 
-def generate_point_source(theta,phi,nside):
+def generate_point_source(ang_coord1,ang_coord2,nside,convention='healpy',pad=True):
     '''
-    Generates a point source skymap. Allows small amount of power to artifically bleed into adjacent pixels to avoid numerical error issues later on.
+    Generates a point source skymap. 
     
     Arguments
     ---------
-    theta, phi : float
-        angular coordinates of the point source in radians
+    ang_coord1, ang_coord2 : float
+        angular coordinates of the point source in radians. Either theta, phi or ra, dec (see convention variable)
+    nside : int
+        Healpy nside (skymap resolution)
+    convention : str
+        Angle specification convention. Can be 'healpy' (Healpy polar theta, aziumuthal phi) or 'radec' (standard astronomical RA/DEC). Default is theta/phi.
+    pad : bool
+        Whether to allow a small amount of power to artifically bleed into adjacent pixels to avoid numerical error issues later on. Only needed for single-pixel case.
     
     Returns
     ---------
     astro_map (array of floats) : healpy skymap
     '''
     
+    if convention=='healpy':
+        theta, phi = ang_coord1, ang_coord2
+    elif convention=='radec':
+        ra, dec = ang_coord1, ang_coord2
+        theta, phi = np.pi/2 - np.deg2rad(dec), np.deg2rad(ra)
+    else:
+        raise ValueError("Unknown specification of angular coordinate convention. Can be 'healpy' (Healpy theta/phi) or 'radec' (RA/DEC).")
+    
     astro_map = np.zeros(hp.nside2npix(nside))
     ps_id = hp.ang2pix(nside, theta, phi)
     astro_map[ps_id] = 1
     
-    neighbours = hp.pixelfunc.get_all_neighbours(nside,ps_id)
-    astro_map[neighbours] = 1e-10
-    astro_map = astro_map/np.sum(astro_map)
+    if pad:
+        neighbours = hp.pixelfunc.get_all_neighbours(nside,ps_id)
+        astro_map[neighbours] = 1e-10
+        astro_map = astro_map/np.sum(astro_map)
     
     return astro_map
 
 def generate_two_point_source(theta_1,phi_1,theta_2,phi_2,nside):
     '''
     Generates a two-point-source skymap. 
+    
+    Depreciation note: Keeping until the angular resolution study is finished, then will depreciate in favor of generate_point_sources() (below)/
     
     Arguments
     ---------
@@ -618,6 +635,35 @@ def generate_two_point_source(theta_1,phi_1,theta_2,phi_2,nside):
     
     return astro_map
 
+def generate_point_sources(coord_list,nside,convention='healpy'):
+    '''
+    Generates a skymap with a flexible number of point sources. 
+
+    Arguments
+    ---------
+    coord_list : list of tuples
+        List of (ang_coord1,ang_coord2) tuples, one tuple per source. Each tuple gives angular coordinates of their respective  point sourc as either (theta, phi) or (ra, dec) (see convention variable).
+    nside : int
+        Healpy nside (skymap resolution)
+    convention : str
+        Angle specification convention. Can be 'healpy' (Healpy polar theta, aziumuthal phi) or 'radec' (standard astronomical RA/DEC). Default is theta/phi.
+    
+    Returns
+    ---------
+    astro_map (array of floats) : healpy skymap
+    '''
+    
+    astro_map = np.zeros(hp.nside2npix(nside))
+    
+    ## add sources
+    for source_coord in coord_list:
+        source_map = generate_point_source(source_coord[0],source_coord[1],nside,convention=convention,pad=False)
+        astro_map += source_map
+    
+    ## normalise to 1
+    astro_map = astro_map/np.sum(astro_map)
+    
+    return astro_map
 
 def skymap_pix2sph(skymap, blmax):
     '''
