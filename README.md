@@ -5,21 +5,18 @@ This is a fully Bayesian Python package for detecting/characterizing stochastic 
 
 1) We recommend creating a dedicated conda environment for BLIP. Conda is a common python virtual environment manager; if you already have Conda, start at step 2; otherwise [install conda.](https://docs.conda.io/projects/conda/en/latest/user-guide/install/)
 
-2) Create an environment. We require Python 3.10 or later:
+2) Create an environment. We require Python 3.10.0:
 
 `conda create --name blip-env python=3.10.0`
 
-3) Use the provided requirements yaml to install the remainder.
 
-`conda env update -n blip-env --file=requirements.yml`
-
-4) Activate it via
+3) Activate it via
 
 `conda activate blip-env`
 
-5) You can now install the package via pip by running
+4) You can now install the package via pip by running
 
-`pip install .`
+`pip install -e .`
 
 in this directory.
 
