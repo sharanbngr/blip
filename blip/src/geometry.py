@@ -809,6 +809,13 @@ class geometry(sph_geometry):
 
         return aet_response_mat     
 
+
+'''
+NOTE TO SELF -- Will need to created optimized versions of the above 3 functions that can compute the unconvolved pixel responses. This is necessary to have dynamic spatial models in the pixel basis.
+                Options for optimization: parallelization, Euler angles, quaternions.
+'''
+
+
 #
 #    def pixel_aet_response(self, f0, tsegmid, skymap_inj):
 #

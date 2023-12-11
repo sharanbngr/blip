@@ -340,6 +340,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 basis = 'pixel'
             else:
                 basis = 'sph'
+            self.basis = basis
             
             ## set lmax for sph case & define responses
             if basis == 'sph':
@@ -485,7 +486,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## compute response matrix
             if basis == 'pixel':
-                response_kwargs['skymap_inj'] = self.skymap
+                response_kwargs['skymap_inj'] = self.skymap/(np.sum(self.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
             self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## process skymap
@@ -495,7 +496,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     self.prior = self.fixedsky_prior
                     self.cov = self.compute_cov_fixed_asgwb
                 elif basis=='pixel':
-                    raise ValueError("Pixel-basis models not yet supported, sorry!")
+#                    self.process_astro_skymap_pixel_model(self.skymap)
+                    self.summ_response_mat = self.response_mat
+                    self.prior = self.fixedsky_prior
+                    self.cov = self.compute_cov_fixed_asgwb
                 else:
                     raise TypeError("Basis was not defined, or was incorrectly defined.")
             else:
@@ -507,10 +511,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     raise TypeError("Basis was not defined, or was incorrectly defined.")
             
             
-            ## compute response matrix
-            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
-            if basis == 'pixel':
-                self.inj_response_mat = self.response_mat
+#            ## compute response matrix
+#            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+#            if basis == 'pixel':
+#                self.inj_response_mat = self.response_mat
 
         elif self.spatial_model_name == 'hierarchical':
             pass
@@ -1112,6 +1116,21 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         return jnp.einsum('ijklm,m', self.response_mat, alms)
     
+    def compute_summed_pixel_response(self,pixelmap):
+        '''
+        Function to compute the integrated, skymap-convolved anisotropic response
+        
+        Arguments
+        ----------
+        pixelmap (healpy array) : the pixel-basis skymap
+        
+        Returns
+        ----------
+        summ_response_mat (array) : the sky-integrated response (3 x 3 x frequency x time)
+        
+        '''
+        return jnp.einsum('ijklm,m', self.response_mat, pixelmap)
+    
     def process_astro_skymap_injection(self,skymap):
         '''
         
@@ -1171,6 +1190,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.response_mat = self.summ_response_mat
         
         return
+    
+#    def process_astro_skymap_pixel_model(self,skymap):
+#        '''
+#        
+#        Function that takes in an astrophysical pixel skymap and:
+#            - convolves with response
+#            - sets sample-time response to be the map-convolved 
+#        
+#        This is intended for use with models that assume a fixed spatial distribution (e.g., fixedgalaxy, hotpixel).
+#            
+#        Arguments
+#        -----------
+#        skymap (healpy array) : pixel-basis astrophysical skymap
+#        
+#        '''
+#        ## transform to blms
+##        self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
+#        ## and then to alms        
+##        self.astro_alms = np.array(self.blm_2_alm(self.astro_blms))
+##        self.astro_alms = self.astro_alms/(self.astro_alms[0] * np.sqrt(4*np.pi))
+##        self.sph_skymap = hp.alm2map(self.astro_alms[0:hp.Alm.getsize(self.almax)],self.params['nside'])
+#        ## get response integrated over the Ylms
+#        self.summ_response_mat = self.compute_summed_pixel_response(skymap)
+#        ## backup the unconvolved response matrix and set the default response to the skymap-convolved one
+#        self.unconvolved_response_mat = self.response_mat
+#        self.response_mat = self.summ_response_mat
+#        
+#        return
     
     def recompute_response(self,f0=None,tsegmid=None):
         '''
@@ -1616,7 +1663,7 @@ class Injection():#geometry,sph_geometry):
         Omega_1mHz = cm.omegaf(1e-3,*spec_args)
         
         if hasattr(cm,"skymap"):
-            Omegamap_pix = Omega_1mHz * cm.skymap/np.sum(cm.skymap)
+            Omegamap_pix = Omega_1mHz * cm.skymap/(np.sum(cm.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
             hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
             hp.graticule()
             

@@ -120,7 +120,13 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                 print("Generating assumed skymap at spectral posterior mean for submodel: {}...".format(submodel_name))
                 skip_median = True
                 post_map_kwargs_i['title'] = 'Assumed sky distribution evaluated at spectral posterior mean of $\\Omega(f= 1mHz) $'
-                norm_map = sm.sph_skymap
+                if sm.basis=='sph':
+                    norm_map = sm.sph_skymap
+                elif sm.basis=='pixel':
+                    norm_map = sm.skymap / (np.sum(sm.skymap)*(hp.nside2pixarea(nside)/(4*np.pi)))
+                else:
+                    raise ValueError("Unknown basis specified; can be sph or pixel.")
+                    
                 for ii in range(post.shape[0]):
                     ## get Omega(f=1mHz)
                     Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:])
@@ -636,7 +642,7 @@ if __name__ == '__main__':
         fitmaker(post, params, parameters, inj, Model, Injection)
     if not args.nomap:
         if 'healpy_proj' in params.keys():
-            mapmaker(post, params, parameters, Model, coord=params['healpy_proj'])
+            mapmaker(post, params, parameters, Model, coord=params['healpy_proj'], cmap=params['colormap'])
         else:
-            mapmaker(post, params, parameters, Model)
+            mapmaker(post, params, parameters, Model, cmap=params['colormap'])
 

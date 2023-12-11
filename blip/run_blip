@@ -822,15 +822,15 @@ def blip(paramsfile='params.ini',resume=False):
     else:
         raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, numpyro, & emcee are supported')
     
-    ## reload the Model and Injection if needed
-    if not resume:
-        plotModel, plotInjection = lisa.Model, lisa.Injection
-    else:
-        with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
-            plotModel = pickle.load(modfile)
-        with open(params['out_dir'] + '/injection.pickle', 'rb') as injfile:
-            plotInjection = pickle.load(injfile)
     
+#    if not resume:
+#        plotModel, plotInjection = lisa.Model, lisa.Injection
+#    else:
+#        with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
+#            plotModel = pickle.load(modfile)
+#        with open(params['out_dir'] + '/injection.pickle', 'rb') as injfile:
+#            plotInjection = pickle.load(injfile)
+#    
     # Save parameters as a pickle
     with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
         pickle.dump(params, outfile)
@@ -838,6 +838,7 @@ def blip(paramsfile='params.ini',resume=False):
         pickle.dump(parameters, outfile)
        
     print("\nMaking posterior Plots ...")
+    ## reload the Model and Injection if needed
     if not resume:
         plotting_Model = lisa.Model
         plotting_Injection = lisa.Injection
@@ -859,11 +860,11 @@ def blip(paramsfile='params.ini',resume=False):
         fitmaker(post_samples, params, parameters, inj, plotting_Model)
 
     ## make a map if there is a map to be made
-    if np.any([plotModel.submodels[sm_name].has_map for sm_name in plotModel.submodel_names]):
+    if np.any([plotting_Model.submodels[sm_name].has_map for sm_name in plotting_Model.submodel_names]):
         if 'healpy_proj' in params.keys():
-            mapmaker(post_samples, params, parameters, plotting_Model,  coord=params['healpy_proj'])
+            mapmaker(post_samples, params, parameters, plotting_Model, coord=params['healpy_proj'], cmap=params['colormap'])
         else:
-            mapmaker(post_samples, params, parameters, plotting_Model)
+            mapmaker(post_samples, params, parameters, plotting_Model, cmap=params['colormap'])
         
     
 
