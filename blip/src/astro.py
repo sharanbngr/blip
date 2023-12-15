@@ -50,7 +50,9 @@ class Population():
         self.Sgw = self.PSD * 4
         self.Sgw_true = self.PSD_true * 4
         
-        self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
+        ## also compute the spherical harmonic transform if the injection is using the spherical harmonic basis
+        if self.inj['inj_basis']=='sph':
+            self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
         
     def rebin_PSD(self,fs_new):
         '''
