@@ -493,6 +493,7 @@ def blip(paramsfile='params.ini',resume=False):
         
         ## add injections to the spherical harmonic check if needed
         sph_check = sph_check + [sublist.split('-')[0].split('_')[-1] for sublist in inj['injection'].split('+')]
+        
     
         
     ## pop out to set sph flags
@@ -507,7 +508,9 @@ def blip(paramsfile='params.ini',resume=False):
         ## similarly, set inj sph flag to False if we're doing pixel basis injections
         if inj['inj_basis']=='pixel':
             inj['sph_flag'] = False
-        inj['pop_flag'] = 'population' in sph_check
+        ## set pop flag if spatial and/or spectral injection is a population
+        inj['pop_flag'] = ('population' in sph_check) or ('population' in [sublist.split('-')[0].split('_')[0] for sublist in inj['injection'].split('+')])
+        
         
         if inj['sph_flag']:
             try:

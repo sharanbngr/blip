@@ -56,7 +56,8 @@ def gen_suffixes(names):
                  'isgwb':{'abbrv':'I','count':1},
                  'sph':{'abbrv':'A','count':1},
                  'population':{'abbrv':'P','count':1},
-                 'hierarchical':{'abbrv':'H','count':1} }
+                 'hierarchical':{'abbrv':'H','count':1},
+                 'fixedgalaxy':{'abbrv':'G','count':1}}
     
     suffixes = ['  $\mathrm{[' for i in range(len(names))]
     
