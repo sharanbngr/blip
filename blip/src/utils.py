@@ -58,7 +58,7 @@ def gen_suffixes(names):
                  'population':{'abbrv':'P','count':1},
                  'hierarchical':{'abbrv':'H','count':1},
                  'galaxy':{'abbrv':'G','count':1},
-                 'fixedgalaxy':{'abbrv':'FG','count':1}}
+                 'fixedgalaxy':{'abbrv':'G','count':1}} ## having galaxy and fixedgalaxy both map to 'G' is a skosh hacky but solves a later problem and shouldn't cause other issues
     
     suffixes = ['  $\mathrm{[' for i in range(len(names))]
     
