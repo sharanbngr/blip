@@ -605,6 +605,12 @@ class geometry(sph_geometry):
 
 #        npix = hp.nside2npix(self.params['nside'])
         
+        # Area of each pixel in sq.radians
+        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
+        
+        ## ensure skymap normalization
+        skymap_inj = skymap_inj/(np.sum(skymap_inj)*dOmega/(8*np.pi))
+        
         pix_idx = np.flatnonzero(skymap_inj)
         
         skymap_nonzero = skymap_inj[pix_idx]
@@ -623,9 +629,6 @@ class geometry(sph_geometry):
 
         # Take cosine.
         ctheta = np.cos(theta)
-
-        # Area of each pixel in sq.radians
-        dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
 
         # Create 2D array of (x,y,z) unit vectors for every sky direction.
         omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
