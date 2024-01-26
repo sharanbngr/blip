@@ -379,6 +379,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.color = 'mediumorchid'
                 ## generate skymap
                 self.skymap = astro.generate_galactic_foreground(self.injvals['rh'],self.injvals['zh'],self.params['nside'])
+                ## mask to only the first four scale heights
+                mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
+                self.skymap = self.skymap * mask
             elif self.spatial_model_name == 'lmc':
                 ## plotting stuff
                 self.fancyname = "LMC"
@@ -463,6 +466,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.color = 'mediumorchid'
                 ## generate skymap
                 self.skymap = astro.generate_galactic_foreground(rh,zh,self.params['nside'])
+                ## mask to only the first four scale heights
+                mask = self.skymap > (1/np.e**4)*np.max(self.skymap)
+                self.skymap = self.skymap * mask
                 self.fixed_map = True
             elif self.spatial_model_name == 'hotpixel':
                 ## get the fixed values
@@ -486,7 +492,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## compute response matrix
             if basis == 'pixel':
-                response_kwargs['skymap_inj'] = self.skymap/(np.sum(self.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
+                response_kwargs['skymap_inj'] = self.skymap #/(np.sum(self.skymap)*hp.nside2pixarea(self.params['nside']))
             self.response_mat = self.response(f0,tsegmid,**response_kwargs)
             
             ## process skymap

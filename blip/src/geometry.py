@@ -609,11 +609,13 @@ class geometry(sph_geometry):
         dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
         
         ## ensure skymap normalization
-        skymap_inj = skymap_inj/(np.sum(skymap_inj)*dOmega/(8*np.pi))
+#        skymap_inj = skymap_inj/(np.sum(skymap_inj)*dOmega)
         
         pix_idx = np.flatnonzero(skymap_inj)
-        
         skymap_nonzero = skymap_inj[pix_idx]
+        
+        ## ensure skymap normalization
+        skymap_nonzero = skymap_nonzero/(np.sum(skymap_nonzero)*dOmega)
 
 #        inj_map = np.zeros(npix)
                 
@@ -712,24 +714,24 @@ class geometry(sph_geometry):
 
             ## Michelson antenna patterns
             ## Calculate Fplus
-            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
-            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
-            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3)) * skymap_nonzero[None, :]
+            Fplus1 = 0.5*(Fplus_u*gammaU_plus - Fplus_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) 
+            Fplus2 = 0.5*(Fplus_w*gammaW_plus - Fplus_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fplus3 = 0.5*(Fplus_v*gammaV_minus - Fplus_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Calculate Fcross
-            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
-            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3)) * skymap_nonzero[None, :]
-            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3)) * skymap_nonzero[None, :]
+            Fcross1 = 0.5*(Fcross_u*gammaU_plus  - Fcross_v*gammaV_plus)*np.exp(-1j*f0[ii]*(udir + vdir)/np.sqrt(3))
+            Fcross2 = 0.5*(Fcross_w*gammaW_plus  - Fcross_u*gammaU_minus)*np.exp(-1j*f0[ii]*(-udir + vdir)/np.sqrt(3))
+            Fcross3 = 0.5*(Fcross_v*gammaV_minus - Fcross_w*gammaW_minus)*np.exp(1j*f0[ii]*(vdir + wdir)/np.sqrt(3))
 
             ## Detector response summed over polarization and integrated over sky direction
             ## The travel time phases for the which are relevent for the cross-channel are
             ## accounted for in the Fplus and Fcross expressions above.
-            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )
-            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )
-            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )
-            R12[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)
-            R13[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)
-            R23[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)
+            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( ((np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2) * skymap_nonzero[None, :], axis=1 )
+            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( ((np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2) * skymap_nonzero[None, :], axis=1 )
+            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( ((np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2) * skymap_nonzero[None, :], axis=1 )
+            R12[ii, :] = dOmega/(8*np.pi)*np.sum( (np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2) * skymap_nonzero[None, :], axis=1)
+            R13[ii, :] = dOmega/(8*np.pi)*np.sum( (np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3) * skymap_nonzero[None, :], axis=1)
+            R23[ii, :] = dOmega/(8*np.pi)*np.sum( (np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3) * skymap_nonzero[None, :], axis=1)
 
         response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
 
