@@ -327,7 +327,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## create a wrapper b/c isotropic and anisotropic injection responses are different
                 self.inj_response_mat = self.summ_response_mat
         
-        ## Handle all the astrophysical spatial distributions together due to their similarities
+        ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
         elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
@@ -487,6 +487,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.color = 'forestgreen'
                 self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention,pad=True)
                 self.fixed_map = True
+            
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             
@@ -522,10 +523,34 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 #            if basis == 'pixel':
 #                self.inj_response_mat = self.response_mat
 
-        elif self.spatial_model_name == 'hierarchical':
-            pass
+        ## Parameterized astrophysical spatial distributions.
+        ## Distinct from the fixedsky/injection-only models as we need spatial inference infrastructure
+        ## pixel-basis only
+        elif self.spatial_model_name in ['2parametermw']:
+            
+            ## code to enforce pixel basis
+            
+            if self.spatial_model_name == '2parametermw':
+                ## model to infer the Milky Way spatial distribution, using a basic 2-parameter model of the Galaxy
+                ## plotting stuff
+                self.fancyname = "2-Parameter Milky Way"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                self.hasmap = True
+                self.fixedmap = False
+                ## TO DO
+                
+                # code to initialize the grid
+                self.spatial_parameters = [r'$r_\mathrm{h}$',r'$z_\mathrm{h}$']
+                self.prior = ... # will need to adapt the B20 prior from hierarchical.py
+                self.cov = ... # will need to adapt some of the B20 methods in hierarchical.py and handle map masking appropriately
+            else:
+                raise ValueError("Parameterized astrophysical spatial submodel type not found. Did you add a new model to the list at the top of this section?")
+            
+            # code to mask maps and set up the responses
+            
         else:
-            raise ValueError("Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name))
+            raise ValueError("Invalid specification of spatial model name ('{}').".format(self.spatial_model_name))
         
         
         ## store final parameter list and count
