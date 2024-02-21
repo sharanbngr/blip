@@ -728,7 +728,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Sgw (array of floats) : the resulting GW PSD
         
         '''
-        H0 = 2.2*10**(-18)
+        H0 = 2.2*10**(-18) ## Hubble constant, = 67.88 km/s/Mpc
         Omegaf = self.omegaf(fs,*omegaf_args)
         Sgw = Omegaf*(3/(4*fs**3))*(H0/jnp.pi)**2
         return Sgw
@@ -1167,7 +1167,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Sgw = self.compute_Sgw(self.fs,theta[:self.spatial_start])
         
         ## get skymap and integrate over alms
-        summ_response_mat = self.compute_summed_pixel_response(self.mask_and_norm_pixel_skymap(self.compute_skymap(theta[self.spatial_start:])))
+        summ_response_mat = self.compute_summed_pixel_response(self.mask_and_norm_pixel_skymap(self.compute_skymap(*theta[self.spatial_start:])))
 
         ## The noise spectrum of the GW signal. Written down here as a full
         ## covariance matrix axross all the channels.
@@ -1301,7 +1301,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         skymap (healpy array) : pixel-basis astrophysical skymap
         
         '''
-        masked_map = skymap*self.mask
+        masked_map = skymap[self.mask_idx]
         
         return masked_map/(np.sum(masked_map)*self.dOmega)
     

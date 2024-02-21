@@ -412,7 +412,7 @@ class Galaxy_Model():
     '''
     Class to support parameterized inference of the Galactic white dwarf binary spatial distribution.
     '''
-    def init(self,nside,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8,max_rh=4,max_zh=2):
+    def __init__(self,nside,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8,max_rh=4,max_zh=2):
         '''
         Function to initialize a grid on which to generate simple parameterized density models of the galactic DWD distribution.
         
@@ -431,7 +431,7 @@ class Galaxy_Model():
         '''
         self.nside = nside
         ## for binning
-        self.minlength = hp.nside2npix(self.nside)
+        self.length = hp.nside2npix(self.nside)
         ## create grid *in cartesian coordinates*
         ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
         ## set to 4x max default radial/vertical scale height, respectively (corresponds to "edge" density ~1/10 of central density)
@@ -497,7 +497,7 @@ class Galaxy_Model():
         ## use stored grid to convert density to power and filter nearby resolved DWDs
         unresolved_powers = summed_density*self.dist_adj
         ## Bin
-        skymap_galactic = jnp.bincount(self.pixels,weights=unresolved_powers.flatten(),minlength=self.minlength)
+        skymap_galactic = jnp.bincount(self.pixels,weights=unresolved_powers.flatten(),length=self.length)
         ## Transform into the ecliptic
         skymap = self.rGE.rotate_map_pixel(skymap_galactic)
         

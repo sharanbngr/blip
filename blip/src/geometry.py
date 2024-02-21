@@ -910,12 +910,12 @@ class geometry(sph_geometry):
 
 
         # Initlize arrays for the detector reponse
-        R1 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
-        R2 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
-        R3 = np.zeros((f0.size,  tsegmid.size), dtype='complex')
-        R12 = np.zeros((f0.size, tsegmid.size), dtype='complex')
-        R13 = np.zeros((f0.size, tsegmid.size), dtype='complex')
-        R23 = np.zeros((f0.size, tsegmid.size), dtype='complex')
+        R1 = np.zeros((f0.size,  tsegmid.size, pix_idx.size), dtype='complex')
+        R2 = np.zeros((f0.size,  tsegmid.size, pix_idx.size), dtype='complex')
+        R3 = np.zeros((f0.size,  tsegmid.size, pix_idx.size), dtype='complex')
+        R12 = np.zeros((f0.size, tsegmid.size, pix_idx.size), dtype='complex')
+        R13 = np.zeros((f0.size, tsegmid.size, pix_idx.size), dtype='complex')
+        R23 = np.zeros((f0.size, tsegmid.size, pix_idx.size), dtype='complex')
 
         # Calculate the detector response for each frequency
         for ii in range(0, f0.size):
@@ -990,8 +990,8 @@ class geometry(sph_geometry):
             4D array of covariance matrices for antenna patterns of the three channels, averaged over polarization, across all frequencies, times, and sky directions of interest.
         '''
 
-        mich_response_mat = self.pixel_mich_response(f0, tsegmid, masked_skymap)
-        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None]))**2
+        mich_response_mat = self.unconvolved_pixel_mich_response(f0, tsegmid, masked_skymap)
+        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
 
         return xyz_response_mat
 
@@ -1016,7 +1016,7 @@ class geometry(sph_geometry):
             4D array of covariance matrices for antenna patterns of the three channels, averaged over polarization, across all frequencies, times, and sky directions of interest.
         '''
 
-        xyz_response_mat = self.pixel_xyz_response(f0, tsegmid, masked_skymap)
+        xyz_response_mat = self.unconvolved_pixel_xyz_response(f0, tsegmid, masked_skymap)
 
         ## Upnack xyz matrix to make assembling the aet matrix easier
         RXX, RYY, RZZ = xyz_response_mat[0, 0], xyz_response_mat[1, 1], xyz_response_mat[2, 2]
