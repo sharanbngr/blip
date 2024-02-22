@@ -80,9 +80,11 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
     # handling titles, units
     post_base_kwargs = {'title':'Marginalized posterior skymap of $\\Omega(f= 1mHz)$','unit':"$\\Omega(f= 1mHz)$"}
     med_base_kwargs = {'title':'Median skymap of $\\Omega(f= 1mHz)$','unit':"$\\Omega(f= 1mHz)$"}
-    for kwarg_dict, base_dict in zip([post_map_kwargs,med_map_kwargs],[post_base_kwargs,med_base_kwargs]):
-        kwarg_dict = base_dict | kwarg_dict
     
+    ## join user-set values to the base settings, overriding when specified
+    post_map_kwargs = post_base_kwargs | post_map_kwargs
+    med_map_kwargs = med_base_kwargs | med_map_kwargs
+
     nside = params['nside']
 
     npix = hp.nside2npix(nside)
@@ -99,11 +101,6 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
         ## only make a map if there's a map to make (this is also good life advice)
         if submodel_name in map_models:
             
-            ## no hierarchical support yet
-            if hasattr(sm,"hierarchical") and sm.hierarchical:
-                print("Hierarchical mapmaking not yet supported, sorry!")
-                pass
-            
             ## kwargs
             post_map_kwargs_i = post_map_kwargs
             
@@ -117,6 +114,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             
 
             if hasattr(sm,"fixed_map") and sm.fixed_map:
+                ## for analyses with fixed sky distributions
                 print("Generating assumed skymap at spectral posterior mean for submodel: {}...".format(submodel_name))
                 skip_median = True
                 post_map_kwargs_i['title'] = 'Assumed sky distribution evaluated at spectral posterior mean of $\\Omega(f= 1mHz) $'
@@ -131,7 +129,27 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                     ## get Omega(f=1mHz)
                     Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:])
                     omega_map = omega_map + Omega_1mHz * norm_map
+            
+            elif hasattr(sm,"parameterized_map") and sm.parameterized_map:
+                ## for analyses with explicitly parameterized sky distributions (i.e. parameterized but not the more generic sph. harm. model)
+                print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
+                skip_median = False
+                
+                for ii in range(post.shape[0]):
+                    ## get Omega(f=1mHz)
+                    Omega_1mHz = sm.omegaf(1e-3,*post_i[ii,:sm.spatial_start])
+                    
+                    ## make map from parameterized model
+                    skymap_i = sm.compute_skymap(*post_i[ii,sm.spatial_start:])
+                    
+                    ## mask and norm
+                    prob_map = sm.mask_and_norm_pixel_skymap(skymap_i)
+                    
+                    ## sum on masked pixels
+                    omega_map[sm.mask_idx] = omega_map[sm.mask_idx] + Omega_1mHz * prob_map
+                    
             else:
+                ## sph. harm. analysis
                 print("Computing marginalized posterior skymap for submodel: {}...".format(submodel_name))
                 skip_median = False
                 for ii in range(post.shape[0]):
@@ -181,16 +199,33 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                 # median values of the posteriors
                 med_vals = np.median(post_i, axis=0)
                 
-                # Omega(f=1mHz)
-                Omega_1mHz_median = sm.omegaf(1e-3,*med_vals[:sm.blm_start])
-                ## blms.
-                blms_median = np.append([1], med_vals[sm.blm_start:])
+                if hasattr(sm,"parameterized_map") and sm.parameterized_map:
+                    ## explicitly parameterized spatial analyses
+                    ## get Omega(f=1mHz)
+                    Omega_1mHz_median = sm.omegaf(1e-3,*med_vals[:sm.spatial_start])
+                    
+                    ## make map from parameterized model
+                    skymap_median = sm.compute_skymap(*med_vals[sm.spatial_start:])
+                    
+                    ## instantiate, mask, and norm
+                    ## this ensures the correct pixel ordering is maintained
+                    prob_map_median = np.zeros(npix)
+                    prob_map_median[sm.mask_idx] = sm.mask_and_norm_pixel_skymap(skymap_median)
+                    
+                    Omega_median_map = np.real(Omega_1mHz_median * prob_map_median)
+                else:
+                    ## sph. harm. analysis
+                    
+                    # Omega(f=1mHz)
+                    Omega_1mHz_median = sm.omegaf(1e-3,*med_vals[:sm.blm_start])
+                    ## blms.
+                    blms_median = np.append([1], med_vals[sm.blm_start:])
+                    
+                    blm_median_vals = sm.blm_params_2_blms(blms_median)
                 
-                blm_median_vals = sm.blm_params_2_blms(blms_median)
-            
-                norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
-    
-                Omega_median_map  =  np.real(Omega_1mHz_median * (1.0/norm) * (hp.alm2map(np.array(blm_median_vals), nside))**2)
+                    norm = np.sum(blm_median_vals[0:(sm.lmax + 1)]**2) + np.sum(2*np.abs(blm_median_vals[(sm.lmax + 1):])**2)
+        
+                    Omega_median_map  =  np.real(Omega_1mHz_median * (1.0/norm) * (hp.alm2map(np.array(blm_median_vals), nside))**2)
                 
                 hp.mollview(Omega_median_map, coord=coord, cmap=cmap, **med_map_kwargs)
                 
@@ -331,6 +366,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
             ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
             if hasattr(sm,"blm_start"):
                 post_sm = post_sm[:sm.blm_start]
+            elif hasattr(sm,"spatial_start"):
+                post_sm = post_sm[:sm.spatial_start]
             start_idx += sm.Npar
             ## the spectrum of every sample
             Sgw = sm.compute_Sgw(fs,post_sm)
@@ -420,6 +457,11 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                     post_sm_sph = post_sm[sm.blm_start:]
                     post_sm = post_sm[:sm.blm_start]
                     Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.compute_summed_response(sm.compute_skymap_alms(post_sm_sph))[0,0,filt,:],axis=1)
+                elif hasattr(sm,"spatial_start"):
+                    post_sm_spatial = post_sm[sm.spatial_start:]
+                    post_sm = post_sm[:sm.spatial_start]
+                    Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.compute_summed_pixel_response(sm.mask_and_norm_pixel_skymap(sm.compute_skymap(*post_sm_spatial)))[0,0,filt,:],axis=1)
+#                    Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.compute_summed_response(sm.compute_skymap_alms(post_sm_sph))[0,0,filt,:],axis=1)
                 else:
                     Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.response_mat[0,0,filt,:],axis=1)
                 

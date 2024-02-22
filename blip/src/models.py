@@ -555,8 +555,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.fancyname = "2-Parameter Milky Way"
                 self.subscript = "_{\mathrm{G}}"
                 self.color = 'mediumorchid'
-                self.hasmap = True
-                self.fixedmap = False
+                self.has_map = True
+                self.fixed_map = False
+                self.parameterized_map = True
 
                 ## Initialize the galaxy grid
                 self.galaxy = astro.Galaxy_Model(self.params['nside'])
