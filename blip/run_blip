@@ -608,6 +608,15 @@ def blip(paramsfile='params.ini',resume=False):
             engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])    
         else:
             engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])
+        
+        print('Now sampling from the prior ....')
+
+        priorengine, priorparameters, priormodel = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'], priorrun=True)    
+        prior_samples, priorlogz, priorlogzerr = nessai_engine.run_engine(priorengine,priorparameters,priormodel,params['out_dir']+'/nessai_output/')
+        np.savetxt(params['out_dir'] + "/prior_samples.txt", prior_samples)
+        print('prior samples saved in the storage ....')
+
+
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
