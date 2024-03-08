@@ -179,12 +179,14 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             logger.setLevel(logging.INFO)
             
             if saveto is not None:
-                plt.savefig(saveto + '/{}_post_skymap.png'.format(submodel_name), dpi=150)
-                logger.info('Saving posterior skymap at ' +  saveto + '/{}_post_skymap.png'.format(submodel_name))
-        
+                fig_path_base = (saveto + '/{}_post_skymap'.format(submodel_name)).replace('//','/')
             else:
-                plt.savefig(params['out_dir'] + '/{}_post_skymap.png'.format(submodel_name), dpi=150)
-                logger.info('Saving posterior skymap at ' +  params['out_dir'] + '/{}_post_skymap.png'.format(submodel_name))
+                fig_path_base = (params['out_dir'] + '/{}_post_skymap'.format(submodel_name)).replace('//','/')
+            
+            for ext in ['.png','.pdf']:
+                plt.savefig(fig_path_base+ext, dpi=200)
+                logger.info('Posterior skymap for submodel {} printed as {} file to  {}'.format(submodel_name,ext,fig_path_base+ext))
+            
             plt.close()
             
             
@@ -236,12 +238,13 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
                 logger.setLevel(logging.INFO)
                 
                 if saveto is not None:
-                    plt.savefig(saveto + '/post_median_skymap.png', dpi=150)
-                    logger.info('Saving injected skymap at ' +  saveto + '/post_median_skymap.png')
-            
+                    fig_path_base = (saveto + '/{}_post_median_skymap'.format(submodel_name)).replace('//','/')
                 else:
-                    plt.savefig(params['out_dir'] + '/post_median_skymap.png', dpi=150)
-                    logger.info('Saving injected skymap at ' +  params['out_dir'] + '/post_median_skymap.png')
+                    fig_path_base = (params['out_dir'] + '/{}_post_median_skymap'.format(submodel_name)).replace('//','/')
+                
+                for ext in ['.png','.pdf']:
+                    plt.savefig(fig_path_base+ext, dpi=200)
+                    logger.info('Median posterior skymap for submodel {} printed as {} file to  {}'.format(submodel_name,ext,fig_path_base+ext))
             
                 plt.close()
             
@@ -417,11 +420,17 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         plt.title(astro_kwargs['title'],fontsize=astro_kwargs['title_fontsize'])
         plt.xlabel(astro_kwargs['xlabel'],fontsize=astro_kwargs['xlabel_fontsize'])
         plt.ylabel(astro_kwargs['ylabel'],fontsize=astro_kwargs['ylabel_fontsize'])
+        
+        ## save astrophysical fit
         if saveto is not None:
-            plt.savefig(saveto + '/spectral_fit_astro.png', dpi=astro_kwargs['dpi'])
+            fig_path_base = (saveto + '/spectral_fit_astro').replace('//','/')
         else:
-            plt.savefig(params['out_dir'] + '/spectral_fit_astro.png', dpi=astro_kwargs['dpi'])
-        print("Astrophysical spectral fit plot saved to " + params['out_dir'] + "spectral_fit_astro.png")
+            fig_path_base = (params['out_dir'] + '/spectral_fit_astro').replace('//','/')
+        
+        for ext in ['.png','.pdf']:
+            plt.savefig(fig_path_base+ext, dpi=astro_kwargs['dpi'])
+            print("Astrophysical spectral fit plot printed as " + ext + " file to " + fig_path_base+ext)
+        
         plt.close()
     
     ## plot our recovered convolved spectra if desired
@@ -519,11 +528,17 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         plt.title(det_kwargs['title'],fontsize=det_kwargs['title_fontsize'])
         plt.xlabel(det_kwargs['xlabel'],fontsize=det_kwargs['xlabel_fontsize'])
         plt.ylabel(det_kwargs['ylabel'],fontsize=det_kwargs['ylabel_fontsize'])
+        
+        ## save detector fit
         if saveto is not None:
-            plt.savefig(saveto + '/spectral_fit_detector.png', dpi=det_kwargs['dpi'])
+            fig_path_base = (saveto + '/spectral_fit_detector').replace('//','/')
         else:
-            plt.savefig(params['out_dir'] + '/spectral_fit_detector.png', dpi=det_kwargs['dpi'])
-        print("Detector spectral fit plot saved to " + params['out_dir'] + "spectral_fit_detector.png")
+            fig_path_base = (params['out_dir'] + '/spectral_fit_detector').replace('//','/')
+        
+        for ext in ['.png','.pdf']:
+            plt.savefig(fig_path_base+ext, dpi=det_kwargs['dpi'])
+            print("Detector spectral fit plot printed as " + ext + " file to " + fig_path_base+ext)
+        
         plt.close()
  
     
@@ -649,9 +664,9 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
     
     ## Save posterior
     if saveto is not None:
-        fig_path_base = saveto + 'corners'
+        fig_path_base = (saveto + '/corners').replace('//','/')
     else:
-        fig_path_base = params['out_dir'] + 'corners'
+        fig_path_base = (params['out_dir'] + '/corners').replace('//','/')
     
     for ext in ['.png','.pdf']:
         plt.savefig(fig_path_base+ext, dpi=200, bbox_inches='tight')
