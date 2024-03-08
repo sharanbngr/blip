@@ -702,7 +702,7 @@ def blip(paramsfile='params.ini',resume=False):
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
             t1 = time.time()
-            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,parameters,params['checkpoint_interval'],checkpoint_file)
+            post_samples, logz, logzerr = dynesty_engine.run_engine_with_checkpointing(engine,parameters,params['checkpoint_interval'],checkpoint_file,step=200)
             t2= time.time()
             print("Elapsed time to converge: {} s".format(t2-t1))
         else:

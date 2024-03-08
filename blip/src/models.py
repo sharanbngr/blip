@@ -327,7 +327,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## create a wrapper b/c isotropic and anisotropic injection responses are different
                 self.inj_response_mat = self.summ_response_mat
         
-        ## Handle all the astrophysical spatial distributions together due to their similarities
+        ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
         elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
@@ -487,6 +487,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.color = 'forestgreen'
                 self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention,pad=True)
                 self.fixed_map = True
+            
             else:
                 raise ValueError("Astrophysical submodel type not found. Did you add a new model to the list at the top of this section?")
             
@@ -522,10 +523,71 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 #            if basis == 'pixel':
 #                self.inj_response_mat = self.response_mat
 
-        elif self.spatial_model_name == 'hierarchical':
-            pass
+        ## Parameterized astrophysical spatial distributions.
+        ## Distinct from the fixedsky/injection-only models as we need spatial inference infrastructure
+        ## pixel-basis only
+        elif self.spatial_model_name in ['2parametermw']:
+            
+            ## enforce pixel basis
+            if params["model_basis"] != "pixel":
+                raise ValueError("Parameterized astrophysical spatial submodels are only supported in the pixel basis. (You have set basis={}.)".format(params["model_basis"]))
+            
+            ## calculate pixel area
+            self.dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
+            
+            ## set starting index for spatial model parameters
+            self.spatial_start = len(self.spectral_parameters)
+            
+            ## set response functions
+            if self.params['tdi_lev']=='michelson':
+                self.response = self.unconvolved_pixel_mich_response
+            elif self.params['tdi_lev']=='xyz':
+                self.response = self.unconvolved_pixel_xyz_response
+            elif self.params['tdi_lev']=='aet':
+                self.response = self.unconvolved_pixel_aet_response
+            else:
+                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+            
+            ## 2-parameter Milky Way model
+            if self.spatial_model_name == '2parametermw':
+                ## model to infer the Milky Way spatial distribution, using a basic 2-parameter model of the Galaxy
+                ## plotting stuff
+                self.fancyname = "2-Parameter Milky Way"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                self.has_map = True
+                self.fixed_map = False
+                self.parameterized_map = True
+
+                ## Initialize the galaxy grid
+                self.galaxy = astro.Galaxy_Model(self.params['nside'])
+                self.max_sky_extent = self.galaxy.max_skymap
+                
+                ## Set the parameterized spatial model function
+                self.compute_skymap = self.galaxy.mw_mapmaker_2par
+                
+                ## mask maps to maximum allowed spatial extent
+                self.mask = self.galaxy.max_skymap > (1/np.e**4)*np.max(self.galaxy.max_skymap)
+                self.masked_skymap = self.galaxy.max_skymap * self.mask
+                self.mask_idx = np.flatnonzero(self.mask)
+                
+                ## ensure normalization
+                self.masked_skymap = self.masked_skymap/(np.sum(self.masked_skymap)*self.dOmega)
+                
+                
+                ## set response kwargs
+                response_kwargs['masked_skymap'] = self.masked_skymap
+                
+                self.spatial_parameters = [r'$r_\mathrm{h}$',r'$z_\mathrm{h}$']
+                self.prior = self.mw2parameter_prior
+                self.cov = self.compute_cov_parameterized_asgwb
+            else:
+                raise ValueError("Parameterized astrophysical spatial submodel type not found. Did you add a new model to the list at the top of this section?")
+            
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+            
         else:
-            raise ValueError("Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name))
+            raise ValueError("Invalid specification of spatial model name ('{}').".format(self.spatial_model_name))
         
         
         ## store final parameter list and count
@@ -667,7 +729,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Sgw (array of floats) : the resulting GW PSD
         
         '''
-        H0 = 2.2*10**(-18)
+        H0 = 2.2*10**(-18) ## Hubble constant, = 67.88 km/s/Mpc
         Omegaf = self.omegaf(fs,*omegaf_args)
         Sgw = Omegaf*(3/(4*fs**3))*(H0/jnp.pi)**2
         return Sgw
@@ -788,7 +850,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return spectral_theta+sph_theta
     
-    def hierarchical_prior(self,theta):
+    def mw2parameter_prior(self,theta):
         '''
         Hierarchical anisotropic prior transform. Combines a generic spectral prior function with the hierarchical astrophysical prior.
         
@@ -804,7 +866,14 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         theta   :   float
             theta with each element rescaled for both the spectral and spatial parameters.
         '''
-        pass
+        spectral_theta = self.spectral_prior(theta[:self.spatial_start])
+        
+        rh = 2*theta[self.spatial_start] + 2
+        zh = 1.95*theta[self.spatial_start+1] + 0.05
+        
+        mw_theta = [rh,zh]
+        
+        return spectral_theta+mw_theta
         
         
     def instr_noise_prior(self,theta):
@@ -1082,6 +1151,30 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         return cov_sgwb
     
+    def compute_cov_parameterized_asgwb(self,theta):
+        '''
+        Computes the covariance matrix contribution from a explicitly parameterized (i.e. not a generic spherical harmonic model), pixel-basis anisotropic stochastic GW signal.
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_sgwb (array) : The corresponding 3 x 3 x frequency x time covariance matrix for an anisotropic SGWB submodel.
+        
+        '''
+        ## Signal PSD
+        Sgw = self.compute_Sgw(self.fs,theta[:self.spatial_start])
+        
+        ## get skymap and integrate over alms
+        summ_response_mat = self.compute_summed_pixel_response(self.mask_and_norm_pixel_skymap(self.compute_skymap(*theta[self.spatial_start:])))
+
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
+        
+        return cov_sgwb
     
     ##########################################
     ##   Skymap and Response Calculations   ##
@@ -1124,7 +1217,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     
     def compute_summed_pixel_response(self,pixelmap):
         '''
-        Function to compute the integrated, skymap-convolved anisotropic response
+        Function to compute the integrated, skymap-convolved anisotropic response for an arbitrary skymap in the pixel basis.
         
         Arguments
         ----------
@@ -1135,7 +1228,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         summ_response_mat (array) : the sky-integrated response (3 x 3 x frequency x time)
         
         '''
-        return jnp.einsum('ijklm,m', self.response_mat, pixelmap)
+        return (self.dOmega/(4*jnp.pi))*jnp.einsum('ijklm,m', self.response_mat, pixelmap)
     
     def process_astro_skymap_injection(self,skymap):
         '''
@@ -1196,6 +1289,22 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.response_mat = self.summ_response_mat
         
         return
+    
+    def mask_and_norm_pixel_skymap(self,skymap):
+        '''
+        
+        Function that takes in a modeled astrophysical skymap and:
+            - masks to the pixels where we have computed the response
+            - normalizes the masked map such that the sky integral = 1
+        
+        Arguments
+        -----------
+        skymap (healpy array) : pixel-basis astrophysical skymap
+        
+        '''
+        masked_map = skymap[self.mask_idx]
+        
+        return masked_map/(np.sum(masked_map)*self.dOmega)
     
 #    def process_astro_skymap_pixel_model(self,skymap):
 #        '''
