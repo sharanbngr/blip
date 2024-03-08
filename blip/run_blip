@@ -2,7 +2,7 @@
 
 import pickle
 import numpy as np
-import sys, os,configparser, subprocess
+import sys, os, shutil, configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
@@ -667,6 +667,11 @@ def blip(paramsfile='params.ini',resume=False):
         with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
             pickle.dump(lisa.Model, outfile)
         print("Saved Model to "+params['out_dir']+"/model.pickle")
+        
+        # Also save the config so we can load and use our simulated data if the run fails during sampling
+        with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+            pickle.dump(params, outfile)
+            pickle.dump(inj, outfile)
 
         print("Generating sampling engine...")
     else:
@@ -821,26 +826,18 @@ def blip(paramsfile='params.ini',resume=False):
 
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
-#        np.savetxt(params['out_dir'] + "/logz.txt", logz)
-#        np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
     
     else:
         raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, numpyro, & emcee are supported')
     
-    
-#    if not resume:
-#        plotModel, plotInjection = lisa.Model, lisa.Injection
-#    else:
-#        with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
-#            plotModel = pickle.load(modfile)
-#        with open(params['out_dir'] + '/injection.pickle', 'rb') as injfile:
-#            plotInjection = pickle.load(injfile)
 #    
-    # Save parameters as a pickle
-    with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+    ## Safely re-save the config pickle, now with the model parameters
+    temp_file = params['out_dir'] + '/config.pickle' + ".temp"
+    with open(temp_file, "wb") as outfile:
         pickle.dump(params, outfile)
         pickle.dump(inj, outfile)
         pickle.dump(parameters, outfile)
+    shutil.move(temp_file, params['out_dir'] + '/config.pickle')
        
     print("\nMaking posterior Plots ...")
     ## reload the Model and Injection if needed
