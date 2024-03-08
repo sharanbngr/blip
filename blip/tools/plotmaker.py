@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 from matplotlib.legend_handler import HandlerTuple
+from matplotlib.ticker import ScalarFormatter
 from chainconsumer import ChainConsumer
 import healpy as hp
 from healpy import Alm
@@ -626,14 +627,35 @@ def plotmaker(post, params,parameters, inj, Model, Injection=None,saveto=None):
         label =  all_parameters[ii][:-1] + ' = ' + mean_form + '^{+' + err[0] + '}_{-' + err[1] + '}'+exp_form+'$'
 
         ax.set_title(label, {'fontsize':18}, loc='left')
-
-
+        
+        ## chainconsumer has probably messed up the labels on the sides , so reset them
+        ## only need to do this for the first column and last row
+        if ii in [0,1]:
+            ax_left = axes[ii,0]
+            ax_left.yaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+            ax_left.set_ylabel(all_parameters[ii])
+    
+            ax_bottom = axes[-1,ii]
+            ax_bottom.xaxis.set_major_formatter(ScalarFormatter(useOffset=False))
+            ax_bottom.set_xlabel(all_parameters[ii])
+        
+        ## set the labels identical for all axes
+        axes[ii,0].set_ylabel(all_parameters[ii],fontsize=18)
+        axes[-1,ii].set_xlabel(all_parameters[ii],fontsize=18)
+        
+    ## plot aesthetics
+    fig.align_ylabels()
+    fig.align_xlabels()
+    
     ## Save posterior
     if saveto is not None:
-        plt.savefig(saveto + 'corners.png', dpi=200)
+        fig_path_base = saveto + 'corners'
     else:
-        plt.savefig(params['out_dir'] + 'corners.png', dpi=200)
-    print("Posteriors plots printed in " + params['out_dir'] + "corners.png")
+        fig_path_base = params['out_dir'] + 'corners'
+    
+    for ext in ['.png','.pdf']:
+        plt.savefig(fig_path_base+ext, dpi=200, bbox_inches='tight')
+        print("Posterior corner plot printed as " + ext + " file to " + fig_path_base+ext)
     plt.close()
     
     if not params['load_data']:    
