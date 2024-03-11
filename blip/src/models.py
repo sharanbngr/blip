@@ -55,7 +55,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.inj = inj
         self.armlength = 2.5e9 ## armlength in meters
         self.fs = fs
-        self.f0= f0
+        self.f0 = f0
         self.tsegmid = tsegmid
         self.time_dim = tsegmid.size
         self.name = submodel_name
@@ -1638,6 +1638,9 @@ class Injection():#geometry,sph_geometry):
                     fs = fs_new
         else:
             fs = self.frange
+            ## there is no way to compute the convolved injected spectra once the injected response functions have been flushed
+            ## we have saved them, however, and can either just use the saved frozen spectra or interpolate to a new frequency grid
+            ## WARNING: interpolation will likely result in low fidelity at f < 3e-4 Hz.
             if fs_new is not None:
                 with log_manager(logging.ERROR):
                     PSD_interp = interp1d(fs,np.log10(PSD))
@@ -1712,25 +1715,30 @@ class Injection():#geometry,sph_geometry):
                         PSD = PSD_interp(fs_new)
                         fs = fs_new
             else:
-                PSD = cm.frozen_spectra
+                ## handle wanting to plot at new frequencies (typically the data frequencies)
+                if fs_new is not None:
+                    if component_name == 'noise':
+                        fstar = 3e8/(2*np.pi*cm.armlength)
+                        f0_new = fs_new/(2*fstar)
+                        PSD = cm.instr_noise_spectrum(fs_new,f0_new,Np=10**cm.injvals['log_Np'],Na=10**cm.injvals['log_Na'])
+                    else:
+                        Sgw_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
+                        PSD = cm.compute_Sgw(fs_new,Sgw_args)
+                    
+                    fs = fs_new
+
+                else:
+                    fs = self.frange
+                    PSD = cm.frozen_spectra
+                
                 ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
                 ## generically capture anything that looks like a covariance matrix for future-proofing
                 if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
                     I, J = int(channels[0]) - 1, int(channels[1]) - 1
                     PSD = PSD[I,J,:]
+        
+        filt = (fs>=fmin)*(fs<=fmax)
 
-                ## downsample (or upsample, but why) if desired
-                ## do the interpolation in log-space for better low-f fidelity
-                if fs_new is not None:
-                    with log_manager(logging.ERROR):
-                        PSD_interp = interp1d(self.frange,np.log10(PSD))
-                        PSD = 10**PSD_interp(fs_new)
-                        fs = fs_new
-                else:
-                    fs = self.frange
-        
-        filt = (fs>fmin)*(fs<fmax)
-        
         if legend:
             label = cm.fancyname
             if plt_kwargs is None:

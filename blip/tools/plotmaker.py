@@ -396,7 +396,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                     ## overwrite color if specified in the the high-level kwargs
                     if component_name in astro_kwargs['color_dict'].keys():
                         kwargs['color'] = astro_kwargs['color_dict'][component_name]
-                    Injection.plot_injected_spectra(component_name,fs_new=fs,legend=False,ymins=ymins,**kwargs)
+                    Injection.plot_injected_spectra(component_name,fs_new=None,legend=False,ymins=ymins,**kwargs)
                     if component_name not in Model.submodel_names and component_name not in signal_aliases:
                         model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
 
@@ -503,7 +503,7 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 if component_name == 'noise':
                     Injection.plot_injected_spectra(component_name,channels='22',ymins=ymins,**kwargs)
                 else:
-                    Injection.plot_injected_spectra(component_name,fs_new=fdata,convolved=True,ymins=ymins,**kwargs)
+                    Injection.plot_injected_spectra(component_name,fs_new=None,convolved=True,ymins=ymins,**kwargs)
                     if component_name not in Model.submodel_names and component_name not in signal_aliases:
                         model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
         
