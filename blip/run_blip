@@ -10,9 +10,9 @@ from blip.src.utils import ensure_color_matching
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
-import logging
-from blip.src.utils import log_manager
-from scipy.interpolate import interp1d ## for residue plotting
+#import logging
+#from blip.src.utils import log_manager
+#from scipy.interpolate import interp1d ## for residue plotting
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import time
@@ -49,6 +49,11 @@ class LISA(LISAdata, Model):
             # make sure matching injections/models have matching colors
             if not self.params['load_data']:
                 ensure_color_matching(self.Model,self.Injection)
+        
+        ## if doing an injection, we also need the responses evaluated at the data frequencies for plotting/validation
+        if not self.params['load_data'] and not self.inj['loadInj']:
+            self.generate_inj_fdata_responses()
+            self.compute_inj_fdata_spectra()
         
         # Make some simple diagnostic plots to contrast spectra
         if self.params['load_data']:
@@ -165,6 +170,67 @@ class LISA(LISAdata, Model):
             for jj in range(self.rbar.shape[1]):
                 self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
 
+    def generate_inj_fdata_responses(self):
+        '''
+        A function to generate the response functions for each injection at the simulated data frequencies.
+        
+        This is needed to allow us to accurately plot and compare injected spectra vs. simulated data vs. recovered models.
+        '''
+        ## only do this for gw signals (i.e., not the noise)
+        for cmn in self.Injection.sgwb_component_names:
+            
+            cm = self.Injection.components[cmn]
+            
+            #Charactersitic frequency
+            fstar = 3e8/(2*np.pi*self.armlength)
+            # define f0 = f/2f*
+            f0_data = self.fdata/(2*fstar)
+            fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
+            
+            ## need to convolve response with skymap for sph basis anisotropic signals
+            ## this is done implciitly for pixel-basis injections
+            if cm.has_map and cm.basis == 'sph':
+                summ_fdata_response = np.einsum('ijklm,m', fdata_response, cm.alms_inj)
+                cm.fdata_response_mat = summ_fdata_response
+            else:
+                cm.fdata_response_mat = fdata_response
+        
+        return
+    
+    def compute_inj_fdata_spectra(self):
+        '''
+        A function to compute the injected spectra as evaluated at the simulated data frequencies.
+        
+        This is needed to allow us to accurately plot and compare injected spectra vs. simulated data vs. recovered models.
+        '''
+        for cmn in self.Injection.component_names:
+            
+            cm = self.Injection.components[cmn]
+            
+            #Charactersitic frequency
+            fstar = 3e8/(2*np.pi*self.armlength)
+            # define f0 = f/2f*
+            f0_data = self.fdata/(2*fstar)
+            cm.fdata = self.fdata
+            ## note that for astrophysical signals we take the time-average but keep the full 3x3 correlation matrix
+            if cmn == 'noise':
+                Np, Na = 10**cm.injvals['log_Np'], 10**cm.injvals['log_Na']
+                cm.fdata_noise = cm.instr_noise_spectrum(self.fdata,f0_data, Np, Na)
+            elif cmn == 'population':
+                cm.fdata_spectra = cm.population.Sgw_true
+                cm.fdata_convolved_spectra = np.mean(cm.fdata_spectra[None,None,:,None] * cm.fdata_response_mat,axis=-1)
+            else:
+                spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
+                cm.fdata_spectra = cm.compute_Sgw(self.fdata,spec_args)
+                cm.fdata_convolved_spectra = np.mean(cm.fdata_spectra[None,None,:,None] * cm.fdata_response_mat,axis=-1)
+        
+        return
+                
+            
+        
+                
+            
+    
     def diag_spectra(self):
 
         '''
@@ -181,10 +247,10 @@ class LISA(LISAdata, Model):
         psdfreqs = self.fdata[idx]
 
         #Charactersitic frequency
-        fstar = 3e8/(2*np.pi*self.armlength)
-
-        # define f0 = f/2f*
-        f0 = self.fdata/(2*fstar)
+#        fstar = 3e8/(2*np.pi*self.armlength)
+#
+#        # define f0 = f/2f*
+#        f0 = self.fdata/(2*fstar)
 
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
@@ -194,40 +260,46 @@ class LISA(LISAdata, Model):
         ## Get the noise component
         cmn_noise = self.Injection.components['noise']
         # The last two elements are the position and the acceleration noise levels.
-        Np, Na = 10**cmn_noise.injvals['log_Np'], 10**cmn_noise.injvals['log_Na']
+#        Np, Na = 10**cmn_noise.injvals['log_Np'], 10**cmn_noise.injvals['log_Na']
 
         # Modelled Noise PSD
-        C_noise = cmn_noise.instr_noise_spectrum(cmn_noise.fs,cmn_noise.f0, Np, Na)
+#        C_noise = cmn_noise.instr_noise_spectrum(cmn_noise.fs,cmn_noise.f0, Np, Na)
+        
+        C_noise = cmn_noise.fdata_noise
+
+
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
         
         ## need to generate the population response at the data frequencies
         ## we can't do this earlier because we need the data time array
-        if 'population' in self.Injection.sgwb_component_names:
-            ## just use the analysis response if the lmax are the same (or there is no sph component)
-            if not self.params['sph_flag'] and not self.inj['sph_flag']:
-                ## grab a random isotropic response
-                sm_name = [name for name in self.Model.submodel_names if name!='noise'][0]
-                response_mat = self.Model.submodels[sm_name].response_mat
-                self.Injection.components['population'].inj_response_mat_true = response_mat
-            elif self.params['sph_flag'] and self.inj['sph_flag'] and self.inj['inj_lmax']==self.params['lmax']:
-                ## grab a random anisotropic response
-                sm_name = [name for name in self.Model.submodel_names if (name!='noise' and self.Model.submodels[name].has_map)][0]
-                response_mat = self.Model.submodels[sm_name].response_mat
-                self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', response_mat, self.Injection.components['population'].alms_inj)
-            else:
-                inj_response_mat_true = self.Injection.components['population'].response(f0,self.tsegmid,**self.Injection.components['population'].response_kwargs)
-                if hasattr(self.Injection.components['population'],'has_map') and self.Injection.components['population'].has_map:
-                    self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.Injection.components['population'].alms_inj)
-                else:
-                    self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
+#        if 'population' in self.Injection.sgwb_component_names:
+#            ## just use the analysis response if the lmax are the same (or there is no sph component)
+#            if not self.params['sph_flag'] and not self.inj['sph_flag']:
+#                ## grab a random isotropic response
+#                sm_name = [name for name in self.Model.submodel_names if name!='noise'][0]
+#                response_mat = self.Model.submodels[sm_name].response_mat
+#                self.Injection.components['population'].inj_response_mat_true = response_mat
+#            elif self.params['sph_flag'] and self.inj['sph_flag'] and self.inj['inj_lmax']==self.params['lmax']:
+#                ## grab a random anisotropic response
+#                sm_name = [name for name in self.Model.submodel_names if (name!='noise' and self.Model.submodels[name].has_map)][0]
+#                response_mat = self.Model.submodels[sm_name].response_mat
+#                self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', response_mat, self.Injection.components['population'].alms_inj)
+#            else:
+#                inj_response_mat_true = self.Injection.components['population'].response(f0,self.tsegmid,**self.Injection.components['population'].response_kwargs)
+#                if hasattr(self.Injection.components['population'],'has_map') and self.Injection.components['population'].has_map:
+#                    self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.Injection.components['population'].alms_inj)
+#                else:
+#                    self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
 
         ## compute and save the time-averaged response-convolved spectrum for plotting, etc.
         for cmn in self.Injection.sgwb_component_names:
             cm = self.Injection.components[cmn]
             if hasattr(cm,"ispop") and cm.ispop:
-                Sgw_convolved = np.mean(cm.population.Sgw_true[None,None,:,None] * cm.inj_response_mat_true,axis=-1)
+                Sgw_convolved = cm.fdata_convolved_spectra ## the population spectra needs to be binned at the observed (data) frequencies in any case
+#                fs_pop = cm.population.frange_true
+#                ffilt_pop = (fs_pop>=self.params['fmin'])*(fs_pop<=self.params['fmax'])
             else:
                 Sgw_convolved = np.mean(cm.frozen_spectra[None,None,:,None] * cm.inj_response_mat,axis=-1)
             cm.frozen_convolved_spectra = Sgw_convolved
@@ -235,24 +307,44 @@ class LISA(LISAdata, Model):
         plt.close()
         
         # noise budget plot
+        ffilt = (self.fdata>=self.params['fmin'])*(self.fdata<=self.params['fmax'])
         plt.loglog(psdfreqs, data_PSD1,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.Injection.frange, C_noise[2, 2, :], label='Instrumental Noise ', lw=0.75,color='dimgrey')
+        plt.loglog(self.fdata[ffilt], C_noise[2, 2, :][ffilt], label='Instrumental Noise ', lw=0.75,color='dimgrey')
         
         ymins = []
+        ymeds = []
+        ywmeds = []
+        ydevs = []
+        ylim_flag = False
         for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=None,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
-            ymins.append(S1_gw.min())
-            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=None,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=None,channels='33')
+#            if hasattr(self.Injection.components[component_name],"ispop") and self.Injection.components[component_name].ispop:
+#                fs_new_i = self.Injection.frange
+#            else:
+#                fs_new_i = None
+            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new='data',convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
+            S1_gw_filt = S1_gw[ffilt]
+            log_S1_gw = np.log10(S1_gw_filt[np.nonzero(S1_gw_filt)])
+            log_bin_sizes = np.log10(self.fdata[ffilt][np.nonzero(S1_gw_filt)])[1:] - np.log10(self.fdata[ffilt][np.nonzero(S1_gw_filt)])[:-1]
+            ave_bin_val = (log_S1_gw[1:] + log_S1_gw[:-1])/2
+            weighted_ymed = np.sum(log_bin_sizes*ave_bin_val/np.sum(log_bin_sizes))
+            ymins.append(np.min(log_S1_gw))
+            ymeds.append(np.median(log_S1_gw))
+            ywmeds.append(weighted_ymed)
+            ydevs.append(np.std(log_S1_gw))
+            ylim_flag = True
+            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
         
-        plt.loglog(self.Injection.frange, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
+        plt.loglog(self.fdata[ffilt], S1[ffilt], label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
-        ## avoid plot squishing due to signal spectra with cutoffs, etc.
-        if len(ymins) > 0:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
-        
+        ## set plot limits, with dynamic scaling for the y-axis to handle spectra with cutoffs, etc.
+        if ylim_flag:
+            ylows = [ywmed_i - ydev_i for ywmed_i,ydev_i in zip(ywmeds,ydevs)]
+            ylow_min = np.min(ylows)
+            plt.ylim(bottom=10**(ylow_min-1))
+            ## save for plotting the results with plotmaker
+            self.Injection.plot_ymin = 10**(ylow_min-1)
+
         plt.legend(loc='upper right')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
@@ -262,7 +354,7 @@ class LISA(LISAdata, Model):
         plt.close()
 
 
-        plt.loglog(self.Injection.frange, S3, label='required',color='mediumvioletred')
+        plt.loglog(self.fdata, S3, label='required',color='mediumvioletred')
         plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6,color='slategrey')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
@@ -280,18 +372,13 @@ class LISA(LISAdata, Model):
         plt.close()
 
 
-        ##
-        # COMMENTED OUT THE MEAN RESIDUAL PLOT FOR NOW
-        # AS WE NEED TO COMPARE INJECTION FREQUENCIES TO DATA FREQUENCIES
-        ##
-
         ## lets also plot psd residue.
         ## WARNING: this interpolates the total spectrum to make the comparison, take low-f discrepancies with a grain of salt
-        with log_manager(logging.ERROR):
-            PSD_interp = interp1d(self.Injection.frange,S3)
-            S3_interp = PSD_interp(self.fdata)
+#        with log_manager(logging.ERROR):
+#            PSD_interp = interp1d(self.Injection.frange,S3)
+#            S3_interp = PSD_interp(self.fdata)
         
-        rel_res_mean = (data_PSD3 - S3_interp)/S3_interp
+        rel_res_mean = (data_PSD3 - S3)/S3
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
         plt.xlabel('f in Hz')
@@ -317,7 +404,11 @@ class LISA(LISAdata, Model):
         iymins = []
         for component_name in self.Injection.sgwb_component_names:
             if component_name != 'noise':
-                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=None,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new=None,channels=IJ,imaginary=True)
+#                if hasattr(self.Injection.components[component_name],"ispop") and self.Injection.components[component_name].ispop:
+#                    fs_new_i = self.Injection.frange
+#                else:
+#                    fs_new_i = None
+                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels=IJ,imaginary=True)
                 ymins.append(np.real(Sx_gw).min())
                 iymins.append(np.imag(Sx_gw).min())
                 Sx = Sx + Sx_gw
@@ -326,9 +417,9 @@ class LISA(LISAdata, Model):
 
         plt.subplot(2, 1, 1)
         if len(Sx.shape) == 1:
-            plt.loglog(self.Injection.frange, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.abs(np.real(Sx)), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.Injection.frange, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.mean(np.abs(np.real(Sx)),axis=1), label='Re(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         plt.loglog(psdfreqs, np.abs(np.real(CSDx)) ,label='Re(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')
         plt.ylabel('Power in 1/Hz')
@@ -339,9 +430,9 @@ class LISA(LISAdata, Model):
 
         plt.subplot(2, 1, 2)
         if len(Sx.shape) == 1:
-            plt.loglog(self.Injection.frange, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.abs(np.imag(Sx)), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
         else:
-            plt.loglog(self.Injection.frange, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
+            plt.loglog(self.fdata, np.mean(np.abs(np.imag(Sx)),axis=1), label='Im(Required ' + str(ii+1) + str(jj+1) + ')',color='mediumvioletred')
 
         plt.loglog(psdfreqs, np.abs(np.imag(CSDx)) ,label='Im(CSD' + str(ii+1) + str(jj+1) + ')', alpha=0.6,color='slategrey')
         plt.xlabel('f in Hz')

@@ -282,6 +282,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.subscript = "_{\mathrm{A}}"
             self.color = 'teal'
             self.has_map = True
+            self.basis = 'sph'
             
             # add the blms
             blm_parameters = gen_blm_parameters(self.lmax)
@@ -1591,10 +1592,69 @@ class Injection():#geometry,sph_geometry):
             if cm.has_map:
                 self.plot_skymaps(component_name)
         
+        ## initialize default plotting lower ylim
+        self.plot_ylim = None
+        
         ## update colors as needed
         catch_color_duplicates(self)
     
     
+    
+#    def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
+#        '''
+#        Wrapper to return the frozen injected detector-convolved GW spectra for the desired channels.
+#        
+#        Useful note - these frozen spectra are computed in diag_spectra(), as they are calculated and saved at the analysis frequencies.
+#        
+#        Also note that this is meant for plotting purposes only, and includes interpolation/absolute values that are not desirable in a data generation/analysis environment.
+#        
+#        Arguments
+#        -----------
+#        component_name (str) : the name (key) of the Injection component to use.
+#        fs_new (array) : If desired, frequencies at which to interpolate the convolved PSD
+#        channels (str) : Which channel cross/auto-correlation PSD to plot. Default is '11' auto-correlation, i.e. XX for XYZ, 11 for Michelson, AA for AET.
+#        return_fs (bool) : If True, also returns the frequencies at which the PSD has been evaluated. Default False.
+#        imaginary (bool) : If True, returns the magnitude of the imaginary component. Default False.
+#        
+#        Returns
+#        -----------
+#        PSD (array) : Power spectral density of the specified channels' auto/cross-correlation at the desired frequencies.
+#        fs (array, optional) : The PSD frequencies, if return_fs==True.
+#        
+#        '''
+#        
+#        cm = self.components[component_name]
+#        ## split the channel indicators
+#        c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
+#        
+#        if not imaginary:
+#            PSD = np.abs(np.real(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
+#        else:
+#            PSD = 1j * np.abs(np.imag(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
+#        
+#        ## populations need some finessing due to frequency subtleties                
+#        if hasattr(cm,"ispop") and cm.ispop:
+#            fs = cm.population.frange_true
+#            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
+#                with log_manager(logging.ERROR):
+#                    PSD_interp = interp1d(fs,PSD,bounds_error=False,fill_value=0)
+#                    PSD = PSD_interp(fs_new)
+#                    fs = fs_new
+#        else:
+#            fs = self.frange
+#            ## there is no way to compute the convolved injected spectra once the injected response functions have been flushed
+#            ## we have saved them, however, and can either just use the saved frozen spectra or interpolate to a new frequency grid
+#            ## WARNING: interpolation will likely result in low fidelity at f < 3e-4 Hz.
+#            if fs_new is not None:
+#                with log_manager(logging.ERROR):
+#                    PSD_interp = interp1d(fs,np.log10(PSD))
+#                    PSD = 10**PSD_interp(fs_new)
+#                    fs = fs_new
+#
+#        if return_fs:
+#            return fs, PSD
+#        else:
+#            return PSD
     
     def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
         '''
@@ -1622,26 +1682,37 @@ class Injection():#geometry,sph_geometry):
         cm = self.components[component_name]
         ## split the channel indicators
         c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
-        
-        if not imaginary:
-            PSD = np.abs(np.real(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
-        else:
-            PSD = 1j * np.abs(np.imag(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
-        
-        ## populations need some finessing due to frequency subtleties                
-        if hasattr(cm,"ispop") and cm.ispop:
-            fs = cm.population.frange_true
-            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
-                with log_manager(logging.ERROR):
-                    PSD_interp = interp1d(fs,PSD)
-                    PSD = PSD_interp(fs_new)
-                    fs = fs_new
+            
+        ## simulated data frequencies
+        if fs_new == 'data':
+            fs = cm.fdata
+            PSD_complex = cm.fdata_convolved_spectra[c1_idx,c2_idx,:]
+        ## all other cases start from the original injected frequencies
         else:
             fs = self.frange
-            ## there is no way to compute the convolved injected spectra once the injected response functions have been flushed
-            ## we have saved them, however, and can either just use the saved frozen spectra or interpolate to a new frequency grid
-            ## WARNING: interpolation will likely result in low fidelity at f < 3e-4 Hz.
-            if fs_new is not None:
+            PSD_complex = cm.frozen_convolved_spectra[c1_idx,c2_idx,:]
+        
+        ## handle complex spectra as desired
+        if not imaginary:
+            PSD = np.abs(np.real(PSD_complex))
+        else:
+            PSD = 1j * np.abs(np.imag(PSD_complex))
+        
+        ## estimate spectra at new frequencies -- WARNING: requires interpolation, usually produces low-fidelity results
+        ## only really useful for quick checks and visualization, NOT for analysis purposes!
+        if fs_new is not None and fs_new != 'data':
+        ## populations need some finessing due to frequency subtleties                
+            if hasattr(cm,"ispop") and cm.ispop:
+                fs = cm.population.frange_true
+                if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
+                    with log_manager(logging.ERROR):
+                        PSD_interp = interp1d(fs,PSD,bounds_error=False,fill_value=0)
+                        PSD = PSD_interp(fs_new)
+                        fs = fs_new
+            else:
+                ## there is no way to compute the convolved injected spectra once the injected response functions have been flushed
+                ## we have saved them, however, and can either just use the saved frozen spectra or interpolate to a new frequency grid
+                ## WARNING: interpolation will likely result in low fidelity at f < 3e-4 Hz.
                 with log_manager(logging.ERROR):
                     PSD_interp = interp1d(fs,np.log10(PSD))
                     PSD = 10**PSD_interp(fs_new)
@@ -1650,8 +1721,7 @@ class Injection():#geometry,sph_geometry):
         if return_fs:
             return fs, PSD
         else:
-            return PSD
-        
+            return PSD    
     
     def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,ymins=None,**plt_kwargs):
         '''
@@ -1704,38 +1774,47 @@ class Injection():#geometry,sph_geometry):
                 raise ValueError("Cannot convolve noise spectra with the detector GW response - this is not physical. (Set convolved=False in the function call!)")
             fs, PSD = self.compute_convolved_spectra(component_name,channels=channels,return_fs=True,fs_new=fs_new)
         else:
-            ## special treatment for the population case
-            if hasattr(cm,"ispop") and cm.ispop:
-                PSD = cm.population.Sgw_true
-                fs = cm.population.frange_true
-                if fs_new is not None and not np.array_equal(fs_new,cm.population.frange_true):
-                    ## the interpolator gets grumpy sometimes, but it's not an actual issue hence the logging wrapper
-                    with log_manager(logging.ERROR):
-                        PSD_interp = interp1d(fs,PSD)
-                        PSD = PSD_interp(fs_new)
-                        fs = fs_new
-            else:
-                ## handle wanting to plot at new frequencies (typically the data frequencies)
-                if fs_new is not None:
-                    if component_name == 'noise':
-                        fstar = 3e8/(2*np.pi*cm.armlength)
-                        f0_new = fs_new/(2*fstar)
-                        PSD = cm.instr_noise_spectrum(fs_new,f0_new,Np=10**cm.injvals['log_Np'],Na=10**cm.injvals['log_Na'])
-                    else:
-                        Sgw_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
-                        PSD = cm.compute_Sgw(fs_new,Sgw_args)
-                    
-                    fs = fs_new
-
+            ## handle wanting to plot at new frequencies (typically the data frequencies)
+            ## original injection frequencies
+            if fs_new is None:
+                if hasattr(cm,"ispop") and cm.ispop:
+                    PSD = cm.population.Sgw_true
+                    fs = cm.population.frange_true
                 else:
                     fs = self.frange
                     PSD = cm.frozen_spectra
+            ## data frequencies (self.fdata in the code)
+            elif (type(fs_new) is str) and (fs_new == 'data'):
+                fs = cm.fdata
+                PSD = cm.fdata_spectra
+            ## estimate spectra at new frequencies -- WARNING: requires interpolation, usually produces low-fidelity results
+            ## only really useful for quick checks and visualization, NOT for analysis purposes!
+            else:
+                if component_name == 'noise':
+                    fstar = 3e8/(2*np.pi*cm.armlength)
+                    f0_new = fs_new/(2*fstar)
+                    PSD = cm.instr_noise_spectrum(fs_new,f0_new,Np=10**cm.injvals['log_Np'],Na=10**cm.injvals['log_Na'])
+                ## special treatment for the population case
+                elif hasattr(cm,"ispop") and cm.ispop:
+                    PSD = cm.population.Sgw_true
+                    fs = cm.population.frange_true
+                    if not np.array_equal(fs_new,cm.population.frange_true):
+                        ## the interpolator gets grumpy sometimes, but it's not an actual issue hence the logging wrapper
+                        with log_manager(logging.ERROR):
+                            PSD_interp = interp1d(fs,PSD,bounds_error=False,fill_value=0)
+                            PSD = PSD_interp(fs_new)
+                            fs = fs_new
+                else:
+                    Sgw_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
+                    PSD = cm.compute_Sgw(fs_new,Sgw_args)
                 
-                ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
-                ## generically capture anything that looks like a covariance matrix for future-proofing
-                if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
-                    I, J = int(channels[0]) - 1, int(channels[1]) - 1
-                    PSD = PSD[I,J,:]
+                fs = fs_new
+                
+        ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
+        ## generically capture anything that looks like a covariance matrix for future-proofing
+        if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
+            I, J = int(channels[0]) - 1, int(channels[1]) - 1
+            PSD = PSD[I,J,:]
         
         filt = (fs>=fmin)*(fs<=fmax)
 
@@ -1787,8 +1866,10 @@ class Injection():#geometry,sph_geometry):
         
         if hasattr(cm,"skymap"):
             Omegamap_pix = Omega_1mHz * cm.skymap/(np.sum(cm.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
-            hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
-            hp.graticule()
+            ## tell healpy to shush
+            with log_manager(logging.ERROR):
+                hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.graticule()
             
             plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
             print('Saving injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
@@ -1796,8 +1877,10 @@ class Injection():#geometry,sph_geometry):
         if hasattr(cm,"sph_skymap"):
             ## sph map
             Omegamap_inj = Omega_1mHz * cm.sph_skymap
-            hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
-            hp.graticule()
+            ## tell healpy to shush
+            with log_manager(logging.ERROR):
+                hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.graticule()
             
             plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
             print('Saving injected sph skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')

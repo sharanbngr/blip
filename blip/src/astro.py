@@ -39,13 +39,17 @@ class Population():
         self.PSD= self.pop2spec(pop,self.frange,self.params['dur']*u.s,return_median=False,plot=False)
 
         ## PSD at data frequencies
-        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
-        PSD_spec = self.pop2spec(pop,fs_spec,self.params['dur']*u.s,return_median=False,plot=False)
-        self.PSD_interp = intrp(fs_spec,PSD_spec)
+#        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
+#        PSD_spec = self.pop2spec(pop,fs_spec,self.params['dur']*u.s,return_median=False,plot=False)
+#        self.PSD_interp = intrp(fs_spec,PSD_spec,bounds_error=False,fill_value=0)
         self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
+        self.PSD_true = self.pop2spec(pop,self.fftfreqs,self.params['dur']*u.s,return_median=False,plot=False)[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
         self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
-        self.PSD_true = self.PSD_interp(self.frange_true)
-
+#        self.frange_true = self.fftfreqs
+#        self.PSD_true = self.PSD_interp(self.frange_true)
+        
+        
+        
         ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
         ## additional factor of 2 b/c S_GW = 2 * S_A
         self.Sgw = self.PSD * 4
