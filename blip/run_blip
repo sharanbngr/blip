@@ -10,9 +10,6 @@ from blip.src.utils import ensure_color_matching
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
-#import logging
-#from blip.src.utils import log_manager
-#from scipy.interpolate import interp1d ## for residue plotting
 import matplotlib.pyplot as plt
 from multiprocessing import Pool
 import time
@@ -246,12 +243,6 @@ class LISA(LISAdata, Model):
         idx = np.logical_and(self.fdata >=  self.params['fmin'] , self.fdata <=  self.params['fmax'])
         psdfreqs = self.fdata[idx]
 
-        #Charactersitic frequency
-#        fstar = 3e8/(2*np.pi*self.armlength)
-#
-#        # define f0 = f/2f*
-#        f0 = self.fdata/(2*fstar)
-
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
         # Also convert from doppler-shift spectra to strain spectra
@@ -259,47 +250,16 @@ class LISA(LISAdata, Model):
         
         ## Get the noise component
         cmn_noise = self.Injection.components['noise']
-        # The last two elements are the position and the acceleration noise levels.
-#        Np, Na = 10**cmn_noise.injvals['log_Np'], 10**cmn_noise.injvals['log_Na']
-
-        # Modelled Noise PSD
-#        C_noise = cmn_noise.instr_noise_spectrum(cmn_noise.fs,cmn_noise.f0, Np, Na)
-        
         C_noise = cmn_noise.fdata_noise
-
-
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
-        
-        ## need to generate the population response at the data frequencies
-        ## we can't do this earlier because we need the data time array
-#        if 'population' in self.Injection.sgwb_component_names:
-#            ## just use the analysis response if the lmax are the same (or there is no sph component)
-#            if not self.params['sph_flag'] and not self.inj['sph_flag']:
-#                ## grab a random isotropic response
-#                sm_name = [name for name in self.Model.submodel_names if name!='noise'][0]
-#                response_mat = self.Model.submodels[sm_name].response_mat
-#                self.Injection.components['population'].inj_response_mat_true = response_mat
-#            elif self.params['sph_flag'] and self.inj['sph_flag'] and self.inj['inj_lmax']==self.params['lmax']:
-#                ## grab a random anisotropic response
-#                sm_name = [name for name in self.Model.submodel_names if (name!='noise' and self.Model.submodels[name].has_map)][0]
-#                response_mat = self.Model.submodels[sm_name].response_mat
-#                self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', response_mat, self.Injection.components['population'].alms_inj)
-#            else:
-#                inj_response_mat_true = self.Injection.components['population'].response(f0,self.tsegmid,**self.Injection.components['population'].response_kwargs)
-#                if hasattr(self.Injection.components['population'],'has_map') and self.Injection.components['population'].has_map:
-#                    self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.Injection.components['population'].alms_inj)
-#                else:
-#                    self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
 
         ## compute and save the time-averaged response-convolved spectrum for plotting, etc.
         for cmn in self.Injection.sgwb_component_names:
             cm = self.Injection.components[cmn]
             if hasattr(cm,"ispop") and cm.ispop:
                 Sgw_convolved = cm.fdata_convolved_spectra ## the population spectra needs to be binned at the observed (data) frequencies in any case
-#                fs_pop = cm.population.frange_true
-#                ffilt_pop = (fs_pop>=self.params['fmin'])*(fs_pop<=self.params['fmax'])
             else:
                 Sgw_convolved = np.mean(cm.frozen_spectra[None,None,:,None] * cm.inj_response_mat,axis=-1)
             cm.frozen_convolved_spectra = Sgw_convolved
@@ -317,10 +277,6 @@ class LISA(LISAdata, Model):
         ydevs = []
         ylim_flag = False
         for component_name in self.Injection.sgwb_component_names:
-#            if hasattr(self.Injection.components[component_name],"ispop") and self.Injection.components[component_name].ispop:
-#                fs_new_i = self.Injection.frange
-#            else:
-#                fs_new_i = None
             S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new='data',convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
             S1_gw_filt = S1_gw[ffilt]
             log_S1_gw = np.log10(S1_gw_filt[np.nonzero(S1_gw_filt)])
@@ -372,12 +328,7 @@ class LISA(LISAdata, Model):
         plt.close()
 
 
-        ## lets also plot psd residue.
-        ## WARNING: this interpolates the total spectrum to make the comparison, take low-f discrepancies with a grain of salt
-#        with log_manager(logging.ERROR):
-#            PSD_interp = interp1d(self.Injection.frange,S3)
-#            S3_interp = PSD_interp(self.fdata)
-        
+        ## lets also plot psd residue.        
         rel_res_mean = (data_PSD3 - S3)/S3
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
@@ -404,10 +355,6 @@ class LISA(LISAdata, Model):
         iymins = []
         for component_name in self.Injection.sgwb_component_names:
             if component_name != 'noise':
-#                if hasattr(self.Injection.components[component_name],"ispop") and self.Injection.components[component_name].ispop:
-#                    fs_new_i = self.Injection.frange
-#                else:
-#                    fs_new_i = None
                 Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels=IJ,imaginary=True)
                 ymins.append(np.real(Sx_gw).min())
                 iymins.append(np.imag(Sx_gw).min())

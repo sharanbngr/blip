@@ -339,9 +339,6 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     ## get frequencies
     frange = Model.fs
     ffilt = np.logical_and(frange >= params['fmin'], frange <= params['fmax'])
-#    ffilt = (frange>params['fmin'])*(frange<params['fmax'])
-    ## commenting for testing version
-#    fs = frange[ffilt][::10]
     fs = frange[ffilt]
     fs = fs.reshape(-1,1)
 
@@ -357,6 +354,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     
     model_legend_elements = []
     ymins = []
+    ymeds = []
+    ydevs = []
     ## loop over submodels
     signal_model_names = [sm_name for sm_name in Model.submodel_names if sm_name!='noise']
     if len(signal_model_names) > 0:
@@ -380,8 +379,11 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
             Sgw_median = np.median(Sgw,axis=1)
             Sgw_upper95 = np.quantile(Sgw,0.975,axis=1)
             Sgw_lower95 = np.quantile(Sgw,0.025,axis=1)
-            ymins.append(Sgw_median.min())
-            ymins.append(Sgw_lower95.min())
+            for Sgw_quantile in [Sgw_median,Sgw_lower95]:
+                log_Sgw_i = np.log10(Sgw_quantile[np.nonzero(Sgw_quantile)])
+                ymins.append(np.min(log_Sgw_i))
+                ymeds.append(np.median(log_Sgw_i))
+                ydevs.append(np.std(log_Sgw_i))
             ## plot
             plt.loglog(fs,Sgw_median,color=sm.color)
             plt.fill_between(fs.flatten(),Sgw_lower95,Sgw_upper95,alpha=0.25,color=sm.color)
@@ -396,15 +398,21 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                     ## overwrite color if specified in the the high-level kwargs
                     if component_name in astro_kwargs['color_dict'].keys():
                         kwargs['color'] = astro_kwargs['color_dict'][component_name]
-                    Injection.plot_injected_spectra(component_name,fs_new='data',legend=False,ymins=ymins,**kwargs)
+                    inj_Sgw_i = Injection.plot_injected_spectra(component_name,fs_new='data',return_PSD=True,legend=False,ymins=ymins,**kwargs)
+                    inj_Sgw_filt_i = inj_Sgw_i[ffilt]
+                    log_Sgw_i = np.log10(inj_Sgw_filt_i[np.nonzero(inj_Sgw_filt_i)])
+                    ymins.append(np.min(log_Sgw_i))
+                    ymeds.append(np.median(log_Sgw_i))
+#                    ywmeds.append(weighted_ymed)
+                    ydevs.append(np.std(log_Sgw_i))
                     if component_name not in Model.submodel_names and component_name not in signal_aliases:
                         model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
 
-        ## avoid plot squishing due to signal spectra with cutoffs, etc.
-        if astro_kwargs['ymin'] is None:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
+        ## set plot limits, with dynamic scaling for the y-axis to handle spectra with cutoffs, etc.
+        if astro_kwargs['ymin'] is None:            
+            ylows = [ymed_i - ydev_i for ymed_i,ydev_i in zip(ymeds,ydevs)]
+            ylow_min = np.min(ylows)
+            plt.ylim(bottom=10**(ylow_min-1))
         else:
             plt.ylim(bottom=astro_kwargs['ymin'])
         plt.ylim(top=astro_kwargs['ymax'])
@@ -437,6 +445,9 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     if plot_convolved:
         model_legend_elements = []
         ymins = []
+        ymeds = []
+        ydevs = []
+
         plt.figure(figsize=det_kwargs['figsize'])
 
         start_idx = 0
@@ -482,8 +493,11 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
             Sgw_median = np.median(Sgw,axis=0)
             Sgw_upper95 = np.quantile(Sgw,0.975,axis=0)
             Sgw_lower95 = np.quantile(Sgw,0.025,axis=0)
-            ymins.append(Sgw_median.min())
-            ymins.append(Sgw_lower95.min())
+            for Sgw_quantile in [Sgw_median,Sgw_lower95]:
+                log_Sgw_i = np.log10(Sgw_quantile[np.nonzero(Sgw_quantile)])
+                ymins.append(np.min(log_Sgw_i))
+                ymeds.append(np.median(log_Sgw_i))
+                ydevs.append(np.std(log_Sgw_i))
             ## plot
             plt.loglog(fdata,Sgw_median,color=sm.color)
             plt.fill_between(fdata,Sgw_lower95,Sgw_upper95,alpha=0.25,color=sm.color)
@@ -509,12 +523,16 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         if det_kwargs['ymin'] is None:
-#            if Injection.plot_ylim is not None:
-#                ## do something
-            if len(ymins) > 0:
-                ymin = np.min(ymins)
-                if ymin < 1e-43:
-                    plt.ylim(bottom=1e-43)
+            ylows = [ymed_i - ydev_i for ymed_i,ydev_i in zip(ymeds,ydevs)]
+            ylow_min = np.min(ylows)
+            ## check to see if the diag_spectra() ylim was higher
+            ## and use that ylim if so (helps with wonky lower limits)
+            if (Injection.plot_ymin is not None) and (Injection.plot_ymin > 10**(ylow_min - 1)):
+                ylim_final = Injection.plot_ymin
+            else:
+                ylim_final = 10**(ylow_min)
+            plt.ylim(bottom=ylim_final)
+
         else:
             plt.ylim(bottom=det_kwargs['ymin'])
         plt.ylim(top=det_kwargs['ymax'])
