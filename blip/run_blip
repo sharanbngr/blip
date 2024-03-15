@@ -7,7 +7,7 @@ sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
 from blip.src.utils import ensure_color_matching
-from blip.tools.plotmaker import plotmaker
+from blip.tools.plotmaker import cornermaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
 import matplotlib.pyplot as plt
@@ -907,9 +907,9 @@ def blip(paramsfile='params.ini',resume=False):
                 plotting_Injection = pickle.load(injectionfile)
     
     if not params['load_data']:
-        plotmaker(post_samples, params, parameters, inj, plotting_Model, Injection=plotting_Injection)
+        cornermaker(post_samples, params, parameters, inj, plotting_Model, Injection=plotting_Injection)
     else:
-        plotmaker(post_samples, params, parameters, inj, plotting_Model)
+        cornermaker(post_samples, params, parameters, inj, plotting_Model)
     if plotting_Model.Npar >= 10:
         print("\n")
         print("WARNING: High Model N_parameters detected ({}). Corner plot may be crowded. Try running plotmaker.py and specifying the 'cornersplit' argument via".format(plotting_Model.Npar))
