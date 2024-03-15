@@ -907,9 +907,16 @@ def blip(paramsfile='params.ini',resume=False):
                 plotting_Injection = pickle.load(injectionfile)
     
     if not params['load_data']:
-        plotmaker(post_samples, params, parameters, inj, plotting_Model, plotting_Injection)
+        plotmaker(post_samples, params, parameters, inj, plotting_Model, Injection=plotting_Injection)
     else:
         plotmaker(post_samples, params, parameters, inj, plotting_Model)
+    if plotting_Model.Npar >= 10:
+        print("\n")
+        print("WARNING: High Model N_parameters detected ({}). Corner plot may be crowded. Try running plotmaker.py and specifying the 'cornersplit' argument via".format(plotting_Model.Npar))
+        print("python3 ./blip/tools/plotmaker.py {} --cornersplit type".format(params['out_dir']))
+        print("or")
+        print("python3 ./blip/tools/plotmaker.py {} --cornersplit submodel".format(params['out_dir']))
+        print("\n")
     if not params['load_data']:
         fitmaker(post_samples, params, parameters, inj, plotting_Model, plotting_Injection)
     else:
