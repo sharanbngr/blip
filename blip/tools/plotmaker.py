@@ -1,4 +1,4 @@
-import sys, os
+import sys, os, shutil
 sys.path.append(os.getcwd()) ## this lets python find src
 import numpy as np
 import matplotlib
@@ -17,7 +17,7 @@ import logging
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
 
 
-def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None, post_map_kwargs={}, med_map_kwargs={}):
+def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None, post_map_kwargs={}, med_map_kwargs={}, plot_data_path=None):
     '''
     Function to create skymaps from the anisotropic search posteriors.
     
@@ -33,32 +33,13 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
     cmap (matplolib colormap) : Colormap to use for the skymaps.
     post_map_kwargs (dict) : kwargs to be passed to the marginalized posterior skymap mollview plot.
     med_map_kwargs (dict) : kwargs to be passed to the median posterior skymap mollview plot.
+    plot_data_path (str) : /path/to/plot_data.pickle; where to save the plot data as a pickle file.
+                             Will create the file if it does not exist; otherwise will modify the existing file.
+                             Defaults to params['rundir']/plot_data.pickle
     
     '''
     
-    
-    
-    
-    
-#    sph_models = []
-#    hierarchical_models = []
-#    fixedsky_models = []
-#    
-#    for submodel_name in Model.submodel_names:
-#        
-#        ## spatial type will be the latter part of the name
-#        ## also catch duplicates (with -N appended to them_)
-#        spatial_name = submodel_name.split('_')[-1].split('-')[0]
-#        if spatial_name == 'sph':
-#            sph_models.append(submodel_name)
-#        elif spatial_name == 'hierarchical':
-#            hierarchical_models.append(submodel_name)
-#        elif spatial_name in ['fixedgalaxy','hotpixel']:
-#            fixedsky_models.append(submodel_name)
-#    if (len(sph_models)==0 ) and (len(hierarchical_models)==0) and (len(fixedsky_models)==0):
-#        print("Called mapmaker but none of the recovery models have a non-isotropic spatial model. Skipping...")
-#        return
-    
+    ## check for submodels with associated maps
     map_models = []
     for submodel_name in Model.submodel_names:
         sm = Model.submodels[submodel_name]
@@ -69,6 +50,16 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
         print("Called mapmaker but none of the recovery models have a non-isotropic spatial model. Skipping...")
         return
     
+    ## load or create plot_data dict
+    if plot_data_path is None:
+        plot_data_path = params['rundir']+'/plot_data.pickle'
+    if os.path.exists(plot_data_path):
+        with open(plot_data_path, 'rb') as datafile:
+            plot_data = pickle.load(datafile)
+            plot_data['map_data'] = {}
+    else:
+        plot_data = {'map_data':{}}
+    
     ## handle projection, kwargs
     # setting coord back to E, if parameter isn't specified
     if coord is None:
@@ -78,6 +69,9 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             coord = 'E'
     else:
         coord = ['E',coord]
+    
+    plot_data['map_data']['coord'] = coord
+    
     # handling titles, units
     post_base_kwargs = {'title':'Marginalized posterior skymap of $\\Omega(f= 1mHz)$','unit':"$\\Omega(f= 1mHz)$"}
     med_base_kwargs = {'title':'Median skymap of $\\Omega(f= 1mHz)$','unit':"$\\Omega(f= 1mHz)$"}
@@ -87,10 +81,11 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
     med_map_kwargs = med_base_kwargs | med_map_kwargs
 
     nside = params['nside']
-
+    plot_data['map_data']['nside'] = nside
     npix = hp.nside2npix(nside)
 
-        
+    plot_data['map_data']['maps'] = {}
+    
     start_idx = 0   
     for submodel_name in Model.submodel_names:
         ## grab submodel
@@ -171,6 +166,9 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
             ## normalize and cast to real to stop Healpy from complaining (all imaginary components are already zero)
             omega_map = np.real(omega_map/post.shape[0])
             
+            ## save the map array
+            plot_data['map_data']['maps'][submodel_name+'_marginalized'] = omega_map
+            
             # generating skymap
             hp.mollview(omega_map, coord=coord, cmap=cmap, **post_map_kwargs_i)
             hp.graticule()
@@ -230,6 +228,9 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
         
                     Omega_median_map  =  np.real(Omega_1mHz_median * (1.0/norm) * (hp.alm2map(np.array(blm_median_vals), nside))**2)
                 
+                ## save the map array
+                plot_data['map_data']['maps'][submodel_name+'_median'] = Omega_median_map
+                
                 hp.mollview(Omega_median_map, coord=coord, cmap=cmap, **med_map_kwargs)
                 
                 hp.graticule()
@@ -252,6 +253,16 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
         ## increment start regardless of if we made a map
         start_idx += sm.Npar
     
+    ## save map data
+    if os.path.exists(plot_data_path):
+        ## move to temp file
+        temp_file = plot_data_path + ".temp"
+        with open(temp_file, "wb") as datafile:
+            pickle.dump(plot_data,datafile)
+        shutil.move(temp_file, plot_data_path)
+    else:
+        with open(plot_data_path, 'wb') as datafile:
+            plot_data = pickle.dump(plot_data,datafile)
     
     return
     
