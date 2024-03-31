@@ -379,6 +379,14 @@ def blip(paramsfile='params.ini',resume=False):
     params['lmax'] = int(config.get("params", "lmax"))
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
+
+    params['lnrmax'] = float(config.get("params", "lnrmax"))
+    params['lnrmin'] = float(config.get("params", "lnrmin"))
+    params['sigmamax'] = float(config.get("params", "sigmamax"))
+    params['sigmamin'] = float(config.get("params", "sigmamin"))
+    params['taumax'] = float(config.get("params", "taumax"))
+    params['taumin'] = float(config.get("params", "taumin"))
+
     ## see if we need to initialize the spherical harmonic subroutines
     sph_check = [sublist.split('-')[0].split('_')[-1] for sublist in params['model'].split('+')]
 
@@ -531,6 +539,8 @@ def blip(paramsfile='params.ini',resume=False):
     else:
         print("Resuming a previous analysis. Reloading data and sampler state...")
 
+
+
     if params['sampler'] == 'dynesty':
         # Create engine
         if not resume:
@@ -598,6 +608,15 @@ def blip(paramsfile='params.ini',resume=False):
             engine, parameters, model = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])    
         else:
             engine, parameters, model = nessai_engine.load_engine(params,nlive,nthread,params['seed'],params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'])
+        
+        print('Now sampling from the prior ....')
+
+        priorengine, priorparameters, priormodel = nessai_engine().define_engine(lisa, params, nlive, nthread, params['seed'], params['out_dir']+'/nessai_output/',checkpoint_interval=params['checkpoint_interval'], priorrun=True)    
+        prior_samples, priorlogz, priorlogzerr = nessai_engine.run_engine(priorengine,priorparameters,priormodel,params['out_dir']+'/nessai_output/')
+        np.savetxt(params['out_dir'] + "/prior_samples.txt", prior_samples)
+        print('prior samples saved in the storage ....')
+
+
         ## run sampler
         if params['checkpoint']:
             checkpoint_file = params['out_dir']+'/checkpoint.pickle'
@@ -620,7 +639,6 @@ def blip(paramsfile='params.ini',resume=False):
     
     else:
         raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, & emcee are supported')
-
 
     # Save parameters as a pickle
     with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:

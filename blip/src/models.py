@@ -1,6 +1,7 @@
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
+from scipy.stats import norm
 import healpy as hp
 import logging
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
@@ -135,7 +136,6 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ###################################################
         ###            BUILD NEW MODELS HERE            ###
         ###################################################
-
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
@@ -179,6 +179,15 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.ispop = True
             self.plot_kwargs |= {'ls':'-','lw':0.75,'alpha':0.6}
         
+        elif self.spectral_model_name == 'autoregressive':
+            self.spectral_parameters = self.spectral_parameters + [r'$\ln r$',r'$\tau$', r'$\sigma$']
+            self.spectral_parameters = self.spectral_parameters + ['$n_{' + str(i) + '}$' for i in range(self.fs.size)]
+            self.omegaf = self.autoregressive_spectrum
+            self.fancyname = "Autoregressive Process"+submodel_count
+            if not injection:
+                self.spectral_prior = self.autoregressive_prior
+            else:
+                ValueError("Autoregressive function is inference-only model!")
         else:
             ValueError("Unsupported spectrum type. Check your spelling or add a new spectrum model!")
         
@@ -262,7 +271,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                     self.truevals[param] = val
                 
                 ## get alms
-                self.alms_inj = self.compute_skymap_alms(inj['blms'])
+                self.alms_inj = self.blm_2_alm(np.array(inj['blms']))
                 ## get sph basis skymap
                 self.sph_skymap =  hp.alm2map(self.alms_inj[0:hp.Alm.getsize(self.almax)],self.params['nside'])
                 ## get response integrated over the Ylms
@@ -448,7 +457,57 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         fcut = 10**log_fcut
         fscale = 10**log_fscale
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
+    def powerlaw_spectrum(self,fs,alpha,log_omega0):
+        '''
+        Function to calculate a simple power law spectrum.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        alpha (float)        : slope of the power law
+        log_omega0 (float)   : power law amplitude in units of log dimensionless GW energy density at f_ref
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        
+        '''
+        return 10**(log_omega0)*(fs/self.params['fref'])**alpha
     
+    def autoregressive_spectrum(self,fs, *args):
+        '''
+        Function to calculate a autoregressive process (drawing sampling from cov and mean)
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        tau (float)        : 
+        sigma (float)   : 
+        n (float) : random variables with n ~ N(0,1)
+        alpha (float) :
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting power law spectrum
+        '''
+        lnr = args[0]
+        tau = args[1]
+        sigma = args[2]
+        ns = np.array(args[3:])
+        dlogf = np.zeros(fs.shape)
+        dlogf[1:] = np.log(fs[1:]) - np.log(fs[0:(fs.size - 1)])
+        
+        mean = np.full(fs.size, lnr)
+        try:
+            cov = sigma**2 *(np.exp(-np.abs((np.log(fs)[:, np.newaxis] - np.log(fs)))/tau))
+        except:
+            import pdb; pdb.set_trace()
+        #create A, ns, return Aij*nj+ln r
+        A = np.linalg.cholesky(cov)
+        logP = np.dot(A, ns) + mean
+        #do np.exp cuz inside the bracket is ln Omega_gw(f)
+        return np.exp(logP)
+	
+
     def compute_Sgw(self,fs,omegaf_args):
         '''
         Wrapper function to generically calculate the associated stochastic gravitational wave PSD (S_gw)
@@ -677,10 +736,54 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha, log_omega0, log_fcut, log_fscale]
     
-    
-    
-    
-    
+    def autoregressive_prior(self, theta):
+
+
+        '''
+        Prior function for an isotropic stochastic backgound analysis.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, tau, sigma, and random variable n_i (len = N)
+            (N+3 variables in total)
+
+        '''
+     
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+
+
+        
+        # theta[0] = (10*theta[0]-20) ## for lnr
+        # theta[1] = (2*np.log(self.params['fmax']/self.params['fmin'])*theta[1]+0.5*np.log(1+(1/self.params['seglen'])/self.params['fmax'])) ## for tau
+        # theta[2]  = (10*theta[2] +0.01) ## for sigma
+        # theta[3:] = norm.ppf(theta[3:]) # for ns
+
+                
+        theta[0] = (self.params['lnrmax']*theta[0]+self.params['lnrmin']) ## for lnr
+        theta[1] = (self.params['taumax']*np.log(self.params['fmax']/self.params['fmin'])*theta[1]
+        +self.params['taumin']*np.log(1+(1/self.params['seglen'])/self.params['fmax'])) ## for tau
+        theta[2]  = (self.params['sigmamax']*theta[2] +self.params['sigmamin']) ## for sigma
+        theta[3:] = norm.ppf(theta[3:]) # for ns
+        if isinstance(theta, np.ndarray):
+            theta = theta.tolist()
+        elif isinstance(theta, list):
+            theta = theta
+        return theta
+        #ns = ns.transpose()[0]
+        #if isinstance(rr, np.ndarray):
+        #    out = np.concatenate([rr,tau,sigma,ns],axis =0)
+        #else: 
+        #    out = np.concatenate([[rr],[tau],[sigma],[ns]],axis =0)
+        #return out.tolist()    
     
     #############################
     ## Covariance Calculations ##
@@ -725,6 +828,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         '''
         ## Signal PSD
+        
         Sgw = self.compute_Sgw(self.fs,theta)
 
         ## The noise spectrum of the GW signal. Written down here as a full
@@ -972,7 +1076,7 @@ class Model():
         
         return theta
     
-    
+
     def likelihood(self,theta):
         '''
         Unified likelihood function to compare the combined covariance contributions of a generic set of noise/SGWB models to the data.
@@ -1005,8 +1109,8 @@ class Model():
 
 
         loglike = np.real(logL)
-
         return loglike
+    
     
 
 ###################################################

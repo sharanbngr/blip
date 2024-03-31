@@ -601,4 +601,3 @@ if __name__ == '__main__':
             mapmaker(post, params, parameters, Model, coord=params['healpy_proj'])
         else:
             mapmaker(post, params, parameters, Model)
-

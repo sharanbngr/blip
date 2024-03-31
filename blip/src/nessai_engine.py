@@ -8,7 +8,12 @@ import dill
 #import time
 import shutil, os
 import json
+import h5py
+def return_unit(*args,**kwargs):
+    print('Using the unit likelihood ...')
+    return np.log(1)
 
+    
 ## nessai needs a defined Model
 ## we will use this as an adaptor from our existing code structure to what nessai expects
 class nessai_model(Model):
@@ -49,10 +54,11 @@ class nessai_model(Model):
         return log_p
     def log_likelihood(self,x):
         log_l = np.zeros(x.size)
-        theta = self.prior_transform(s2us(x[self.names]).T)
+        theta = s2us(x[self.names]).flatten()
+        theta = self.prior_transform(theta)
         log_l += self.transformed_log_likelihood(theta)
         return log_l
-
+     
 class nessai_engine():
 
     '''
@@ -63,7 +69,7 @@ class nessai_engine():
     
     
     @classmethod
-    def define_engine(cls, lisaobj, params, nlive, nthread, seed, output, checkpoint_interval=None, resume=False):
+    def define_engine(cls, lisaobj, params, nlive, nthread, seed, output, checkpoint_interval=None, resume=False, priorrun=False):
 
         # create multiprocessing pool
         if nthread > 1:
@@ -116,7 +122,7 @@ class nessai_engine():
         if params['nessai_neurons'] is not None:
             if params['nessai_neurons']=='scale_lean':
                 n_neurons = min(2*lisaobj.Model.Npar,32)
-            elif params['nessai_neurons']=='scale_default':
+            elif params['nessai_neurons']=='scwhiale_default':
                 n_neurons = 2*lisaobj.Model.Npar
             elif params['nessai_neurons']=='scale_greedy':
                 n_neurons = lisaobj.Model.Npar + 3*len(lisaobj.Model.parameters['spatial'])
@@ -128,9 +134,14 @@ class nessai_engine():
         
         flow_config = {'model_config':dict(n_neurons=n_neurons)}
         sampler_config['flow_config'] = flow_config
+
         
-        flow_model = nessai_model(lisaobj.Model.parameters['all'],lisaobj.Model.likelihood,lisaobj.Model.prior)
-        
+        if not priorrun:
+            flow_model = nessai_model(lisaobj.Model.parameters['all'],lisaobj.Model.likelihood,lisaobj.Model.prior)
+        else:             
+            print('Requesting samples from the prior ...')
+            flow_model = nessai_model(lisaobj.Model.parameters['all'],return_unit,lisaobj.Model.prior)  
+
         ## config and model in hand, build the engine
         engine = FlowSampler(flow_model,**sampler_config)
         
@@ -179,8 +190,7 @@ class nessai_engine():
         logger = setup_logger(output=output)
         engine.run()
         
-        with open(output+'/result.json', 'r') as file:
-            res = json.load(file)
+        res = h5py.File(output+'/result.hdf5', 'r') 
         ## samples on the n-D unit cube
         unit_samples = [np.array(res['posterior_samples'][name]) for name in parameters['all']]
         post_samples = np.vstack(model.prior_transform(unit_samples)).T
@@ -199,8 +209,7 @@ class nessai_engine():
         logger = setup_logger(output=output)
         engine.run()
         
-        with open(output+'/result.json', 'r') as file:
-            res = json.load(file)
+        res = h5py.File(output+'/result.hdf5', 'r') 
         ## samples on the n-D unit cube
         unit_samples = [np.array(res['posterior_samples'][name]) for name in parameters['all']]
         post_samples = np.vstack(model.prior_transform(unit_samples)).T
