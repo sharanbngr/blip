@@ -128,6 +128,42 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.frozen_spectra = self.instr_noise_spectrum(self.fs,self.f0,Np=10**self.injvals['log_Np'],Na=10**self.injvals['log_Na'])
             
             return
+        
+        elif submodel_name == 'fixednoise':
+            self.spectral_parameters = []
+            self.spatial_parameters = []
+            self.parameters = []
+            self.Npar = 0
+            ## for plotting
+            self.fancyname = "Known Instrumental Noise"
+            self.color = 'dimgrey'
+            self.has_map = False
+            self.fixedspec = True
+            # Figure out which instrumental noise spectra to use
+            if self.params['tdi_lev']=='aet':
+                self.instr_noise_spectrum = self.aet_noise_spectrum
+                if injection:
+                    self.gen_noise_spectrum = self.gen_aet_noise
+            elif self.params['tdi_lev']=='xyz':
+                self.instr_noise_spectrum = self.xyz_noise_spectrum
+                if injection:
+                    self.gen_noise_spectrum = self.gen_xyz_noise
+            elif self.params['tdi_lev']=='michelson':
+                self.instr_noise_spectrum = self.mich_noise_spectrum
+                if injection:
+                    self.gen_noise_spectrum = self.gen_michelson_noise
+            else:
+                raise ValueError("Unknown specification of 'tdi_lev'; can be 'michelson', 'xyz', or 'aet'.")
+            if not injection:
+                ## prior transform
+                self.prior = self.fixed_model_wrapper_prior
+                ## covariance calculation
+                self.cov_fixed = self.compute_cov_noise([self.fixedvals['log_Np'],self.fixedvals['log_Na']])
+                self.cov = self.compute_cov_fixed
+            else:
+                raise ValueError("Fixed submodels are not supported for injections. Use the corresponding unfixed submodel.")
+            
+            return
 
         else:
             self.parameters = []
@@ -206,6 +242,17 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
                 self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.injvals['log_fscale']
                 
+        elif self.spectral_model_name == 'fixedtruncatedpowerlaw':
+            self.fixed_spec = True
+            self.spectral_parameters = self.spectral_parameters
+            self.omegaf = self.fixed_truncated_powerlaw_spectrum
+            self.fancyname = "Fixed Truncated Power Law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.fixed_model_wrapper_prior
+                self.fixed_args = [self.fixedvals['alpha'],self.fixedvals['log_omega0'],self.fixedvals['log_fcut'],self.fixedvals['log_fscale']]
+            else:
+                raise ValueError("Fixed submodels are not supported for injections. Use the corresponding unfixed submodel.")
+        
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
@@ -527,7 +574,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ## Parameterized astrophysical spatial distributions.
         ## Distinct from the fixedsky/injection-only models as we need spatial inference infrastructure
         ## pixel-basis only
-        elif self.spatial_model_name in ['2parametermw']:
+        elif self.spatial_model_name in ['1parametermw','2parametermw']:
             
             ## enforce pixel basis
             if params["model_basis"] != "pixel":
@@ -550,7 +597,41 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
             ## 2-parameter Milky Way model
-            if self.spatial_model_name == '2parametermw':
+            if self.spatial_model_name == '1parametermw':
+                ## model to infer the Milky Way spatial distribution, using a simplified 1-parameter model of the Galaxy
+                ## only infers the vertical scale height z_h
+                ## plotting stuff
+                self.fancyname = "1-Parameter Milky Way"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                self.has_map = True
+                self.fixed_map = False
+                self.parameterized_map = True
+
+                ## Initialize the galaxy grid
+                self.galaxy = astro.Galaxy_Model(self.params['nside'],gal_rad=14,gal_height=6,max_rh=3.5,max_zh=1.5,fix_rh=self.fixedvals['rh'])
+                self.max_sky_extent = self.galaxy.max_skymap
+                
+                ## Set the parameterized spatial model function
+                self.compute_skymap = self.galaxy.mw_mapmaker_1par
+                
+                ## mask maps to maximum allowed spatial extent
+                self.mask = self.galaxy.max_skymap > (1/np.e**4)*np.max(self.galaxy.max_skymap)
+                self.masked_skymap = self.galaxy.max_skymap * self.mask
+                self.mask_idx = np.flatnonzero(self.mask)
+                
+                ## ensure normalization
+                self.masked_skymap = self.masked_skymap/(np.sum(self.masked_skymap)*self.dOmega)
+                
+                
+                ## set response kwargs
+                response_kwargs['masked_skymap'] = self.masked_skymap
+                
+                self.spatial_parameters = [r'$z_\mathrm{h}$']
+                self.prior = self.mw1parameter_prior
+                self.cov = self.compute_cov_parameterized_asgwb
+            
+            elif self.spatial_model_name == '2parametermw':
                 ## model to infer the Milky Way spatial distribution, using a basic 2-parameter model of the Galaxy
                 ## plotting stuff
                 self.fancyname = "2-Parameter Milky Way"
@@ -561,7 +642,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.parameterized_map = True
 
                 ## Initialize the galaxy grid
-                self.galaxy = astro.Galaxy_Model(self.params['nside'])
+                self.galaxy = astro.Galaxy_Model(self.params['nside'],gal_rad=14,gal_height=6,max_rh=3.5,max_zh=1.5)
                 self.max_sky_extent = self.galaxy.max_skymap
                 
                 ## Set the parameterized spatial model function
@@ -582,6 +663,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.spatial_parameters = [r'$r_\mathrm{h}$',r'$z_\mathrm{h}$']
                 self.prior = self.mw2parameter_prior
                 self.cov = self.compute_cov_parameterized_asgwb
+            
             else:
                 raise ValueError("Parameterized astrophysical spatial submodel type not found. Did you add a new model to the list at the top of this section?")
             
@@ -715,6 +797,23 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         fscale = 10**self.fixedvals['log_fscale']
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
     
+    def fixed_truncated_powerlaw_spectrum(self,fs):
+        '''
+        Function to calculate a tanh-truncated power law spectrum with all parameters fixed.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting truncated power law spectrum
+        
+        '''
+        fcut = 10**self.fixedvals['log_fcut']
+        fscale = 10**self.fixedvals['log_fscale']
+        return 0.5 * (10**self.fixedvals['log_omega0'])*(fs/self.params['fref'])**(self.fixedvals['alpha']) * (1+jnp.tanh((fcut-fs)/fscale))
+    
     def compute_Sgw(self,fs,omegaf_args):
         '''
         Wrapper function to generically calculate the associated stochastic gravitational wave PSD (S_gw)
@@ -734,6 +833,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Omegaf = self.omegaf(fs,*omegaf_args)
         Sgw = Omegaf*(3/(4*fs**3))*(H0/jnp.pi)**2
         return Sgw
+    
     
     #############################
     ##          Priors         ##
@@ -851,6 +951,30 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return spectral_theta+sph_theta
     
+    def mw1parameter_prior(self,theta):
+        '''
+        Hierarchical anisotropic prior transform. Combines a generic spectral prior function with the hierarchical astrophysical prior.
+        
+        Arguments
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled for both the spectral and spatial parameters.
+        '''
+        spectral_theta = self.spectral_prior(theta[:self.spatial_start])
+        
+        zh = 1.45*theta[self.spatial_start] + 0.05
+        
+        mw_theta = [zh]
+        
+        return spectral_theta+mw_theta
+    
     def mw2parameter_prior(self,theta):
         '''
         Hierarchical anisotropic prior transform. Combines a generic spectral prior function with the hierarchical astrophysical prior.
@@ -870,7 +994,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         spectral_theta = self.spectral_prior(theta[:self.spatial_start])
         
         rh = 2*theta[self.spatial_start] + 2
-        zh = 1.95*theta[self.spatial_start+1] + 0.05
+        zh = 1.45*theta[self.spatial_start+1] + 0.05
         
         mw_theta = [rh,zh]
         
@@ -1050,7 +1174,26 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha, log_omega0, log_fcut]
     
-    
+    def fixed_model_wrapper_prior(self,theta):
+
+
+        '''
+        Wrapper function to allow fixed "models" to function within Model.prior
+
+        Parameters
+        -----------
+
+        theta   : float
+            Shoudl always be None or [].
+
+        Returns
+        ---------
+
+        theta   :   float
+            empty list
+
+        '''
+        return []
     
     
     #############################
@@ -1176,6 +1319,48 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
         
         return cov_sgwb
+    
+    def compute_cov_fixedspec_parameterized_asgwb(self,theta):
+        '''
+        Computes the covariance matrix contribution from a explicitly parameterized (i.e. not a generic spherical harmonic model), pixel-basis anisotropic stochastic GW signal.
+        
+        Assumes a fixed spectral model. Only compatible with fixedspec spectral models.
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_sgwb (array) : The corresponding 3 x 3 x frequency x time covariance matrix for an anisotropic SGWB submodel.
+        
+        '''
+        ## Signal PSD
+        Sgw = self.fixed_Sgw
+        
+        ## get skymap and integrate over alms
+        summ_response_mat = self.compute_summed_pixel_response(self.mask_and_norm_pixel_skymap(self.compute_skymap(*theta[self.spatial_start:])))
+
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
+        
+        return cov_sgwb
+    
+    def compute_cov_fixed(self,dummy_theta):
+        '''
+        Wrapper to allow for "models" that are fixed a priori.
+        
+        Arguments
+        ----------
+        dummy_theta (NoneType)   :  Should always be None; meant to allow for wrapper to integrate with Model.Likelihood
+        
+        Returns
+        ----------
+        cov_fixed (array) : The precomputed 3 x 3 x frequency x time covariance matrix for the fixed model.
+        
+        '''
+        return self.cov_fixed
     
     ##########################################
     ##   Skymap and Response Calculations   ##
@@ -1442,6 +1627,8 @@ class Model():
             if hasattr(sm,"blm_phase_idx"):
                 for ii in sm.blm_phase_idx:
                     self.blm_phase_idx.append(self.Npar+sm.blm_start+ii)
+#            if sm.Npar==0:
+#                sm.fixed_cov = ... ## add handling for 0-parameter, non-noise models here (both spatial and spectral models fixed)
             self.Npar += sm.Npar
             self.parameters[submodel_name] = sm.parameters
             spectral_parameters += sm.spectral_parameters
@@ -1499,12 +1686,16 @@ class Model():
         start_idx = 0
         for i, sm_name in enumerate(self.submodel_names):
             sm = self.submodels[sm_name]
-            theta_i = theta[start_idx:(start_idx+sm.Npar)]
-            start_idx += sm.Npar
+            if sm.Npar == 0:
+                theta_i = None
+            else:
+                theta_i = theta[start_idx:(start_idx+sm.Npar)]
+                start_idx += sm.Npar
             if i==0:
                 cov_mat = sm.cov(theta_i)
             else:
                 cov_mat = cov_mat + sm.cov(theta_i)
+
 
         ## change axis order to make taking an inverse easier
         cov_mat = jnp.moveaxis(cov_mat, [-2, -1], [0, 1])

@@ -416,7 +416,7 @@ class Galaxy_Model():
     '''
     Class to support parameterized inference of the Galactic white dwarf binary spatial distribution.
     '''
-    def __init__(self,nside,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8,max_rh=4,max_zh=2):
+    def __init__(self,nside,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8,max_rh=4,max_zh=2,fix_rh=None):
         '''
         Function to initialize a grid on which to generate simple parameterized density models of the galactic DWD distribution.
         
@@ -431,6 +431,7 @@ class Galaxy_Model():
             gal_height (float)  :   Max galactic height of the grid in kpc. Grid will be definded on -gal_height <= z <= +gal_height.
             max_rh (float)      :   Maximum prior value of the Galaxy model's radial scale height (rh). Used to create a mask for response function calculations.
             max_zh (float)      :   As max_rh, but for the vertical scale height (zh).
+            fix_rh (float)      :   Value of the radial scale height to fix for the model (if None, rh is treated as a parameter.)
             
         '''
         self.nside = nside
@@ -475,10 +476,47 @@ class Galaxy_Model():
         self.alpha = 1.8
         self.q = 0.5
         
-        ## create skymap with maximum allowed spatial extent (plus some buffer)
-        self.max_skymap = self.mw_mapmaker_2par(max_rh+0.1,max_zh+0.1)
+        ## compute the bulge density (independent of rh,zh)
+        self.bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
+        
+        
+        if fix_rh is not None:
+            self.rh = fix_rh
+            self.disk_density_radial_prefactor = self.rho_c*jnp.exp(-self.r/self.rh)
+            self.max_skymap = self.mw_mapmaker_2par(fix_rh+0.1,max_zh+0.1)
+        else:
+            ## create skymap with maximum allowed spatial extent (plus some buffer)
+            self.max_skymap = self.mw_mapmaker_2par(max_rh+0.1,max_zh+0.1)
     
     
+    def mw_mapmaker_1par(self,zh):
+        '''
+        
+        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
+        zh is the vertical scale height in kpc. 
+        The distribution is azimuthally symmetric in the galactocentric frame.
+        
+        Designed for speed, as it is intended for use during sampling. Relies on pre-computed galaxy grid that is produced as part of Galaxy_Model() initialization.
+        
+        Returns
+        ---------
+        skymap : float
+            Healpy GW power skymap of the Milky Way white dwarf binary distribution.
+        
+        '''
+        ## Calculate density distribution
+        disk_density = self.disk_density_radial_prefactor*jnp.exp(-jnp.abs(self.z)/zh) 
+#        bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
+        summed_density = disk_density + self.bulge_density
+        ## use stored grid to convert density to power and filter nearby resolved DWDs
+        unresolved_powers = summed_density*self.dist_adj
+        ## Bin
+        skymap_galactic = jnp.bincount(self.pixels,weights=unresolved_powers.flatten(),length=self.length)
+        ## Transform into the ecliptic
+        skymap = self.rGE.rotate_map_pixel(skymap_galactic)
+        
+        return skymap
+
     def mw_mapmaker_2par(self,rh,zh):
         '''
         
@@ -496,8 +534,8 @@ class Galaxy_Model():
         '''
         ## Calculate density distribution
         disk_density = self.rho_c*jnp.exp(-self.r/rh)*jnp.exp(-jnp.abs(self.z)/zh) 
-        bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
-        summed_density = disk_density + bulge_density
+#        bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
+        summed_density = disk_density + self.bulge_density
         ## use stored grid to convert density to power and filter nearby resolved DWDs
         unresolved_powers = summed_density*self.dist_adj
         ## Bin
@@ -506,8 +544,6 @@ class Galaxy_Model():
         skymap = self.rGE.rotate_map_pixel(skymap_galactic)
         
         return skymap
-
-
 
         
 def generate_galactic_foreground(rh,zh,nside):
