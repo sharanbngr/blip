@@ -704,6 +704,9 @@ def blip(paramsfile='params.ini',resume=False):
                 pickle.dump(lisa.Injection, outfile)
             print("Saved Injection to "+params['out_dir']+"/injection.pickle")
             
+            ## also save the injected skymaps for later use
+            lisa.Injection.extract_and_save_skymap_data()
+            
             ## save generated data
             np.savez_compressed(params['out_dir']+'/simulated_data.npz',timearray=lisa.timearray,h1=lisa.h1,h2=lisa.h2,h3=lisa.h3)
             print("Saved strain time series to "+params['out_dir']+"/simulated_data.npz")

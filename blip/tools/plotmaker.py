@@ -56,7 +56,8 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
     if os.path.exists(plot_data_path):
         with open(plot_data_path, 'rb') as datafile:
             plot_data = pickle.load(datafile)
-            plot_data['map_data'] = {}
+            if 'map_data' not in plot_data.keys():
+                plot_data['map_data'] = {}
     else:
         plot_data = {'map_data':{}}
     
@@ -333,7 +334,8 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     if os.path.exists(plot_data_path):
         with open(plot_data_path, 'rb') as datafile:
             plot_data = pickle.load(datafile)
-            plot_data['fit_data'] = {}
+            if 'fit_data' not in plot_data.keys():
+                plot_data['fit_data'] = {}
     else:
         plot_data = {'fit_data':{}}
     

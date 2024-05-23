@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import healpy as hp
 import logging
+import os, shutil, pickle
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
@@ -2033,7 +2034,7 @@ class Injection():#geometry,sph_geometry):
         else:
             return
         
-    def plot_skymaps(self,component_name,**plt_kwargs):
+    def plot_skymaps(self,component_name,save_figures=True,return_mapdata=False,**plt_kwargs):
         '''
         Function to plot the injected skymaps.
         
@@ -2051,20 +2052,31 @@ class Injection():#geometry,sph_geometry):
         else:  
             raise TypeError('Invalid specification of projection, projection can be E, G, or C')
         
+        if return_mapdata:
+            cm_data = {}
+        
+        
         ## dimensionless energy density at 1 mHz
         spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
         Omega_1mHz = cm.omegaf(1e-3,*spec_args)
         
         if hasattr(cm,"skymap"):
             Omegamap_pix = Omega_1mHz * cm.skymap/(np.sum(cm.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
+            
             ## tell healpy to shush
             with log_manager(logging.ERROR):
                 hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
-            plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
-            print('Saving injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
-            plt.close()
+            if save_figures:
+                plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
+                print('Saving injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
+                plt.close()
+            
+            if return_mapdata:
+                cm_data['Omega_pixelmap'] = Omegamap_pix
+                cm_data['normed_pixelmap'] = cm.skymap/(np.sum(cm.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
+                
         if hasattr(cm,"sph_skymap"):
             ## sph map
             Omegamap_inj = Omega_1mHz * cm.sph_skymap
@@ -2073,12 +2085,50 @@ class Injection():#geometry,sph_geometry):
                 hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
                 hp.graticule()
             
-            plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
-            print('Saving injected sph skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
-            plt.close()
+            if save_figures:
+                plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
+                print('Saving injected sph skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
+                plt.close()
+            
+            if return_mapdata:
+                cm_data['Omega_sphmap'] = Omegamap_inj
+                cm_data['normed_sphmap'] = cm.sph_skymap
+            
+        if return_mapdata:
+            return cm_data
+        else:
+            return
         
-        return
-    
+    def extract_and_save_skymap_data(self,map_data_path=None):
+        ## load or create plot_data dict
+        if map_data_path is None:
+            map_data_path = self.params['out_dir']+'/plot_data.pickle'
+        if os.path.exists(map_data_path):
+            with open(map_data_path, 'rb') as datafile:
+                plot_data = pickle.load(datafile)
+            if 'map_data' not in plot_data.keys():
+                plot_data['map_data'] = {}
+            
+        else:
+            plot_data = {'map_data':{}}
+        
+        plot_data['map_data']['inj_maps'] = {}
+        
+        for cmn in self.component_names:
+            if self.components[cmn].has_map:    
+                plot_data['map_data']['inj_maps'][cmn] = self.plot_skymaps(cmn,save_figures=False,return_mapdata=True)
+        
+        ## save map data
+        if os.path.exists(map_data_path):
+            ## move to temp file
+            temp_file = map_data_path + ".temp"
+            with open(temp_file, "wb") as datafile:
+                pickle.dump(plot_data,datafile)
+            shutil.move(temp_file, map_data_path)
+        else:
+            with open(map_data_path, 'wb') as datafile:
+                plot_data = pickle.dump(plot_data,datafile)
+        print("Data for injected skymaps saved to {}".format(map_data_path))
 
 def gen_blm_parameters(blmax):
     '''
