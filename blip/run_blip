@@ -2,12 +2,12 @@
 
 import pickle
 import numpy as np
-import sys, os,configparser, subprocess
+import sys, os, shutil, configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
 from blip.src.utils import ensure_color_matching
-from blip.tools.plotmaker import plotmaker
+from blip.tools.plotmaker import cornermaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
 import matplotlib.pyplot as plt
@@ -46,6 +46,11 @@ class LISA(LISAdata, Model):
             # make sure matching injections/models have matching colors
             if not self.params['load_data']:
                 ensure_color_matching(self.Model,self.Injection)
+        
+        ## if doing an injection, we also need the responses evaluated at the data frequencies for plotting/validation
+        if not self.params['load_data'] and not self.inj['loadInj']:
+            self.generate_inj_fdata_responses()
+            self.compute_inj_fdata_spectra()
         
         # Make some simple diagnostic plots to contrast spectra
         if self.params['load_data']:
@@ -162,6 +167,67 @@ class LISA(LISAdata, Model):
             for jj in range(self.rbar.shape[1]):
                 self.rmat[ii, jj, :, :] = np.tensordot(np.conj(self.rbar[ii, jj, :]), self.rbar[ii, jj, :], axes=0 )
 
+    def generate_inj_fdata_responses(self):
+        '''
+        A function to generate the response functions for each injection at the simulated data frequencies.
+        
+        This is needed to allow us to accurately plot and compare injected spectra vs. simulated data vs. recovered models.
+        '''
+        ## only do this for gw signals (i.e., not the noise)
+        for cmn in self.Injection.sgwb_component_names:
+            
+            cm = self.Injection.components[cmn]
+            
+            #Charactersitic frequency
+            fstar = 3e8/(2*np.pi*self.armlength)
+            # define f0 = f/2f*
+            f0_data = self.fdata/(2*fstar)
+            fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
+            
+            ## need to convolve response with skymap for sph basis anisotropic signals
+            ## this is done implciitly for pixel-basis injections
+            if cm.has_map and cm.basis == 'sph':
+                summ_fdata_response = np.einsum('ijklm,m', fdata_response, cm.alms_inj)
+                cm.fdata_response_mat = summ_fdata_response
+            else:
+                cm.fdata_response_mat = fdata_response
+        
+        return
+    
+    def compute_inj_fdata_spectra(self):
+        '''
+        A function to compute the injected spectra as evaluated at the simulated data frequencies.
+        
+        This is needed to allow us to accurately plot and compare injected spectra vs. simulated data vs. recovered models.
+        '''
+        for cmn in self.Injection.component_names:
+            
+            cm = self.Injection.components[cmn]
+            
+            #Charactersitic frequency
+            fstar = 3e8/(2*np.pi*self.armlength)
+            # define f0 = f/2f*
+            f0_data = self.fdata/(2*fstar)
+            cm.fdata = self.fdata
+            ## note that for astrophysical signals we take the time-average but keep the full 3x3 correlation matrix
+            if cmn == 'noise':
+                Np, Na = 10**cm.injvals['log_Np'], 10**cm.injvals['log_Na']
+                cm.fdata_noise = cm.instr_noise_spectrum(self.fdata,f0_data, Np, Na)
+            elif cmn == 'population':
+                cm.fdata_spectra = cm.population.Sgw_true
+                cm.fdata_convolved_spectra = np.mean(cm.fdata_spectra[None,None,:,None] * cm.fdata_response_mat,axis=-1)
+            else:
+                spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
+                cm.fdata_spectra = cm.compute_Sgw(self.fdata,spec_args)
+                cm.fdata_convolved_spectra = np.mean(cm.fdata_spectra[None,None,:,None] * cm.fdata_response_mat,axis=-1)
+        
+        return
+                
+            
+        
+                
+            
+    
     def diag_spectra(self):
 
         '''
@@ -177,52 +243,23 @@ class LISA(LISAdata, Model):
         idx = np.logical_and(self.fdata >=  self.params['fmin'] , self.fdata <=  self.params['fmax'])
         psdfreqs = self.fdata[idx]
 
-        #Charactersitic frequency
-        fstar = 3e8/(2*np.pi*self.armlength)
-
-        # define f0 = f/2f*
-        f0 = self.fdata/(2*fstar)
-
         # Get desired frequencies for the PSD
         # We want to normalize PSDs to account for the windowing
         # Also convert from doppler-shift spectra to strain spectra
         data_PSD1,data_PSD2, data_PSD3 = data_PSD1[idx], data_PSD2[idx], data_PSD3[idx]
-
-        # The last two elements are the position and the acceleration noise levels.
-        Np, Na = 10**self.Injection.components['noise'].injvals['log_Np'], 10**self.Injection.components['noise'].injvals['log_Na']
-
-        # Modelled Noise PSD
-        C_noise = self.Injection.components['noise'].instr_noise_spectrum(self.fdata,self.f0, Np, Na)
+        
+        ## Get the noise component
+        cmn_noise = self.Injection.components['noise']
+        C_noise = cmn_noise.fdata_noise
 
         # Extract noise auto-power
         S1, S2, S3 = C_noise[0, 0, :], C_noise[1, 1, :], C_noise[2, 2, :]
-        
-        ## need to generate the population response at the data frequencies
-        ## we can't do this earlier because we need the data time array
-        if 'population' in self.Injection.sgwb_component_names:
-            ## just use the analysis response if the lmax are the same (or there is no sph component)
-            if not self.params['sph_flag'] and not self.inj['sph_flag']:
-                ## grab a random isotropic response
-                sm_name = [name for name in self.Model.submodel_names if name!='noise'][0]
-                response_mat = self.Model.submodels[sm_name].response_mat
-                self.Injection.components['population'].inj_response_mat_true = response_mat
-            elif self.params['sph_flag'] and self.inj['sph_flag'] and self.inj['inj_lmax']==self.params['lmax']:
-                ## grab a random anisotropic response
-                sm_name = [name for name in self.Model.submodel_names if (name!='noise' and self.Model.submodels[name].has_map)][0]
-                response_mat = self.Model.submodels[sm_name].response_mat
-                self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', response_mat, self.Injection.components['population'].alms_inj)
-            else:
-                inj_response_mat_true = self.Injection.components['population'].response(f0,self.tsegmid,**self.Injection.components['population'].response_kwargs)
-                if hasattr(self.Injection.components['population'],'has_map') and self.Injection.components['population'].has_map:
-                    self.Injection.components['population'].inj_response_mat_true = np.einsum('ijklm,m', inj_response_mat_true, self.Injection.components['population'].alms_inj)
-                else:
-                    self.Injection.components['population'].inj_response_mat_true = inj_response_mat_true
 
         ## compute and save the time-averaged response-convolved spectrum for plotting, etc.
         for cmn in self.Injection.sgwb_component_names:
             cm = self.Injection.components[cmn]
             if hasattr(cm,"ispop") and cm.ispop:
-                Sgw_convolved = np.mean(cm.population.Sgw_true[None,None,:,None] * cm.inj_response_mat_true,axis=-1)
+                Sgw_convolved = cm.fdata_convolved_spectra ## the population spectra needs to be binned at the observed (data) frequencies in any case
             else:
                 Sgw_convolved = np.mean(cm.frozen_spectra[None,None,:,None] * cm.inj_response_mat,axis=-1)
             cm.frozen_convolved_spectra = Sgw_convolved
@@ -230,26 +267,40 @@ class LISA(LISAdata, Model):
         plt.close()
         
         # noise budget plot
+        ffilt = (self.fdata>=self.params['fmin'])*(self.fdata<=self.params['fmax'])
         plt.loglog(psdfreqs, data_PSD1,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.fdata, C_noise[2, 2, :], label='Instrumental Noise ', lw=0.75,color='dimgrey')
+        plt.loglog(self.fdata[ffilt], C_noise[2, 2, :][ffilt], label='Instrumental Noise ', lw=0.75,color='dimgrey')
         
         ymins = []
+        ymeds = []
+        ywmeds = []
+        ydevs = []
+        ylim_flag = False
         for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
-            ymins.append(S1_gw.min())
-#            print(component_name)
-#            print(S1_gw[0])
-            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
+            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new='data',convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
+            S1_gw_filt = S1_gw[ffilt]
+            log_S1_gw = np.log10(S1_gw_filt[np.nonzero(S1_gw_filt)])
+            log_bin_sizes = np.log10(self.fdata[ffilt][np.nonzero(S1_gw_filt)])[1:] - np.log10(self.fdata[ffilt][np.nonzero(S1_gw_filt)])[:-1]
+            ave_bin_val = (log_S1_gw[1:] + log_S1_gw[:-1])/2
+            weighted_ymed = np.sum(log_bin_sizes*ave_bin_val/np.sum(log_bin_sizes))
+            ymins.append(np.min(log_S1_gw))
+            ymeds.append(np.median(log_S1_gw))
+            ywmeds.append(weighted_ymed)
+            ydevs.append(np.std(log_S1_gw))
+            ylim_flag = True
+            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels='33')
             S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
         
-        plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
+        plt.loglog(self.fdata[ffilt], S1[ffilt], label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
-        ## avoid plot squishing due to signal spectra with cutoffs, etc.
-        if len(ymins) > 0:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
-        
+        ## set plot limits, with dynamic scaling for the y-axis to handle spectra with cutoffs, etc.
+        if ylim_flag:
+            ylows = [ywmed_i - ydev_i for ywmed_i,ydev_i in zip(ywmeds,ydevs)]
+            ylow_min = np.min(ylows)
+            plt.ylim(bottom=10**(ylow_min-1))
+            ## save for plotting the results with plotmaker
+            self.Injection.plot_ymin = 10**(ylow_min-1)
+
         plt.legend(loc='upper right')
         plt.xlabel('$f$ in Hz')
         plt.ylabel('PSD 1/Hz ')
@@ -266,15 +317,18 @@ class LISA(LISAdata, Model):
         plt.legend()
         plt.grid(linestyle=':',linewidth=0.5 )
         plt.xlim(self.params['fmin'], self.params['fmax'])
-
+        ## avoid plot squishing due to signal spectra with cutoffs, etc.
+        if len(ymins) > 0:
+            ymin = np.min(ymins)
+            if ymin < 1e-43:
+                plt.ylim(bottom=1e-43)
+        
         plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
         plt.close()
 
 
-
-
-        ## lets also plot psd residue.
+        ## lets also plot psd residue.        
         rel_res_mean = (data_PSD3 - S3)/S3
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
@@ -288,7 +342,7 @@ class LISA(LISAdata, Model):
         plt.savefig(self.params['out_dir'] + '/res_psd.png', dpi=200)
         print('Residue spectra plot made in ' + self.params['out_dir'] + '/res_psd.png')
         plt.close()
-        
+#        
         # cross-power diag plots. We will only do 12. IF TDI=XYZ this is S_XY and if TDI=AET
         # this will be S_AE
         
@@ -301,7 +355,7 @@ class LISA(LISAdata, Model):
         iymins = []
         for component_name in self.Injection.sgwb_component_names:
             if component_name != 'noise':
-                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels=IJ,imaginary=True)
+                Sx_gw = self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels=IJ) + self.Injection.compute_convolved_spectra(component_name,fs_new='data',channels=IJ,imaginary=True)
                 ymins.append(np.real(Sx_gw).min())
                 iymins.append(np.imag(Sx_gw).min())
                 Sx = Sx + Sx_gw
@@ -650,6 +704,9 @@ def blip(paramsfile='params.ini',resume=False):
                 pickle.dump(lisa.Injection, outfile)
             print("Saved Injection to "+params['out_dir']+"/injection.pickle")
             
+            ## also save the injected skymaps for later use
+            lisa.Injection.extract_and_save_skymap_data()
+            
             ## save generated data
             np.savez_compressed(params['out_dir']+'/simulated_data.npz',timearray=lisa.timearray,h1=lisa.h1,h2=lisa.h2,h3=lisa.h3)
             print("Saved strain time series to "+params['out_dir']+"/simulated_data.npz")
@@ -667,6 +724,11 @@ def blip(paramsfile='params.ini',resume=False):
         with open(params['out_dir'] + '/model.pickle', 'wb') as outfile:
             pickle.dump(lisa.Model, outfile)
         print("Saved Model to "+params['out_dir']+"/model.pickle")
+        
+        # Also save the config so we can load and use our simulated data if the run fails during sampling
+        with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+            pickle.dump(params, outfile)
+            pickle.dump(inj, outfile)
 
         print("Generating sampling engine...")
     else:
@@ -821,26 +883,18 @@ def blip(paramsfile='params.ini',resume=False):
 
         # Save posteriors to file
         np.savetxt(params['out_dir'] + "/post_samples.txt",post_samples)
-#        np.savetxt(params['out_dir'] + "/logz.txt", logz)
-#        np.savetxt(params['out_dir'] + "/logzerr.txt", logzerr)
     
     else:
         raise TypeError('Unknown sampler model chosen. Only dynesty, nessai, numpyro, & emcee are supported')
     
-    
-#    if not resume:
-#        plotModel, plotInjection = lisa.Model, lisa.Injection
-#    else:
-#        with open(params['out_dir'] + '/model.pickle', 'rb') as modfile:
-#            plotModel = pickle.load(modfile)
-#        with open(params['out_dir'] + '/injection.pickle', 'rb') as injfile:
-#            plotInjection = pickle.load(injfile)
 #    
-    # Save parameters as a pickle
-    with open(params['out_dir'] + '/config.pickle', 'wb') as outfile:
+    ## Safely re-save the config pickle, now with the model parameters
+    temp_file = params['out_dir'] + '/config.pickle' + ".temp"
+    with open(temp_file, "wb") as outfile:
         pickle.dump(params, outfile)
         pickle.dump(inj, outfile)
         pickle.dump(parameters, outfile)
+    shutil.move(temp_file, params['out_dir'] + '/config.pickle')
        
     print("\nMaking posterior Plots ...")
     ## reload the Model and Injection if needed
@@ -856,9 +910,16 @@ def blip(paramsfile='params.ini',resume=False):
                 plotting_Injection = pickle.load(injectionfile)
     
     if not params['load_data']:
-        plotmaker(post_samples, params, parameters, inj, plotting_Model, plotting_Injection)
+        cornermaker(post_samples, params, parameters, inj, plotting_Model, Injection=plotting_Injection)
     else:
-        plotmaker(post_samples, params, parameters, inj, plotting_Model)
+        cornermaker(post_samples, params, parameters, inj, plotting_Model)
+    if plotting_Model.Npar >= 10:
+        print("\n")
+        print("WARNING: High Model N_parameters detected ({}). Corner plot may be crowded. Try running plotmaker.py and specifying the 'cornersplit' argument via".format(plotting_Model.Npar))
+        print("python3 ./blip/tools/plotmaker.py {} --cornersplit type".format(params['out_dir']))
+        print("or")
+        print("python3 ./blip/tools/plotmaker.py {} --cornersplit submodel".format(params['out_dir']))
+        print("\n")
     if not params['load_data']:
         fitmaker(post_samples, params, parameters, inj, plotting_Model, plotting_Injection)
     else:

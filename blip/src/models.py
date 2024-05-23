@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import healpy as hp
 import logging
+import os, shutil, pickle
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
@@ -55,7 +56,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.inj = inj
         self.armlength = 2.5e9 ## armlength in meters
         self.fs = fs
-        self.f0= f0
+        self.f0 = f0
         self.tsegmid = tsegmid
         self.time_dim = tsegmid.size
         self.name = submodel_name
@@ -126,6 +127,42 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10} (Na)$'] = self.injvals['log_Na']
                 ## save the frozen noise spectra
                 self.frozen_spectra = self.instr_noise_spectrum(self.fs,self.f0,Np=10**self.injvals['log_Np'],Na=10**self.injvals['log_Na'])
+            
+            return
+        
+        elif submodel_name == 'fixednoise':
+            self.spectral_parameters = []
+            self.spatial_parameters = []
+            self.parameters = []
+            self.Npar = 0
+            ## for plotting
+            self.fancyname = "Known Instrumental Noise"
+            self.color = 'dimgrey'
+            self.has_map = False
+            self.fixedspec = True
+            # Figure out which instrumental noise spectra to use
+            if self.params['tdi_lev']=='aet':
+                self.instr_noise_spectrum = self.aet_noise_spectrum
+                if injection:
+                    self.gen_noise_spectrum = self.gen_aet_noise
+            elif self.params['tdi_lev']=='xyz':
+                self.instr_noise_spectrum = self.xyz_noise_spectrum
+                if injection:
+                    self.gen_noise_spectrum = self.gen_xyz_noise
+            elif self.params['tdi_lev']=='michelson':
+                self.instr_noise_spectrum = self.mich_noise_spectrum
+                if injection:
+                    self.gen_noise_spectrum = self.gen_michelson_noise
+            else:
+                raise ValueError("Unknown specification of 'tdi_lev'; can be 'michelson', 'xyz', or 'aet'.")
+            if not injection:
+                ## prior transform
+                self.prior = self.fixed_model_wrapper_prior
+                ## covariance calculation
+                self.cov_fixed = self.compute_cov_noise([self.fixedvals['log_Np'],self.fixedvals['log_Na']])
+                self.cov = self.compute_cov_fixed
+            else:
+                raise ValueError("Fixed submodels are not supported for injections. Use the corresponding unfixed submodel.")
             
             return
 
@@ -206,6 +243,17 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
                 self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.injvals['log_fscale']
                 
+        elif self.spectral_model_name == 'fixedtruncatedpowerlaw':
+            self.fixed_spec = True
+            self.spectral_parameters = self.spectral_parameters
+            self.omegaf = self.fixed_truncated_powerlaw_spectrum
+            self.fancyname = "Fixed Truncated Power Law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.fixed_model_wrapper_prior
+                self.fixed_args = [self.fixedvals['alpha'],self.fixedvals['log_omega0'],self.fixedvals['log_fcut'],self.fixedvals['log_fscale']]
+            else:
+                raise ValueError("Fixed submodels are not supported for injections. Use the corresponding unfixed submodel.")
+        
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
@@ -282,6 +330,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.subscript = "_{\mathrm{A}}"
             self.color = 'teal'
             self.has_map = True
+            self.basis = 'sph'
             
             # add the blms
             blm_parameters = gen_blm_parameters(self.lmax)
@@ -526,7 +575,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ## Parameterized astrophysical spatial distributions.
         ## Distinct from the fixedsky/injection-only models as we need spatial inference infrastructure
         ## pixel-basis only
-        elif self.spatial_model_name in ['2parametermw']:
+        elif self.spatial_model_name in ['1parametermw','2parametermw']:
             
             ## enforce pixel basis
             if params["model_basis"] != "pixel":
@@ -549,7 +598,41 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
             ## 2-parameter Milky Way model
-            if self.spatial_model_name == '2parametermw':
+            if self.spatial_model_name == '1parametermw':
+                ## model to infer the Milky Way spatial distribution, using a simplified 1-parameter model of the Galaxy
+                ## only infers the vertical scale height z_h
+                ## plotting stuff
+                self.fancyname = "1-Parameter Milky Way"
+                self.subscript = "_{\mathrm{G}}"
+                self.color = 'mediumorchid'
+                self.has_map = True
+                self.fixed_map = False
+                self.parameterized_map = True
+
+                ## Initialize the galaxy grid
+                self.galaxy = astro.Galaxy_Model(self.params['nside'],gal_rad=14,gal_height=6,max_rh=3.5,max_zh=1.5,fix_rh=self.fixedvals['rh'])
+                self.max_sky_extent = self.galaxy.max_skymap
+                
+                ## Set the parameterized spatial model function
+                self.compute_skymap = self.galaxy.mw_mapmaker_1par
+                
+                ## mask maps to maximum allowed spatial extent
+                self.mask = self.galaxy.max_skymap > (1/np.e**4)*np.max(self.galaxy.max_skymap)
+                self.masked_skymap = self.galaxy.max_skymap * self.mask
+                self.mask_idx = np.flatnonzero(self.mask)
+                
+                ## ensure normalization
+                self.masked_skymap = self.masked_skymap/(np.sum(self.masked_skymap)*self.dOmega)
+                
+                
+                ## set response kwargs
+                response_kwargs['masked_skymap'] = self.masked_skymap
+                
+                self.spatial_parameters = [r'$z_\mathrm{h}$']
+                self.prior = self.mw1parameter_prior
+                self.cov = self.compute_cov_parameterized_asgwb
+            
+            elif self.spatial_model_name == '2parametermw':
                 ## model to infer the Milky Way spatial distribution, using a basic 2-parameter model of the Galaxy
                 ## plotting stuff
                 self.fancyname = "2-Parameter Milky Way"
@@ -560,7 +643,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.parameterized_map = True
 
                 ## Initialize the galaxy grid
-                self.galaxy = astro.Galaxy_Model(self.params['nside'])
+                self.galaxy = astro.Galaxy_Model(self.params['nside'],gal_rad=14,gal_height=6,max_rh=3.5,max_zh=1.5)
                 self.max_sky_extent = self.galaxy.max_skymap
                 
                 ## Set the parameterized spatial model function
@@ -581,6 +664,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.spatial_parameters = [r'$r_\mathrm{h}$',r'$z_\mathrm{h}$']
                 self.prior = self.mw2parameter_prior
                 self.cov = self.compute_cov_parameterized_asgwb
+            
             else:
                 raise ValueError("Parameterized astrophysical spatial submodel type not found. Did you add a new model to the list at the top of this section?")
             
@@ -714,6 +798,23 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         fscale = 10**self.fixedvals['log_fscale']
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
     
+    def fixed_truncated_powerlaw_spectrum(self,fs):
+        '''
+        Function to calculate a tanh-truncated power law spectrum with all parameters fixed.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting truncated power law spectrum
+        
+        '''
+        fcut = 10**self.fixedvals['log_fcut']
+        fscale = 10**self.fixedvals['log_fscale']
+        return 0.5 * (10**self.fixedvals['log_omega0'])*(fs/self.params['fref'])**(self.fixedvals['alpha']) * (1+jnp.tanh((fcut-fs)/fscale))
+    
     def compute_Sgw(self,fs,omegaf_args):
         '''
         Wrapper function to generically calculate the associated stochastic gravitational wave PSD (S_gw)
@@ -733,6 +834,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Omegaf = self.omegaf(fs,*omegaf_args)
         Sgw = Omegaf*(3/(4*fs**3))*(H0/jnp.pi)**2
         return Sgw
+    
     
     #############################
     ##          Priors         ##
@@ -850,6 +952,30 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return spectral_theta+sph_theta
     
+    def mw1parameter_prior(self,theta):
+        '''
+        Hierarchical anisotropic prior transform. Combines a generic spectral prior function with the hierarchical astrophysical prior.
+        
+        Arguments
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled for both the spectral and spatial parameters.
+        '''
+        spectral_theta = self.spectral_prior(theta[:self.spatial_start])
+        
+        zh = 1.45*theta[self.spatial_start] + 0.05
+        
+        mw_theta = [zh]
+        
+        return spectral_theta+mw_theta
+    
     def mw2parameter_prior(self,theta):
         '''
         Hierarchical anisotropic prior transform. Combines a generic spectral prior function with the hierarchical astrophysical prior.
@@ -869,7 +995,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         spectral_theta = self.spectral_prior(theta[:self.spatial_start])
         
         rh = 2*theta[self.spatial_start] + 2
-        zh = 1.95*theta[self.spatial_start+1] + 0.05
+        zh = 1.45*theta[self.spatial_start+1] + 0.05
         
         mw_theta = [rh,zh]
         
@@ -1049,7 +1175,26 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha, log_omega0, log_fcut]
     
-    
+    def fixed_model_wrapper_prior(self,theta):
+
+
+        '''
+        Wrapper function to allow fixed "models" to function within Model.prior
+
+        Parameters
+        -----------
+
+        theta   : float
+            Shoudl always be None or [].
+
+        Returns
+        ---------
+
+        theta   :   float
+            empty list
+
+        '''
+        return []
     
     
     #############################
@@ -1175,6 +1320,48 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
         
         return cov_sgwb
+    
+    def compute_cov_fixedspec_parameterized_asgwb(self,theta):
+        '''
+        Computes the covariance matrix contribution from a explicitly parameterized (i.e. not a generic spherical harmonic model), pixel-basis anisotropic stochastic GW signal.
+        
+        Assumes a fixed spectral model. Only compatible with fixedspec spectral models.
+        
+        Arguments
+        ----------
+        theta (float)   :  A list or numpy array containing samples from a unit cube.
+        
+        Returns
+        ----------
+        cov_sgwb (array) : The corresponding 3 x 3 x frequency x time covariance matrix for an anisotropic SGWB submodel.
+        
+        '''
+        ## Signal PSD
+        Sgw = self.fixed_Sgw
+        
+        ## get skymap and integrate over alms
+        summ_response_mat = self.compute_summed_pixel_response(self.mask_and_norm_pixel_skymap(self.compute_skymap(*theta[self.spatial_start:])))
+
+        ## The noise spectrum of the GW signal. Written down here as a full
+        ## covariance matrix axross all the channels.
+        cov_sgwb = Sgw[None, None, :, None]*summ_response_mat
+        
+        return cov_sgwb
+    
+    def compute_cov_fixed(self,dummy_theta):
+        '''
+        Wrapper to allow for "models" that are fixed a priori.
+        
+        Arguments
+        ----------
+        dummy_theta (NoneType)   :  Should always be None; meant to allow for wrapper to integrate with Model.Likelihood
+        
+        Returns
+        ----------
+        cov_fixed (array) : The precomputed 3 x 3 x frequency x time covariance matrix for the fixed model.
+        
+        '''
+        return self.cov_fixed
     
     ##########################################
     ##   Skymap and Response Calculations   ##
@@ -1441,6 +1628,8 @@ class Model():
             if hasattr(sm,"blm_phase_idx"):
                 for ii in sm.blm_phase_idx:
                     self.blm_phase_idx.append(self.Npar+sm.blm_start+ii)
+#            if sm.Npar==0:
+#                sm.fixed_cov = ... ## add handling for 0-parameter, non-noise models here (both spatial and spectral models fixed)
             self.Npar += sm.Npar
             self.parameters[submodel_name] = sm.parameters
             spectral_parameters += sm.spectral_parameters
@@ -1498,12 +1687,16 @@ class Model():
         start_idx = 0
         for i, sm_name in enumerate(self.submodel_names):
             sm = self.submodels[sm_name]
-            theta_i = theta[start_idx:(start_idx+sm.Npar)]
-            start_idx += sm.Npar
+            if sm.Npar == 0:
+                theta_i = None
+            else:
+                theta_i = theta[start_idx:(start_idx+sm.Npar)]
+                start_idx += sm.Npar
             if i==0:
                 cov_mat = sm.cov(theta_i)
             else:
                 cov_mat = cov_mat + sm.cov(theta_i)
+
 
         ## change axis order to make taking an inverse easier
         cov_mat = jnp.moveaxis(cov_mat, [-2, -1], [0, 1])
@@ -1591,10 +1784,69 @@ class Injection():#geometry,sph_geometry):
             if cm.has_map:
                 self.plot_skymaps(component_name)
         
+        ## initialize default plotting lower ylim
+        self.plot_ylim = None
+        
         ## update colors as needed
         catch_color_duplicates(self)
     
     
+    
+#    def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
+#        '''
+#        Wrapper to return the frozen injected detector-convolved GW spectra for the desired channels.
+#        
+#        Useful note - these frozen spectra are computed in diag_spectra(), as they are calculated and saved at the analysis frequencies.
+#        
+#        Also note that this is meant for plotting purposes only, and includes interpolation/absolute values that are not desirable in a data generation/analysis environment.
+#        
+#        Arguments
+#        -----------
+#        component_name (str) : the name (key) of the Injection component to use.
+#        fs_new (array) : If desired, frequencies at which to interpolate the convolved PSD
+#        channels (str) : Which channel cross/auto-correlation PSD to plot. Default is '11' auto-correlation, i.e. XX for XYZ, 11 for Michelson, AA for AET.
+#        return_fs (bool) : If True, also returns the frequencies at which the PSD has been evaluated. Default False.
+#        imaginary (bool) : If True, returns the magnitude of the imaginary component. Default False.
+#        
+#        Returns
+#        -----------
+#        PSD (array) : Power spectral density of the specified channels' auto/cross-correlation at the desired frequencies.
+#        fs (array, optional) : The PSD frequencies, if return_fs==True.
+#        
+#        '''
+#        
+#        cm = self.components[component_name]
+#        ## split the channel indicators
+#        c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
+#        
+#        if not imaginary:
+#            PSD = np.abs(np.real(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
+#        else:
+#            PSD = 1j * np.abs(np.imag(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
+#        
+#        ## populations need some finessing due to frequency subtleties                
+#        if hasattr(cm,"ispop") and cm.ispop:
+#            fs = cm.population.frange_true
+#            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
+#                with log_manager(logging.ERROR):
+#                    PSD_interp = interp1d(fs,PSD,bounds_error=False,fill_value=0)
+#                    PSD = PSD_interp(fs_new)
+#                    fs = fs_new
+#        else:
+#            fs = self.frange
+#            ## there is no way to compute the convolved injected spectra once the injected response functions have been flushed
+#            ## we have saved them, however, and can either just use the saved frozen spectra or interpolate to a new frequency grid
+#            ## WARNING: interpolation will likely result in low fidelity at f < 3e-4 Hz.
+#            if fs_new is not None:
+#                with log_manager(logging.ERROR):
+#                    PSD_interp = interp1d(fs,np.log10(PSD))
+#                    PSD = 10**PSD_interp(fs_new)
+#                    fs = fs_new
+#
+#        if return_fs:
+#            return fs, PSD
+#        else:
+#            return PSD
     
     def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
         '''
@@ -1622,23 +1874,37 @@ class Injection():#geometry,sph_geometry):
         cm = self.components[component_name]
         ## split the channel indicators
         c1_idx, c2_idx = int(channels[0]) - 1, int(channels[1]) - 1
-        
-        if not imaginary:
-            PSD = np.abs(np.real(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
-        else:
-            PSD = 1j * np.abs(np.imag(cm.frozen_convolved_spectra[c1_idx,c2_idx,:]))
-        
-        ## populations need some finessing due to frequency subtleties                
-        if hasattr(cm,"ispop") and cm.ispop:
-            fs = cm.population.frange_true
-            if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
-                with log_manager(logging.ERROR):
-                    PSD_interp = interp1d(fs,PSD)
-                    PSD = PSD_interp(fs_new)
-                    fs = fs_new
+            
+        ## simulated data frequencies
+        if fs_new == 'data':
+            fs = cm.fdata
+            PSD_complex = cm.fdata_convolved_spectra[c1_idx,c2_idx,:]
+        ## all other cases start from the original injected frequencies
         else:
             fs = self.frange
-            if fs_new is not None:
+            PSD_complex = cm.frozen_convolved_spectra[c1_idx,c2_idx,:]
+        
+        ## handle complex spectra as desired
+        if not imaginary:
+            PSD = np.abs(np.real(PSD_complex))
+        else:
+            PSD = 1j * np.abs(np.imag(PSD_complex))
+        
+        ## estimate spectra at new frequencies -- WARNING: requires interpolation, usually produces low-fidelity results
+        ## only really useful for quick checks and visualization, NOT for analysis purposes!
+        if fs_new is not None and fs_new != 'data':
+        ## populations need some finessing due to frequency subtleties                
+            if hasattr(cm,"ispop") and cm.ispop:
+                fs = cm.population.frange_true
+                if (fs_new is not None) and not np.array_equal(fs_new,cm.population.frange_true):
+                    with log_manager(logging.ERROR):
+                        PSD_interp = interp1d(fs,PSD,bounds_error=False,fill_value=0)
+                        PSD = PSD_interp(fs_new)
+                        fs = fs_new
+            else:
+                ## there is no way to compute the convolved injected spectra once the injected response functions have been flushed
+                ## we have saved them, however, and can either just use the saved frozen spectra or interpolate to a new frequency grid
+                ## WARNING: interpolation will likely result in low fidelity at f < 3e-4 Hz.
                 with log_manager(logging.ERROR):
                     PSD_interp = interp1d(fs,np.log10(PSD))
                     PSD = 10**PSD_interp(fs_new)
@@ -1647,8 +1913,7 @@ class Injection():#geometry,sph_geometry):
         if return_fs:
             return fs, PSD
         else:
-            return PSD
-        
+            return PSD    
     
     def plot_injected_spectra(self,component_name,fs_new=None,ax=None,convolved=False,legend=False,channels='11',return_PSD=False,scale='log',flim=None,ymins=None,**plt_kwargs):
         '''
@@ -1701,36 +1966,50 @@ class Injection():#geometry,sph_geometry):
                 raise ValueError("Cannot convolve noise spectra with the detector GW response - this is not physical. (Set convolved=False in the function call!)")
             fs, PSD = self.compute_convolved_spectra(component_name,channels=channels,return_fs=True,fs_new=fs_new)
         else:
-            ## special treatment for the population case
-            if hasattr(cm,"ispop") and cm.ispop:
-                PSD = cm.population.Sgw_true
-                fs = cm.population.frange_true
-                if fs_new is not None and not np.array_equal(fs_new,cm.population.frange_true):
-                    ## the interpolator gets grumpy sometimes, but it's not an actual issue hence the logging wrapper
-                    with log_manager(logging.ERROR):
-                        PSD_interp = interp1d(fs,PSD)
-                        PSD = PSD_interp(fs_new)
-                        fs = fs_new
-            else:
-                PSD = cm.frozen_spectra
-                ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
-                ## generically capture anything that looks like a covariance matrix for future-proofing
-                if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
-                    I, J = int(channels[0]) - 1, int(channels[1]) - 1
-                    PSD = PSD[I,J,:]
-
-                ## downsample (or upsample, but why) if desired
-                ## do the interpolation in log-space for better low-f fidelity
-                if fs_new is not None:
-                    with log_manager(logging.ERROR):
-                        PSD_interp = interp1d(self.frange,np.log10(PSD))
-                        PSD = 10**PSD_interp(fs_new)
-                        fs = fs_new
+            ## handle wanting to plot at new frequencies (typically the data frequencies)
+            ## original injection frequencies
+            if fs_new is None:
+                if hasattr(cm,"ispop") and cm.ispop:
+                    PSD = cm.population.Sgw_true
+                    fs = cm.population.frange_true
                 else:
                     fs = self.frange
+                    PSD = cm.frozen_spectra
+            ## data frequencies (self.fdata in the code)
+            elif (type(fs_new) is str) and (fs_new == 'data'):
+                fs = cm.fdata
+                PSD = cm.fdata_spectra
+            ## estimate spectra at new frequencies -- WARNING: requires interpolation, usually produces low-fidelity results
+            ## only really useful for quick checks and visualization, NOT for analysis purposes!
+            else:
+                if component_name == 'noise':
+                    fstar = 3e8/(2*np.pi*cm.armlength)
+                    f0_new = fs_new/(2*fstar)
+                    PSD = cm.instr_noise_spectrum(fs_new,f0_new,Np=10**cm.injvals['log_Np'],Na=10**cm.injvals['log_Na'])
+                ## special treatment for the population case
+                elif hasattr(cm,"ispop") and cm.ispop:
+                    PSD = cm.population.Sgw_true
+                    fs = cm.population.frange_true
+                    if not np.array_equal(fs_new,cm.population.frange_true):
+                        ## the interpolator gets grumpy sometimes, but it's not an actual issue hence the logging wrapper
+                        with log_manager(logging.ERROR):
+                            PSD_interp = interp1d(fs,PSD,bounds_error=False,fill_value=0)
+                            PSD = PSD_interp(fs_new)
+                            fs = fs_new
+                else:
+                    Sgw_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
+                    PSD = cm.compute_Sgw(fs_new,Sgw_args)
+                
+                fs = fs_new
+                
+        ## noise will return the 3x3 covariance matrix, need to grab the desired channel cross-/auto-power
+        ## generically capture anything that looks like a covariance matrix for future-proofing
+        if (len(PSD.shape)==3) and (PSD.shape[0]==PSD.shape[1]==3):
+            I, J = int(channels[0]) - 1, int(channels[1]) - 1
+            PSD = PSD[I,J,:]
         
-        filt = (fs>fmin)*(fs<fmax)
-        
+        filt = (fs>=fmin)*(fs<=fmax)
+
         if legend:
             label = cm.fancyname
             if plt_kwargs is None:
@@ -1755,7 +2034,7 @@ class Injection():#geometry,sph_geometry):
         else:
             return
         
-    def plot_skymaps(self,component_name,**plt_kwargs):
+    def plot_skymaps(self,component_name,save_figures=True,return_mapdata=False,**plt_kwargs):
         '''
         Function to plot the injected skymaps.
         
@@ -1773,30 +2052,83 @@ class Injection():#geometry,sph_geometry):
         else:  
             raise TypeError('Invalid specification of projection, projection can be E, G, or C')
         
+        if return_mapdata:
+            cm_data = {}
+        
+        
         ## dimensionless energy density at 1 mHz
         spec_args = [cm.truevals[parameter] for parameter in cm.spectral_parameters]
         Omega_1mHz = cm.omegaf(1e-3,*spec_args)
         
         if hasattr(cm,"skymap"):
             Omegamap_pix = Omega_1mHz * cm.skymap/(np.sum(cm.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
-            hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
-            hp.graticule()
             
-            plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
-            print('Saving injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
-            plt.close()
+            ## tell healpy to shush
+            with log_manager(logging.ERROR):
+                hp.mollview(Omegamap_pix, coord=coord, title='Injected pixel map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.graticule()
+            
+            if save_figures:
+                plt.savefig(self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png', dpi=150)
+                print('Saving injection pixel map at ' +  self.params['out_dir'] + '/inj_pixelmap'+component_name+'.png')
+                plt.close()
+            
+            if return_mapdata:
+                cm_data['Omega_pixelmap'] = Omegamap_pix
+                cm_data['normed_pixelmap'] = cm.skymap/(np.sum(cm.skymap)*hp.nside2pixarea(self.params['nside'])/(4*np.pi))
+                
         if hasattr(cm,"sph_skymap"):
             ## sph map
             Omegamap_inj = Omega_1mHz * cm.sph_skymap
-            hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
-            hp.graticule()
+            ## tell healpy to shush
+            with log_manager(logging.ERROR):
+                hp.mollview(Omegamap_inj, coord=coord, title='Injected angular distribution map $\Omega (f = 1 mHz)$', unit="$\\Omega(f= 1mHz)$", cmap=self.params['colormap'])
+                hp.graticule()
             
-            plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
-            print('Saving injected sph skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
-            plt.close()
+            if save_figures:
+                plt.savefig(self.params['out_dir'] + '/inj_skymap'+component_name+'.png', dpi=150)
+                print('Saving injected sph skymap at ' +  self.params['out_dir'] + '/inj_skymap'+component_name+'.png')
+                plt.close()
+            
+            if return_mapdata:
+                cm_data['Omega_sphmap'] = Omegamap_inj
+                cm_data['normed_sphmap'] = cm.sph_skymap
+            
+        if return_mapdata:
+            return cm_data
+        else:
+            return
         
-        return
-    
+    def extract_and_save_skymap_data(self,map_data_path=None):
+        ## load or create plot_data dict
+        if map_data_path is None:
+            map_data_path = self.params['out_dir']+'/plot_data.pickle'
+        if os.path.exists(map_data_path):
+            with open(map_data_path, 'rb') as datafile:
+                plot_data = pickle.load(datafile)
+            if 'map_data' not in plot_data.keys():
+                plot_data['map_data'] = {}
+            
+        else:
+            plot_data = {'map_data':{}}
+        
+        plot_data['map_data']['inj_maps'] = {}
+        
+        for cmn in self.component_names:
+            if self.components[cmn].has_map:    
+                plot_data['map_data']['inj_maps'][cmn] = self.plot_skymaps(cmn,save_figures=False,return_mapdata=True)
+        
+        ## save map data
+        if os.path.exists(map_data_path):
+            ## move to temp file
+            temp_file = map_data_path + ".temp"
+            with open(temp_file, "wb") as datafile:
+                pickle.dump(plot_data,datafile)
+            shutil.move(temp_file, map_data_path)
+        else:
+            with open(map_data_path, 'wb') as datafile:
+                plot_data = pickle.dump(plot_data,datafile)
+        print("Data for injected skymaps saved to {}".format(map_data_path))
 
 def gen_blm_parameters(blmax):
     '''
