@@ -20,6 +20,23 @@ This is a fully Bayesian Python package for detecting/characterizing stochastic 
 
 in this directory.
 
+## JAX/NUMPYRO DEV BRANCH NOTE
+As of 5/08/2023, only the git-installed dev version of Numpyro has checkpointing support. See Numpyro docs for git installation instructions. Requires newest version of jax (0.4.3). Numpyro installed through standard channels should work in most cases, but checkpointing will fail.
+
+## GPU DEV BRANCH NOTE FOR UMN MSI USERS
+Jax, Torch, and Numpyro installation works on the UMN MSI clusters when performed as follows:
+conda create --name gpu-env python=3.10.0
+## newer versions of JAX don't play well with the MSI GPUs/CUDA version (11.2)
+pip install jax==0.4.3 jaxlib==0.4.3+cuda11.cudnn82 -f https://storage.googleapis.com/jax-releases/jax_cuda_releases.html
+## newer versions of torch can have similar issues
+pip install torch==1.11.0+cu113 torchvision==0.12.0+cu113 torchaudio==0.11.0 --extra-index-url https://download.pytorch.org/whl/cu113
+## elsewhere; we need the dev version of numpyro to do checkpointing
+git clone https://github.com/pyro-ppl/numpyro.git 
+cd numpyro
+pip install -e .
+## in blip repository
+pip install -e .
+
 You should now be ready to go! To run BLIP, you only need to provide a configuration file. In this directory, you will find params_default.ini, a pre-constructed config file with reasonable settings and accompanying parameter explanations.
 
 To run, call
