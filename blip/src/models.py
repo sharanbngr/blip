@@ -4,6 +4,7 @@ from scipy.interpolate import interp1d
 import healpy as hp
 import logging
 import os, shutil, pickle
+from multiprocessing import Pool
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
@@ -1776,14 +1777,27 @@ class Injection():#geometry,sph_geometry):
         ## initialize components
         self.components = {}
         self.truevals = {}
-        for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
-            print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
-            cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
-            self.components[component_name] = cm
-            self.truevals[component_name] = cm.truevals
-            if cm.has_map:
-                self.plot_skymaps(component_name)
         
+        ## activate multithreading if desired
+        if inj['parallel_inj'] and inj['inj_nthread']>1:
+            name_args = [(cmn,suff) for cmn, suff in zip(self.component_names,suffixes)]
+            print("Building all injection components in parallel. Number of threads: {}.".format(inj['inj_nthread']))
+            with Pool(inj['inj_nthread']) as pool:
+                component_list = list(pool.imap(self.add_component,name_args))
+            for cm, component_name in zip(component_list,self.component_names):
+                self.components[component_name] = cm
+                self.truevals[component_name] = cm.truevals
+                if cm.has_map:
+                    self.plot_skymaps(component_name)
+        else:
+            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
+                self.components[component_name] = cm
+                self.truevals[component_name] = cm.truevals
+                if cm.has_map:
+                    self.plot_skymaps(component_name)
+            
         ## initialize default plotting lower ylim
         self.plot_ylim = None
         
@@ -1791,7 +1805,25 @@ class Injection():#geometry,sph_geometry):
         catch_color_duplicates(self)
     
     
-    
+    def add_component(self,name_args):
+        '''
+        Wrapper function for the injection component creation process, to allow for parallelization.
+        
+        Arguments
+        ------------------
+        name_args (tuple)    : (component_name,suffix) for one component
+        
+        Returns
+        ------------------
+        cm (submodel object) : Injection component
+        '''
+        
+        component_name, suffix = name_args
+        cm = submodel(self.params,self.inj,component_name,self.frange,self.f0,self.tsegmid,injection=True,suffix=suffix)
+        print("Injection component build complete for component: {}".format(component_name))
+        
+        return cm
+        
 #    def compute_convolved_spectra(self,component_name,fs_new=None,channels='11',return_fs=False,imaginary=False):
 #        '''
 #        Wrapper to return the frozen injected detector-convolved GW spectra for the desired channels.

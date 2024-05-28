@@ -534,6 +534,19 @@ def blip(paramsfile='params.ini',resume=False):
             inj_component_names = inj['injection'].split('+')
             if not np.all([key in inj_component_names for key in truevals.keys()]):
                 raise ValueError("Truevals dictionary has an invalid key. Truevals must be provided as a nested dictionary with top-level keys corresponding to the injections specified in the 'injection' parameter.")
+            
+            ## injection per-component multithreading
+            inj['parallel_inj'] = int(config.get("inj", "parallel_inj", fallback=0))
+            
+            ## if parallel_inj is True but there is only one component, set parallel_inj to False
+            if len(inj_component_names) == 1 and inj['parallel_inj']:
+                inj['parallel_inj'] = 0
+            
+            if inj['parallel_inj']:
+                inj['inj_nthread'] = int(config.get("inj", "inj_nthread", fallback=len(inj_component_names)))
+            else:
+                inj['inj_nthread'] = 1
+            
             ## build the truevals dict
             ## some quantities we want to use as log values, so convert them
             inj['truevals'] = {}
