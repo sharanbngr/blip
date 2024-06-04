@@ -678,10 +678,10 @@ class geometry(sph_geometry):
         idx = range(0,f0.size)
         
         with Pool(self.inj['response_nthread']) as pool:
-            result = list(pool.imap(self.frequency_response_wrapper,idx))
+            result = pool.map(self.frequency_response_wrapper,idx)
         
-        for ii in idx:
-            response_mat[:,:,ii,:] = result[ii]
+            for ii, R_f in zip(idx,result):
+                response_mat[:,:,ii,:] = R_f
 
         return response_mat
     

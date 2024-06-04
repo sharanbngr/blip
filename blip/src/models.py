@@ -277,16 +277,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             if self.params['tdi_lev'] == 'michelson':
                 if parallel_response:
                     self.response = self.isgwb_mich_response_parallel
+                    self.response_non_parallel = self.isgwb_mich_response ## useful for data frequencies, external regen
                 else:
                     self.response = self.isgwb_mich_response
             elif self.params['tdi_lev'] == 'xyz':
                 if parallel_response:
                     self.response = self.isgwb_xyz_response_parallel
+                    self.response_non_parallel = self.isgwb_xyz_response ## useful for data frequencies, external regen
                 else:
                     self.response = self.isgwb_xyz_response
+                
             elif self.params['tdi_lev'] == 'aet':
                 if parallel_response:
                     self.response = self.isgwb_aet_response_parallel
+                    self.response_non_parallel = self.isgwb_aet_response ## useful for data frequencies, external regen
                 else:
                     self.response = self.isgwb_aet_response
             else:
@@ -1809,10 +1813,7 @@ class Injection():#geometry,sph_geometry):
                 print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
                 self.components[component_name] = cm
                 self.truevals[component_name] = cm.truevals
-                ## for testing
-                if component_name != 'noise':
-#                    import pdb; pdb.set_trace()
-                    np.save(self.params['out_dir']+'/R1test.npy',cm.response_mat[0][0])
+
                 if cm.has_map:
                     self.plot_skymaps(component_name)
         else:
@@ -1824,11 +1825,7 @@ class Injection():#geometry,sph_geometry):
                 print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
                 self.components[component_name] = cm
                 self.truevals[component_name] = cm.truevals
-                
-                ## for testing
-                if component_name != 'noise':
-#                    import pdb; pdb.set_trace()
-                    np.save(self.params['out_dir']+'/R1test.npy',cm.response_mat[0][0])
+
                 if cm.has_map:
                     self.plot_skymaps(component_name)
             

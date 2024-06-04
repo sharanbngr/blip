@@ -172,6 +172,7 @@ class LISA(LISAdata, Model):
         A function to generate the response functions for each injection at the simulated data frequencies.
         
         This is needed to allow us to accurately plot and compare injected spectra vs. simulated data vs. recovered models.
+        
         '''
         ## only do this for gw signals (i.e., not the noise)
         for cmn in self.Injection.sgwb_component_names:
@@ -182,8 +183,12 @@ class LISA(LISAdata, Model):
             fstar = 3e8/(2*np.pi*self.armlength)
             # define f0 = f/2f*
             f0_data = self.fdata/(2*fstar)
-            fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
-            
+
+            ## the response calculations at data frequencies are very cheap, so the (large) memory transfer time to make copies for multiprocessing is not worth the trouble
+            if hasattr(cm,"response_non_parallel"):
+                fdata_response = cm.response_non_parallel(f0_data,self.tsegmid,**cm.response_kwargs)
+            else:
+                fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
             ## need to convolve response with skymap for sph basis anisotropic signals
             ## this is done implciitly for pixel-basis injections
             if cm.has_map and cm.basis == 'sph':
