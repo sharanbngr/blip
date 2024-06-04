@@ -29,7 +29,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     New models (injection or analysis) should be added here.
     
     '''
-    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix=''):
+    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix='',parallel_response=False):
         '''
         Each submodel should be defined as "[spectral]_[spatial]", save for the noise model, which is just "noise".
         
@@ -45,6 +45,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         tsegmid (array)     : array of time segment midpoints
         injection (bool)    : If True, generate the submodel as an injection component, rather than a Model submodel.
         suffix (str)        : String to append to parameter names, etc., to differentiate between duplicate submodels.
+        parallel_response (bool)     : If True, employ multiprocessing for the response calculations. Default False. 
         
         Returns
         ------------
@@ -274,11 +275,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ## This is the isotropic spatial model, and has no additional parameters.
         if self.spatial_model_name == 'isgwb':
             if self.params['tdi_lev'] == 'michelson':
-                self.response = self.isgwb_mich_response
+                if parallel_response:
+                    self.response = self.isgwb_mich_response_parallel
+                else:
+                    self.response = self.isgwb_mich_response
             elif self.params['tdi_lev'] == 'xyz':
-                self.response = self.isgwb_xyz_response
+                if parallel_response:
+                    self.response = self.isgwb_xyz_response_parallel
+                else:
+                    self.response = self.isgwb_xyz_response
             elif self.params['tdi_lev'] == 'aet':
-                self.response = self.isgwb_aet_response
+                if parallel_response:
+                    self.response = self.isgwb_aet_response_parallel
+                else:
+                    self.response = self.isgwb_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -1778,6 +1788,7 @@ class Injection():#geometry,sph_geometry):
         self.components = {}
         self.truevals = {}
         
+        import time
         ## activate multithreading if desired
         if inj['parallel_inj'] and inj['inj_nthread']>1:
             name_args = [(cmn,suff) for cmn, suff in zip(self.component_names,suffixes)]
@@ -1789,12 +1800,35 @@ class Injection():#geometry,sph_geometry):
                 self.truevals[component_name] = cm.truevals
                 if cm.has_map:
                     self.plot_skymaps(component_name)
+        elif inj['parallel_inj'] and inj['response_nthread']>1:
+            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+                t1 = time.time()
+                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix,parallel_response=True)
+                t2 = time.time()
+                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
+                self.components[component_name] = cm
+                self.truevals[component_name] = cm.truevals
+                ## for testing
+                if component_name != 'noise':
+#                    import pdb; pdb.set_trace()
+                    np.save(self.params['out_dir']+'/R1test.npy',cm.response_mat[0][0])
+                if cm.has_map:
+                    self.plot_skymaps(component_name)
         else:
             for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
                 print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+                t1 = time.time()
                 cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
+                t2 = time.time()
+                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
                 self.components[component_name] = cm
                 self.truevals[component_name] = cm.truevals
+                
+                ## for testing
+                if component_name != 'noise':
+#                    import pdb; pdb.set_trace()
+                    np.save(self.params['out_dir']+'/R1test.npy',cm.response_mat[0][0])
                 if cm.has_map:
                     self.plot_skymaps(component_name)
             

@@ -544,6 +544,14 @@ def blip(paramsfile='params.ini',resume=False):
             
             if inj['parallel_inj']:
                 inj['inj_nthread'] = int(config.get("inj", "inj_nthread", fallback=len(inj_component_names)))
+                inj['response_nthread'] = int(config.get("inj", "response_nthread", fallback=1))
+                ## give preference to response multi-threading
+                if inj['inj_nthread'] > 1 and inj['response_nthread'] > 1:
+                    print("Warning: you have set both inj_nthread and response_nthread > 1.")
+                    print("The Multiprocessing package does not allow workers to spawn additional workers.")
+                    print("Giving precedence to response multiprocessing, setting inj_nthread=1.")
+                    inj['inj_nthread'] = 1
+                    
             else:
                 inj['inj_nthread'] = 1
             
