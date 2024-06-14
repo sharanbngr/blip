@@ -392,7 +392,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
             if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
@@ -550,6 +550,13 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.subscript = "_{\mathrm{1P}}"
                 self.color = 'forestgreen'
                 self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention,pad=True)
+                self.fixed_map = True
+            
+            elif self.spatial_model_name == 'pixiso':
+                self.fancyname = "Pixel Isotropic"
+                self.subscript = "_{\mathrm{PI}}"
+                self.color = 'forestgreen'
+                self.skymap = np.ones(hp.nside2npix(self.params['nside']))
                 self.fixed_map = True
             
             else:
@@ -1449,7 +1456,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
         ## get corresponding truevals
         inj_blms = self.blms_2_blm_params(self.astro_blms)
+        print(inj_blms)
+        print(self.astro_blms)
         blm_parameters = gen_blm_parameters(self.lmax)
+        print(blm_parameters)
         for param, val in zip(blm_parameters,inj_blms):
             self.truevals[param] = val
         

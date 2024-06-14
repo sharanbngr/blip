@@ -495,12 +495,12 @@ class geometry(sph_geometry):
             ## Detector response summed over polarization and integrated over sky direction
             ## The travel time phases for the which are relevent for the cross-channel are
             ## accounted for in the Fplus and Fcross expressions above.
-            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )
-            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )
-            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )
-            R12[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)
-            R13[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)
-            R23[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)
+            R1[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )*(1/(4*np.pi))
+            R2[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )*(1/(4*np.pi))
+            R3[ii, :]  = dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )*(1/(4*np.pi))
+            R12[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)*(1/(4*np.pi))
+            R13[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)*(1/(4*np.pi))
+            R23[ii, :] = dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)*(1/(4*np.pi))
 
         response_mat = np.array([ [R1, R12, R13] , [np.conj(R12), R2, R23], [np.conj(R13), np.conj(R23), R3] ])
 
@@ -735,12 +735,12 @@ class geometry(sph_geometry):
         ## Detector response summed over polarization and integrated over sky direction
         ## The travel time phases for the which are relevent for the cross-channel are
         ## accounted for in the Fplus and Fcross expressions above.
-        R1_ii  = self.dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 )
-        R2_ii  = self.dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 )
-        R3_ii  = self.dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 )
-        R12_ii = self.dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1)
-        R13_ii = self.dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1)
-        R23_ii = self.dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1)
+        R1_ii  = self.dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2, axis=1 ) *(1/(4*np.pi)) ## additional normalization such that isotropic P(n) integrates to 1 over the sky
+        R2_ii  = self.dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2, axis=1 ) *(1/(4*np.pi))
+        R3_ii  = self.dOmega/(8*np.pi)*np.sum( (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2, axis=1 ) *(1/(4*np.pi))
+        R12_ii = self.dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2, axis=1) *(1/(4*np.pi))
+        R13_ii = self.dOmega/(8*np.pi)*np.sum( np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3, axis=1) *(1/(4*np.pi))
+        R23_ii = self.dOmega/(8*np.pi)*np.sum( np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3, axis=1) *(1/(4*np.pi))
         
         return np.array([ [R1_ii, R12_ii, R13_ii] , [np.conj(R12_ii), R2_ii, R23_ii], [np.conj(R13_ii), np.conj(R23_ii), R3_ii] ])
     
@@ -854,7 +854,7 @@ class geometry(sph_geometry):
         
         ## ensure skymap normalization
         skymap_nonzero = skymap_nonzero/(np.sum(skymap_nonzero)*dOmega)
-
+#        skymap_nonzero = skymap_nonzero * (hp.nside2npix(self.params['nside']) / np.sum(skymap_nonzero))
 #        inj_map = np.zeros(npix)
                 
 #        # identify the pixel with the point source
