@@ -172,6 +172,7 @@ class LISA(LISAdata, Model):
         A function to generate the response functions for each injection at the simulated data frequencies.
         
         This is needed to allow us to accurately plot and compare injected spectra vs. simulated data vs. recovered models.
+        
         '''
         ## only do this for gw signals (i.e., not the noise)
         for cmn in self.Injection.sgwb_component_names:
@@ -182,8 +183,12 @@ class LISA(LISAdata, Model):
             fstar = 3e8/(2*np.pi*self.armlength)
             # define f0 = f/2f*
             f0_data = self.fdata/(2*fstar)
-            fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
-            
+
+            ## the response calculations at data frequencies are very cheap, so the (large) memory transfer time to make copies for multiprocessing is not worth the trouble
+            if hasattr(cm,"response_non_parallel"):
+                fdata_response = cm.response_non_parallel(f0_data,self.tsegmid,**cm.response_kwargs)
+            else:
+                fdata_response = cm.response(f0_data,self.tsegmid,**cm.response_kwargs)
             ## need to convolve response with skymap for sph basis anisotropic signals
             ## this is done implciitly for pixel-basis injections
             if cm.has_map and cm.basis == 'sph':
@@ -263,7 +268,18 @@ class LISA(LISAdata, Model):
             else:
                 Sgw_convolved = np.mean(cm.frozen_spectra[None,None,:,None] * cm.inj_response_mat,axis=-1)
             cm.frozen_convolved_spectra = Sgw_convolved
-
+        
+        ## prep saving original PSDs
+        ## load or create plot_data dict
+        plot_data_path = self.params['out_dir']+'/plot_data.pickle'
+        if os.path.exists(plot_data_path):
+            with open(plot_data_path, 'rb') as datafile:
+                plot_data = pickle.load(datafile)
+                if 'injspec_data' not in plot_data.keys():
+                    plot_data['injspec_data'] = {}
+        else:
+            plot_data = {'injspec_data':{}}
+        
         plt.close()
         
         # noise budget plot
@@ -279,6 +295,8 @@ class LISA(LISAdata, Model):
         for component_name in self.Injection.sgwb_component_names:
             S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new='data',convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
             S1_gw_filt = S1_gw[ffilt]
+            plot_data['injspec_data'][component_name] = {'S1_gw':S1_gw_filt}
+            plot_data['injspec_data'][component_name]['f_filt'] = self.fdata[ffilt]
             log_S1_gw = np.log10(S1_gw_filt[np.nonzero(S1_gw_filt)])
             log_bin_sizes = np.log10(self.fdata[ffilt][np.nonzero(S1_gw_filt)])[1:] - np.log10(self.fdata[ffilt][np.nonzero(S1_gw_filt)])[:-1]
             ave_bin_val = (log_S1_gw[1:] + log_S1_gw[:-1])/2
@@ -391,6 +409,18 @@ class LISA(LISAdata, Model):
         plt.savefig(self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png', dpi=200)
         print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_csd_' + str(ii+1) + str(jj+1) + '.png')
         plt.close()
+        
+        
+        ## save fit data
+        if os.path.exists(plot_data_path):
+            ## move to temp file
+            temp_file = plot_data_path + ".temp"
+            with open(temp_file, "wb") as datafile:
+                pickle.dump(plot_data,datafile)
+            shutil.move(temp_file, plot_data_path)
+        else:
+            with open(plot_data_path, 'wb') as datafile:
+                plot_data = pickle.dump(plot_data,datafile)
         
     def plot_spectra(self):
         '''
@@ -539,11 +569,21 @@ def blip(paramsfile='params.ini',resume=False):
             inj['parallel_inj'] = int(config.get("inj", "parallel_inj", fallback=0))
             
             ## if parallel_inj is True but there is only one component, set parallel_inj to False
-            if len(inj_component_names) == 1 and inj['parallel_inj']:
-                inj['parallel_inj'] = 0
+#            if len(inj_component_names) == 1 and inj['parallel_inj']:
+#                inj['parallel_inj'] = 0
             
             if inj['parallel_inj']:
                 inj['inj_nthread'] = int(config.get("inj", "inj_nthread", fallback=len(inj_component_names)))
+                inj['response_nthread'] = int(config.get("inj", "response_nthread", fallback=1))
+                ## give preference to response multi-threading
+                if inj['inj_nthread'] > 1 and inj['response_nthread'] > 1:
+                    print("Warning: you have set both inj_nthread and response_nthread > 1.")
+                    print("The Multiprocessing package does not allow workers to spawn additional workers.")
+                    print("Giving precedence to response multiprocessing, setting inj_nthread=1.")
+                    inj['inj_nthread'] = 1
+                elif inj['inj_nthread'] == 1 and inj['response_nthread'] == 1:
+                    inj['parallel_inj'] = 0
+                    
             else:
                 inj['inj_nthread'] = 1
             

@@ -4,6 +4,7 @@ from scipy.interpolate import interp1d
 import healpy as hp
 import logging
 import os, shutil, pickle
+import time
 from multiprocessing import Pool
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
@@ -29,7 +30,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     New models (injection or analysis) should be added here.
     
     '''
-    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix=''):
+    def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix='',parallel_response=False):
         '''
         Each submodel should be defined as "[spectral]_[spatial]", save for the noise model, which is just "noise".
         
@@ -45,6 +46,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         tsegmid (array)     : array of time segment midpoints
         injection (bool)    : If True, generate the submodel as an injection component, rather than a Model submodel.
         suffix (str)        : String to append to parameter names, etc., to differentiate between duplicate submodels.
+        parallel_response (bool)     : If True, employ multiprocessing for the response calculations. Default False. 
         
         Returns
         ------------
@@ -274,11 +276,24 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ## This is the isotropic spatial model, and has no additional parameters.
         if self.spatial_model_name == 'isgwb':
             if self.params['tdi_lev'] == 'michelson':
-                self.response = self.isgwb_mich_response
+                if parallel_response:
+                    self.response = self.isgwb_mich_response_parallel
+                    self.response_non_parallel = self.isgwb_mich_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.isgwb_mich_response
             elif self.params['tdi_lev'] == 'xyz':
-                self.response = self.isgwb_xyz_response
+                if parallel_response:
+                    self.response = self.isgwb_xyz_response_parallel
+                    self.response_non_parallel = self.isgwb_xyz_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.isgwb_xyz_response
+                
             elif self.params['tdi_lev'] == 'aet':
-                self.response = self.isgwb_aet_response
+                if parallel_response:
+                    self.response = self.isgwb_aet_response_parallel
+                    self.response_non_parallel = self.isgwb_aet_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.isgwb_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -378,7 +393,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
             if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
@@ -536,6 +551,13 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.subscript = "_{\mathrm{1P}}"
                 self.color = 'forestgreen'
                 self.skymap = astro.generate_point_source(coord1,coord2,self.params['nside'],convention=convention,pad=True)
+                self.fixed_map = True
+            
+            elif self.spatial_model_name == 'pixiso':
+                self.fancyname = "Pixel Isotropic"
+                self.subscript = "_{\mathrm{PI}}"
+                self.color = 'forestgreen'
+                self.skymap = np.ones(hp.nside2npix(self.params['nside']))
                 self.fixed_map = True
             
             else:
@@ -1435,7 +1457,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
         ## get corresponding truevals
         inj_blms = self.blms_2_blm_params(self.astro_blms)
+
         blm_parameters = gen_blm_parameters(self.lmax)
+
         for param, val in zip(blm_parameters,inj_blms):
             self.truevals[param] = val
         
@@ -1778,6 +1802,7 @@ class Injection():#geometry,sph_geometry):
         self.components = {}
         self.truevals = {}
         
+
         ## activate multithreading if desired
         if inj['parallel_inj'] and inj['inj_nthread']>1:
             name_args = [(cmn,suff) for cmn, suff in zip(self.component_names,suffixes)]
@@ -1789,12 +1814,28 @@ class Injection():#geometry,sph_geometry):
                 self.truevals[component_name] = cm.truevals
                 if cm.has_map:
                     self.plot_skymaps(component_name)
+        elif inj['parallel_inj'] and inj['response_nthread']>1:
+            for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
+                print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+                t1 = time.time()
+                cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix,parallel_response=True)
+                t2 = time.time()
+                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
+                self.components[component_name] = cm
+                self.truevals[component_name] = cm.truevals
+
+                if cm.has_map:
+                    self.plot_skymaps(component_name)
         else:
             for i, (component_name, suffix) in enumerate(zip(self.component_names,suffixes)):
                 print("Building injection for {} (component {} of {})...".format(component_name,i+1,N_inj))
+                t1 = time.time()
                 cm = submodel(params,inj,component_name,fs,f0,tsegmid,injection=True,suffix=suffix)
+                t2 = time.time()
+                print("Time elapsed for component {} is {} s.".format(component_name,t2-t1))
                 self.components[component_name] = cm
                 self.truevals[component_name] = cm.truevals
+
                 if cm.has_map:
                     self.plot_skymaps(component_name)
             

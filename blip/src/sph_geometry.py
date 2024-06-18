@@ -173,15 +173,15 @@ class sph_geometry(clebschGordan):
             F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
             F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
 
-            R1[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F1, Ylms)
-            R2[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F2, Ylms)
-            R3[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F3, Ylms)
-            R12[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F12, Ylms)
-            R13[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F13, Ylms)
-            R23[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F23, Ylms)
-            R21[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F12), Ylms)
-            R31[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F13), Ylms)
-            R32[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F23), Ylms)
+            R1[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F1, Ylms)
+            R2[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F2, Ylms)
+            R3[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F3, Ylms)
+            R12[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F12, Ylms)
+            R13[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F13, Ylms)
+            R23[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F23, Ylms)
+            R21[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', np.conj(F12), Ylms)
+            R31[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', np.conj(F13), Ylms)
+            R32[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', np.conj(F23), Ylms)
 
 
         response_mat = np.array([ [R1, R12, R13] , [R21, R2, R23], [R31, R32, R3] ])
