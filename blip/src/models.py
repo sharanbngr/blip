@@ -4,6 +4,7 @@ from scipy.interpolate import interp1d
 import healpy as hp
 import logging
 import os, shutil, pickle
+import time
 from multiprocessing import Pool
 from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
 from blip.src.geometry import geometry
@@ -1456,10 +1457,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
         ## get corresponding truevals
         inj_blms = self.blms_2_blm_params(self.astro_blms)
-        print(inj_blms)
-        print(self.astro_blms)
+
         blm_parameters = gen_blm_parameters(self.lmax)
-        print(blm_parameters)
+
         for param, val in zip(blm_parameters,inj_blms):
             self.truevals[param] = val
         
@@ -1802,7 +1802,7 @@ class Injection():#geometry,sph_geometry):
         self.components = {}
         self.truevals = {}
         
-        import time
+
         ## activate multithreading if desired
         if inj['parallel_inj'] and inj['inj_nthread']>1:
             name_args = [(cmn,suff) for cmn, suff in zip(self.component_names,suffixes)]
