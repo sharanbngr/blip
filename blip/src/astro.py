@@ -20,7 +20,7 @@ class Population():
     and preparing data for use in some of the makeLISAdata.py signal simulation methods. 
     '''
 
-    def __init__(self, params, inj, frange, popdict):
+    def __init__(self, params, inj, frange, popdict, map_only=False):
         '''
         Produces a population object with an attached skymap and spectrum.
         
@@ -38,7 +38,7 @@ class Population():
         inj (dict)               : injection dict
         frange (array of floats) : injection splice fft frequencies
         popdict (str)            : the populations dict corresponding to the desired population (allows for multiple populations)
-        
+        map_only (bool)          : Whether to only compute the skymap. Used for models that rely on a fixed population skymap.
         
         '''
         self.params = params
@@ -47,29 +47,32 @@ class Population():
         
         self.popdict = popdict
         
-        
+        ## load the population
         pop = self.load_population(self.popdict['popfile'],self.params['fmin'],self.params['fmax'],names=self.popdict['columns'],sep=self.popdict['delimiter'])
         
+        ## get the skymap
         self.skymap = self.pop2map(pop,self.params['nside'],self.params['dur']*u.s,self.params['fmin'],self.params['fmax'])
-        
-        ## PSD at injection frequency binning
-        self.PSD = self.pop2spec(pop,self.frange,self.params['dur']*u.s,SNR_cut=self.popdict['snr_cut'],return_median=False,plot=False)
-
-        ## PSD at data frequencies
-        self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
-        self.PSD_true = self.pop2spec(pop,self.fftfreqs,self.params['dur']*u.s,return_median=False,plot=False)[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
-        self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
-              
-        
-        ## factor of 2 is for GW amplitude convention with a prefactor of 2, i.e. h0**2 = A+**2 + Ax**2 = 2A**2
-        ## if instead using prefactor of 4 convention, no factor of 4 because h0 = A
-        ## should add a flag in case we use a pop with the factor of 4 convention
-        self.Sgw = self.PSD *4
-        self.Sgw_true = self.PSD_true*4
-        
         ## also compute the spherical harmonic transform if the injection is using the spherical harmonic basis
         if self.inj['inj_basis']=='sph':
             self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
+        
+        ## spectrum
+        if not map_only:
+            ## PSD at injection frequency binning
+            self.PSD = self.pop2spec(pop,self.frange,self.params['dur']*u.s,SNR_cut=self.popdict['snr_cut'],return_median=False,plot=False)
+    
+            ## PSD at data frequencies
+            self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
+            self.PSD_true = self.pop2spec(pop,self.fftfreqs,self.params['dur']*u.s,return_median=False,plot=False)[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
+            self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
+                  
+            
+            ## factor of 2 is for GW amplitude convention with a prefactor of 2, i.e. h0**2 = A+**2 + Ax**2 = 2A**2
+            ## if instead using prefactor of 4 convention, no factor of 4 because h0 = A
+            ## should add a flag in case we use a pop with the factor of 4 convention
+            self.Sgw = self.PSD *4
+            self.Sgw_true = self.PSD_true*4
+        
         
     def rebin_PSD(self,fs_new):
         '''

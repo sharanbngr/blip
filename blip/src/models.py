@@ -397,7 +397,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso','popmap']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
             if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
@@ -566,6 +566,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.subscript = "_{\mathrm{PI}}"
                 self.color = 'forestgreen'
                 self.skymap = np.ones(hp.nside2npix(self.params['nside']))
+                self.fixed_map = True
+            
+            elif self.spatial_model_name == 'popmap':
+                self.fancyname = "Population Skymap"
+                self.subscript = "_{\mathrm{PM}}"
+                self.color = 'mediumorchid'
+                popkey = self.fixedvals['pop_id']
+                popdict = self.inj['popdict'][popkey]
+                if popdict['name'] is not None:
+                    self.fancyname = popdict['name']
+                else:
+                    self.fancyname = "DWD Population"+submodel_count
+                self.population = Population(self.params,self.inj,self.fs,popdict,map_only=True)
+                self.skymap = self.population.skymap
                 self.fixed_map = True
             
             else:
