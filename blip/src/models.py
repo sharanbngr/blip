@@ -260,8 +260,12 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
-            self.fancyname = "DWD Population"+submodel_count
-            self.population = Population(self.params,self.inj,self.fs)
+            popdict = self.inj['popdict'][submodel_full_name]
+            if popdict['name'] is not None:
+                self.fancyname = popdict['name']
+            else:
+                self.fancyname = "DWD Population"+submodel_count
+            self.population = Population(self.params,self.inj,self.fs,popdict)
             self.compute_Sgw = self.population.Sgw_wrapper
             self.omegaf = self.population.omegaf_wrapper
             self.ispop = True
@@ -505,12 +509,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## flag the fact that we have a population skymap
                 self.skypop = True
                 ## plotting stuff
-                self.fancyname = "DWD Population"+submodel_count
                 self.subscript = "_{\mathrm{P}}"
                 self.color = 'midnightblue'
                 if self.spectral_model_name != 'population':
                     ## generate population if still needed
-                    self.population = Population(self.params,self.inj,self.fs)
+                    popdict = self.inj['popdict'][submodel_full_name]
+                    if popdict['name'] is not None:
+                        self.fancyname = popdict['name']
+                    else:
+                        self.fancyname = "DWD Population"+submodel_count
+                    self.population = Population(self.params,self.inj,self.fs,popdict)
                 self.skymap = self.population.skymap
             ## inference models
             elif self.spatial_model_name == 'fixedgalaxy':

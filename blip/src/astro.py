@@ -20,40 +20,52 @@ class Population():
     and preparing data for use in some of the makeLISAdata.py signal simulation methods. 
     '''
 
-    def __init__(self, params, inj, frange):
+    def __init__(self, params, inj, frange, popdict):
         '''
         Produces a population object with an attached skymap and spectrum.
         
         Note that we don't carry around the entire set of binaries, just the overall population-level data.
+        
+        This is a fast way to accurately approximate the strain PSD of the unresolved DWD population in frequency-domain, 
+        but does result in some smoothing of the spectrum, so sharp features may be reduced in the simulation process. 
+        Also note that each bin is phase-averaged, which will underestimate the variance in a small fraction of bins.
+        
+        NB -- should implement a full time-domain approach when time allows, as it will be more precise. This is a good (and efficient) approximation, though.
+        
+        Arguments
+        -------------------
+        params (dict)            : params dict
+        inj (dict)               : injection dict
+        frange (array of floats) : injection splice fft frequencies
+        popdict (str)            : the populations dict corresponding to the desired population (allows for multiple populations)
+        
+        
         '''
         self.params = params
         self.inj = inj
         self.frange = frange
         
+        self.popdict = popdict
         
-        pop = self.load_population(self.inj['popfile'],self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
+        
+        pop = self.load_population(self.popdict['popfile'],self.params['fmin'],self.params['fmax'],names=self.popdict['columns'],sep=self.popdict['delimiter'])
         
         self.skymap = self.pop2map(pop,self.params['nside'],self.params['dur']*u.s,self.params['fmin'],self.params['fmax'])
         
         ## PSD at injection frequency binning
-        self.PSD= self.pop2spec(pop,self.frange,self.params['dur']*u.s,return_median=False,plot=False)
+        self.PSD = self.pop2spec(pop,self.frange,self.params['dur']*u.s,SNR_cut=self.popdict['snr_cut'],return_median=False,plot=False)
 
         ## PSD at data frequencies
-#        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
-#        PSD_spec = self.pop2spec(pop,fs_spec,self.params['dur']*u.s,return_median=False,plot=False)
-#        self.PSD_interp = intrp(fs_spec,PSD_spec,bounds_error=False,fill_value=0)
         self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
         self.PSD_true = self.pop2spec(pop,self.fftfreqs,self.params['dur']*u.s,return_median=False,plot=False)[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
         self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
-#        self.frange_true = self.fftfreqs
-#        self.PSD_true = self.PSD_interp(self.frange_true)
+              
         
-        
-        
-        ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
-        ## additional factor of 2 b/c S_GW = 2 * S_A
-        self.Sgw = self.PSD * 4
-        self.Sgw_true = self.PSD_true * 4
+        ## factor of 2 is for GW amplitude convention with a prefactor of 2, i.e. h0**2 = A+**2 + Ax**2 = 2A**2
+        ## if instead using prefactor of 4 convention, no factor of 4 because h0 = A
+        ## should add a flag in case we use a pop with the factor of 4 convention
+        self.Sgw = self.PSD *4
+        self.Sgw_true = self.PSD_true*4
         
         ## also compute the spherical harmonic transform if the injection is using the spherical harmonic basis
         if self.inj['inj_basis']=='sph':
@@ -151,7 +163,7 @@ class Population():
         Returns:
             binary_psds (1D array of floats): Monochromatic PSDs for each binary
         '''
-        binary_psds = t_obs*hs**2
+        binary_psds = 0.5*t_obs*hs**2
         
         return binary_psds
     
@@ -282,12 +294,14 @@ class Population():
             plt.savefig(saveto + '/population_injection_zoom.png', dpi=150)
             plt.close()
         
+        
+        ## factor of 1/2 is for phase-averaging to account for interference
         if return_median:
-            spectrum =  fg_PSD_binned/bin_widths *u.Hz*u.s
-            median_spectrum = runmed_binned/bin_widths *u.Hz*u.s
+            spectrum =  0.5*fg_PSD_binned/bin_widths *u.Hz*u.s
+            median_spectrum = 0.5*runmed_binned/bin_widths *u.Hz*u.s
             return spectrum, median_spectrum
         else:
-            spectrum =  fg_PSD_binned/bin_widths *u.Hz*u.s
+            spectrum =  0.5*fg_PSD_binned/bin_widths *u.Hz*u.s
             return spectrum
      
     @staticmethod

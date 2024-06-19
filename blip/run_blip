@@ -218,7 +218,7 @@ class LISA(LISAdata, Model):
             if cmn == 'noise':
                 Np, Na = 10**cm.injvals['log_Np'], 10**cm.injvals['log_Na']
                 cm.fdata_noise = cm.instr_noise_spectrum(self.fdata,f0_data, Np, Na)
-            elif cmn == 'population':
+            elif hasattr(cm,"ispop") and cm.ispop:
                 cm.fdata_spectra = cm.population.Sgw_true
                 cm.fdata_convolved_spectra = np.mean(cm.fdata_spectra[None,None,:,None] * cm.fdata_response_mat,axis=-1)
             else:
@@ -636,18 +636,38 @@ def blip(paramsfile='params.ini',resume=False):
                     else:
                         raise err
         
+        
+        ## NB -- will have to change this structure to allow pop-based recovery models. But it's a good start.
         if inj['doInj'] and inj['pop_flag']:
-            inj['popfile']     = str(config.get("inj","popfile",fallback=None))
-            inj['SNRcut']  = float(config.get("inj","SNRcut", fallback=7))
-            colnames = str(config.get("inj","columns",fallback=None))
-            colnames = colnames.split(',')
-            inj['columns'] = colnames
-            delimiter = str(config.get("inj","delimiter",fallback=None))
-            if delimiter == 'space':
-                delimiter = ' '
-            elif delimiter == 'tab':
-                delimiter = '\t'
-            inj['delimiter'] = delimiter
+            inj['popdict'] = eval(str(config.get("inj","population_params",fallback='None')))
+            ## make sure every injection population component has a corresponding entry
+            inj_pop_component_names = [cmn for cmn in inj_component_names if 'population' in cmn]
+            for cmn in inj_pop_component_names:
+                if cmn not in inj['popdict'].keys():
+                    raise KeyError("Population injection '{}' does not have a corresponding entry in the population_params dict.".format(cmn))
+            ## step through the (possibly multiple) populations and tweak formatting for the delimiters
+            ## also enforce the required keys and substitute defaults if optional setting isn't given
+            required_keys = ['popfile','columns','delimiter']
+            pop_defaults = {'snr_cut':7,'name':None}
+            for key in inj['popdict'].keys():
+                ## make sure it corresponds to an injection
+                if key not in inj_component_names:
+                    raise KeyError("Population '{}' not in injection. Top-level keys for the population_params dict must correspond to an injection.".format(key))
+                ## enforce required keys
+                for rk in required_keys:
+                    if rk not in inj['popdict'][key].keys():
+                        raise KeyError("population_params dict missing required key: '{}'".format(rk))
+                ## set defaults
+                for dk in pop_defaults.keys():
+                    if dk not in inj['popdict'][key].keys():
+                        print("No value found for populations parameter '{}' in population_params dict for injection component '{}'. Setting to default ({}).".format(dk,key,pop_defaults[dk]))
+                        inj['popdict'][key][dk] = pop_defaults[dk]   
+                ## formatting
+                if inj['popdict'][key]['delimiter'] == 'space':
+                    inj['popdict'][key]['delimiter'] = ' '
+                elif inj['popdict'][key]['delimiter'] == 'tab':
+                    inj['popdict'][key]['delimiter'] == '\t'
+
 
 
     # some run parameters
