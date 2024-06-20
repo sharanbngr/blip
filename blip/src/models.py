@@ -334,11 +334,23 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             response_kwargs['set_almax'] = self.almax
             
             if self.params['tdi_lev']=='michelson':
-                self.response = self.asgwb_mich_response
+                if parallel_response:
+                    self.response = self.asgwb_mich_response_parallel
+                    self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.asgwb_mich_response  
             elif self.params['tdi_lev']=='xyz':
-                self.response = self.asgwb_xyz_response
+                if parallel_response:
+                    self.response = self.asgwb_xyz_response_parallel
+                    self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.asgwb_xyz_response
             elif self.params['tdi_lev']=='aet':
-                self.response = self.asgwb_aet_response
+                if parallel_response:
+                    self.response = self.asgwb_aet_response_parallel
+                    self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.asgwb_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -418,20 +430,44 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.almax = 2*self.lmax
                 response_kwargs['set_almax'] = self.almax
                 if self.params['tdi_lev']=='michelson':
-                    self.response = self.asgwb_mich_response
+                    if parallel_response:
+                        self.response = self.asgwb_mich_response_parallel
+                        self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.asgwb_mich_response  
                 elif self.params['tdi_lev']=='xyz':
-                    self.response = self.asgwb_xyz_response
+                    if parallel_response:
+                        self.response = self.asgwb_xyz_response_parallel
+                        self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.asgwb_xyz_response
                 elif self.params['tdi_lev']=='aet':
-                    self.response = self.asgwb_aet_response
+                    if parallel_response:
+                        self.response = self.asgwb_aet_response_parallel
+                        self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.asgwb_aet_response
                 else:
                     raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             elif basis == 'pixel':
                 if self.params['tdi_lev']=='michelson':
-                    self.response = self.pixel_mich_response
+                    if parallel_response:
+                        self.response = self.pixel_mich_response_parallel
+                        self.response_non_parallel = self.pixel_mich_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.pixel_mich_response     
                 elif self.params['tdi_lev']=='xyz':
-                    self.response = self.pixel_xyz_response
+                    if parallel_response:
+                        self.response = self.pixel_xyz_response_parallel
+                        self.response_non_parallel = self.pixel_xyz_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.pixel_xyz_response
                 elif self.params['tdi_lev']=='aet':
-                    self.response = self.pixel_aet_response
+                    if parallel_response:
+                        self.response = self.pixel_aet_response_parallel
+                        self.response_non_parallel = self.pixel_aet_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.pixel_aet_response
                 else:
                     raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -634,11 +670,23 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## set response functions
             if self.params['tdi_lev']=='michelson':
-                self.response = self.unconvolved_pixel_mich_response
+                if parallel_response:
+                    self.response = self.unconvolved_pixel_mich_response_parallel
+                    self.response_non_parallel = self.unconvolved_pixel_mich_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.unconvolved_pixel_mich_response
             elif self.params['tdi_lev']=='xyz':
-                self.response = self.unconvolved_pixel_xyz_response
+                if parallel_response:
+                    self.response = self.unconvolved_pixel_xyz_response_parallel
+                    self.response_non_parallel = self.unconvolved_pixel_xyz_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.unconvolved_pixel_xyz_response
             elif self.params['tdi_lev']=='aet':
-                self.response = self.unconvolved_pixel_aet_response
+                if parallel_response:
+                    self.response = self.unconvolved_pixel_aet_response_parallel
+                    self.response_non_parallel = self.unconvolved_pixel_aet_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.unconvolved_pixel_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -718,7 +766,11 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         else:
             raise ValueError("Invalid specification of spatial model name ('{}').".format(self.spatial_model_name))
         
-        
+        #############################
+        ##      FOR TESTING        ##
+        #############################
+#        np.save(self.params['out_dir']+'/response_'+submodel_full_name+'.npy',self.response_mat) 
+#        print("Saving response array to "+self.params['out_dir']+'/response_'+submodel_full_name+'.npy')
         ## store final parameter list and count
         self.parameters = self.parameters + self.spectral_parameters + self.spatial_parameters
         if not injection:               
