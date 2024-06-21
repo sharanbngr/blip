@@ -257,11 +257,41 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             else:
                 raise ValueError("Fixed submodels are not supported for injections. Use the corresponding unfixed submodel.")
         
+        elif self.spectral_model_name == 'mwspec':
+            ## this is a spectral model tailored to analyses of the MW foreground
+            # it is a truncated power law with alpha = 2/3 and fscale = 4e-4
+            # and astrophysically-motivated prior bounds
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.omegaf = self.truncated_powerlaw_fixedalpha_spectrum
+            self.fancyname = "MW Foreground"+submodel_count
+            if not injection:
+                self.fixedvals['alpha'] = 2/3
+                self.spectral_prior = self.mwspec_prior
+            else:
+                raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
+        
+        elif self.spectral_model_name == 'lmcspec':
+            ## this is a spectral model tailored to analyses of the LMC SGWB
+            # it is a truncated power law with alpha = 2/3 and fscale = 4e-4
+            # and astrophysically-motivated prior bounds
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.omegaf = self.truncated_powerlaw_fixedalpha_spectrum
+            self.fancyname = "LMC Spectrum"+submodel_count
+            if not injection:
+                self.fixedvals['alpha'] = 2/3
+                self.spectral_prior = self.lmcspec_prior
+            else:
+                raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
+        
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
-            self.fancyname = "DWD Population"+submodel_count
-            self.population = Population(self.params,self.inj,self.fs)
+            popdict = self.inj['popdict'][submodel_full_name]
+            if popdict['name'] is not None:
+                self.fancyname = popdict['name']
+            else:
+                self.fancyname = "DWD Population"+submodel_count
+            self.population = Population(self.params,self.inj,self.fs,popdict)
             self.compute_Sgw = self.population.Sgw_wrapper
             self.omegaf = self.population.omegaf_wrapper
             self.ispop = True
@@ -330,11 +360,23 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             response_kwargs['set_almax'] = self.almax
             
             if self.params['tdi_lev']=='michelson':
-                self.response = self.asgwb_mich_response
+                if parallel_response:
+                    self.response = self.asgwb_mich_response_parallel
+                    self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.asgwb_mich_response  
             elif self.params['tdi_lev']=='xyz':
-                self.response = self.asgwb_xyz_response
+                if parallel_response:
+                    self.response = self.asgwb_xyz_response_parallel
+                    self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.asgwb_xyz_response
             elif self.params['tdi_lev']=='aet':
-                self.response = self.asgwb_aet_response
+                if parallel_response:
+                    self.response = self.asgwb_aet_response_parallel
+                    self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.asgwb_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -393,7 +435,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.inj_response_mat = self.summ_response_mat
         
         ## Handle all the static (non-inferred) astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso']:
+        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','pointsources','population','fixedgalaxy','hotpixel','pixiso','popmap']:
             
             ## the astrophysical spatial models are mostly injection-only, with some exceptions.
             if self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population'] and not injection:
@@ -414,20 +456,44 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.almax = 2*self.lmax
                 response_kwargs['set_almax'] = self.almax
                 if self.params['tdi_lev']=='michelson':
-                    self.response = self.asgwb_mich_response
+                    if parallel_response:
+                        self.response = self.asgwb_mich_response_parallel
+                        self.response_non_parallel = self.asgwb_mich_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.asgwb_mich_response  
                 elif self.params['tdi_lev']=='xyz':
-                    self.response = self.asgwb_xyz_response
+                    if parallel_response:
+                        self.response = self.asgwb_xyz_response_parallel
+                        self.response_non_parallel = self.asgwb_xyz_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.asgwb_xyz_response
                 elif self.params['tdi_lev']=='aet':
-                    self.response = self.asgwb_aet_response
+                    if parallel_response:
+                        self.response = self.asgwb_aet_response_parallel
+                        self.response_non_parallel = self.asgwb_aet_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.asgwb_aet_response
                 else:
                     raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             elif basis == 'pixel':
                 if self.params['tdi_lev']=='michelson':
-                    self.response = self.pixel_mich_response
+                    if parallel_response:
+                        self.response = self.pixel_mich_response_parallel
+                        self.response_non_parallel = self.pixel_mich_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.pixel_mich_response     
                 elif self.params['tdi_lev']=='xyz':
-                    self.response = self.pixel_xyz_response
+                    if parallel_response:
+                        self.response = self.pixel_xyz_response_parallel
+                        self.response_non_parallel = self.pixel_xyz_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.pixel_xyz_response
                 elif self.params['tdi_lev']=='aet':
-                    self.response = self.pixel_aet_response
+                    if parallel_response:
+                        self.response = self.pixel_aet_response_parallel
+                        self.response_non_parallel = self.pixel_aet_response ## useful for data frequencies, external regen
+                    else:
+                        self.response = self.pixel_aet_response
                 else:
                     raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -505,12 +571,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 ## flag the fact that we have a population skymap
                 self.skypop = True
                 ## plotting stuff
-                self.fancyname = "DWD Population"+submodel_count
                 self.subscript = "_{\mathrm{P}}"
                 self.color = 'midnightblue'
                 if self.spectral_model_name != 'population':
                     ## generate population if still needed
-                    self.population = Population(self.params,self.inj,self.fs)
+                    popdict = self.inj['popdict'][submodel_full_name]
+                    if popdict['name'] is not None:
+                        self.fancyname = popdict['name']
+                    else:
+                        self.fancyname = "DWD Population"+submodel_count
+                    self.population = Population(self.params,self.inj,self.fs,popdict)
                 self.skymap = self.population.skymap
             ## inference models
             elif self.spatial_model_name == 'fixedgalaxy':
@@ -558,6 +628,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.subscript = "_{\mathrm{PI}}"
                 self.color = 'forestgreen'
                 self.skymap = np.ones(hp.nside2npix(self.params['nside']))
+                self.fixed_map = True
+            
+            elif self.spatial_model_name == 'popmap':
+                self.fancyname = "Population Skymap"
+                self.subscript = "_{\mathrm{PM}}"
+                self.color = 'mediumorchid'
+                popkey = self.fixedvals['pop_id']
+                popdict = self.inj['popdict'][popkey]
+                if popdict['name'] is not None:
+                    self.fancyname = popdict['name']
+                else:
+                    self.fancyname = "DWD Population"+submodel_count
+                self.population = Population(self.params,self.inj,self.fs,popdict,map_only=True)
+                self.skymap = self.population.skymap
                 self.fixed_map = True
             
             else:
@@ -612,11 +696,23 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             
             ## set response functions
             if self.params['tdi_lev']=='michelson':
-                self.response = self.unconvolved_pixel_mich_response
+                if parallel_response:
+                    self.response = self.unconvolved_pixel_mich_response_parallel
+                    self.response_non_parallel = self.unconvolved_pixel_mich_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.unconvolved_pixel_mich_response
             elif self.params['tdi_lev']=='xyz':
-                self.response = self.unconvolved_pixel_xyz_response
+                if parallel_response:
+                    self.response = self.unconvolved_pixel_xyz_response_parallel
+                    self.response_non_parallel = self.unconvolved_pixel_xyz_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.unconvolved_pixel_xyz_response
             elif self.params['tdi_lev']=='aet':
-                self.response = self.unconvolved_pixel_aet_response
+                if parallel_response:
+                    self.response = self.unconvolved_pixel_aet_response_parallel
+                    self.response_non_parallel = self.unconvolved_pixel_aet_response ## useful for data frequencies, external regen
+                else:
+                    self.response = self.unconvolved_pixel_aet_response
             else:
                 raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
             
@@ -696,7 +792,11 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         else:
             raise ValueError("Invalid specification of spatial model name ('{}').".format(self.spatial_model_name))
         
-        
+        #############################
+        ##      FOR TESTING        ##
+        #############################
+#        np.save(self.params['out_dir']+'/response_'+submodel_full_name+'.npy',self.response_mat) 
+#        print("Saving response array to "+self.params['out_dir']+'/response_'+submodel_full_name+'.npy')
         ## store final parameter list and count
         self.parameters = self.parameters + self.spectral_parameters + self.spatial_parameters
         if not injection:               
@@ -803,7 +903,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     
     def truncated_powerlaw_3par_spectrum(self,fs,alpha,log_omega0,log_fcut):
         '''
-        Function to calculate a tanh-truncated power law spectrum with a set truncation scale of 3e-4 Hz.
+        Function to calculate a tanh-truncated power law spectrum with a set truncation scale.
         
         Arguments
         -----------
@@ -820,6 +920,45 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         fcut = 10**log_fcut
         fscale = 10**self.fixedvals['log_fscale']
         return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+jnp.tanh((fcut-fs)/fscale))
+    
+    def truncated_powerlaw_fixedalpha_spectrum(self,fs,log_omega0,log_fcut,log_fscale):
+        '''
+        Function to calculate a tanh-truncated power law spectrum with a set low-f slope.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        log_omega0 (float)   : power law amplitude of the power law in units of log dimensionless GW energy density at f_ref (if left un-truncated)
+        log_fcut (float)     : log of the cut frequency ("knee") in Hz
+        log_fscale           : log of the cutoff scale factor in Hz
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting truncated power law spectrum
+        
+        '''
+        fcut = 10**log_fcut
+        fscale = 10**log_fscale
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(self.fixedvals['alpha']) * (1+jnp.tanh((fcut-fs)/fscale))
+    
+    def truncated_powerlaw_2par_spectrum(self,fs,log_omega0,log_fcut):
+        '''
+        Function to calculate a tanh-truncated power law spectrum with a set truncation scale and low-f slope.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        log_omega0 (float)   : power law amplitude of the power law in units of log dimensionless GW energy density at f_ref (if left un-truncated)
+        log_fcut (float)     : log of the cut frequency ("knee") in Hz
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting truncated power law spectrum
+        
+        '''
+        fcut = 10**log_fcut
+        fscale = 10**self.fixedvals['log_fscale']
+        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(self.fixedvals['alpha']) * (1+jnp.tanh((fcut-fs)/fscale))
     
     def fixed_truncated_powerlaw_spectrum(self,fs):
         '''
@@ -1197,6 +1336,94 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
 
         return [alpha, log_omega0, log_fcut]
+    
+    def truncated_powerlaw_2par_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 2-parameter truncated power law spectral model.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as log(Omega_0) and log(f_cut)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        log_omega0 = -22*theta[0] + 8
+        log_fcut = -2*theta[1] - 2
+        
+
+        return [log_omega0, log_fcut]
+    
+    def mwspec_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 2-parameter truncated power law spectral model.
+        
+        Bounds are astrophysically-motivated and tailored to expectations of the MW foreground.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), and log(f_cut)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        log_omega0 = -2*theta[0] - 4
+        log_fcut = -0.7*theta[1] - 2.4
+        log_fscale = -1*theta[2] - 3
+        
+        
+        return [log_omega0, log_fcut, log_fscale]
+    
+    def lmcspec_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 3-parameter truncated power law spectral model.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), log(f_scale)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        log_omega0 = -4*theta[0] - 8
+        log_fcut = -1*theta[1] - 2
+        log_fscale = -1*theta[2] - 3
+        
+
+        return [log_omega0, log_fcut, log_fscale]
     
     def fixed_model_wrapper_prior(self,theta):
 

@@ -61,7 +61,8 @@ def gen_suffixes(names):
                  '1parametermw':{'abbrv':'1MW','count':1},
                  '2parametermw':{'abbrv':'2MW','count':1},
                  'galaxy':{'abbrv':'G','count':1},
-                 'fixedgalaxy':{'abbrv':'G','count':1}} ## having galaxy and fixedgalaxy both map to 'G' is a skosh hacky but solves a later problem and shouldn't cause other issues
+                 'fixedgalaxy':{'abbrv':'G','count':1},
+                 'popmap':{'abbrv':'PM','count':1}} ## having galaxy and fixedgalaxy both map to 'G' is a skosh hacky but solves a later problem and shouldn't cause other issues
     
     suffixes = ['  $\mathrm{[' for i in range(len(names))]
     
