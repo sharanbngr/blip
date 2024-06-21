@@ -261,11 +261,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             ## this is a spectral model tailored to analyses of the MW foreground
             # it is a truncated power law with alpha = 2/3 and fscale = 4e-4
             # and astrophysically-motivated prior bounds
-            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$']
-            self.omegaf = self.truncated_powerlaw_2par_spectrum
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.omegaf = self.truncated_powerlaw_fixedalpha_spectrum
             self.fancyname = "MW Foreground"+submodel_count
             if not injection:
-                self.fixedvals['log_fscale'] = np.log10(4e-4)
                 self.fixedvals['alpha'] = 2/3
                 self.spectral_prior = self.mwspec_prior
             else:
@@ -275,7 +274,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             ## this is a spectral model tailored to analyses of the LMC SGWB
             # it is a truncated power law with alpha = 2/3 and fscale = 4e-4
             # and astrophysically-motivated prior bounds
-            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             self.omegaf = self.truncated_powerlaw_fixedalpha_spectrum
             self.fancyname = "LMC Spectrum"+submodel_count
             if not injection:
@@ -1392,9 +1391,10 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Transform to actual priors
         log_omega0 = -2*theta[0] - 4
         log_fcut = -0.7*theta[1] - 2.4
+        log_fscale = -1*theta[2] - 3
         
-
-        return [log_omega0, log_fcut]
+        
+        return [log_omega0, log_fcut, log_fscale]
     
     def lmcspec_prior(self,theta):
 
