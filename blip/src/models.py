@@ -217,6 +217,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.truevals[r'$\alpha_2$'] = self.injvals['alpha2']
                 self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
         
+        elif self.spectral_model_name == 'fixedalpha1brokenpowerlaw':
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$',r'$\delta$']
+            self.omegaf = self.broken_powerlaw_fixed_a1_spectrum
+            self.fancyname = "Broken Power Law"+submodel_count
+            if not injection:
+                self.spectral_prior = self.broken_powerlaw_fixed_a1_prior
+                if 'alpha_1' not in self.fixedvals.keys():
+                    raise KeyError("Fixed-alpha_1 broken power law spectral model selected, but no low-frequeny slope parameter (alpha_1) was provided to the fixedvals dict.")
+            else:
+                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[r'$\alpha_2$'] = self.injvals['alpha2']
+                self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
+                self.truevals[r'$\delta$'] = self.injvals['delta']
+        
         elif self.spectral_model_name == 'truncatedpowerlaw':
             self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$']
             self.omegaf = self.truncated_powerlaw_3par_spectrum
@@ -272,16 +286,16 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         elif self.spectral_model_name == 'lmcspec':
             ## this is a spectral model tailored to analyses of the LMC SGWB
-            # it is a truncated power law with alpha = 2/3 and fscale = 4e-4
+            # it is a broken power law with alpha_1 = 2/3
             # and astrophysically-motivated prior bounds
-            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
-            self.omegaf = self.truncated_powerlaw_fixedalpha_spectrum
+            self.spectral_parameters = self.spectral_parameters + [r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$',r'$\delta$']
+            self.omegaf = self.broken_powerlaw_fixed_a1_spectrum
             self.fancyname = "LMC Spectrum"+submodel_count
             if not injection:
-                self.fixedvals['alpha'] = 2/3
-                self.spectral_prior = self.lmcspec_prior
+                self.fixedvals['alpha_1'] = 2/3
+                self.spectral_prior = self.lmcspecbpl_prior
             else:
-                raise ValueError("mwspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
+                raise ValueError("lmcspec is an inference-only spectral submodel. Use the truncatedpowerlaw submodel for injections.")
         
         elif self.spectral_model_name == 'population':
             if not injection:
@@ -877,8 +891,28 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         delta = 0.1
         fbreak = 10**log_fbreak
-        norm = (fbreak/self.params['fref'])**alpha_1 / 1.25989194 ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
-        return norm * (10**log_omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
+        norm = (fbreak/self.params['fref'])**alpha_1 ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
+        return norm * (10**log_omega0)*(fs/fbreak)**(alpha_1) * (1+(fs/fbreak)**(1/delta))**((alpha_1-alpha_2)*delta)
+    
+    def broken_powerlaw_fixed_a1_spectrum(self,fs,log_omega0,alpha_2,log_fbreak,delta):
+        '''
+        Function to calculate a broken power law spectrum, with a fixed low-frequency slope and variable turnover scale.
+        
+        Arguments
+        -----------
+        fs (array of floats) : frequencies at which to evaluate the spectrum
+        log_omega0 (float)   : power law amplitude of the first power law in units of log dimensionless GW energy density at f_ref
+        alpha_2 (float)      : slope of the second power law
+        log_fbreak (float)   : log of the break frequency ("knee") in Hz
+        
+        Returns
+        -----------
+        spectrum (array of floats) : the resulting broken power law spectrum
+        
+        '''
+        fbreak = 10**log_fbreak
+        norm = (fbreak/self.params['fref'])**self.fixedvals['alpha_1'] ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
+        return norm * (10**log_omega0)*(fs/fbreak)**(self.fixedvals['alpha_1']) * ((1+(fs/fbreak)**(1/delta)))**((self.fixedvals['alpha_1']-alpha_2)*delta)
     
     def truncated_powerlaw_4par_spectrum(self,fs,alpha,log_omega0,log_fcut,log_fscale):
         '''
@@ -1278,6 +1312,37 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         return [alpha_1, log_omega0, alpha_2, log_fbreak]
     
+    def broken_powerlaw_fixed_a1_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 4-parameter broken power law spectral model.
+        Fixed low-frequency slope.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), log(f_scale)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        
+        log_omega0 = -4*theta[0] - 8
+        alpha_2 = 2*theta[1] + self.fixedvals['alpha_1'] ## must be greater than alpha_1
+        log_fbreak = -1*theta[2] - 2
+        delta = 0.99*theta[3] + 0.01
+
+        return [log_omega0, alpha_2, log_fbreak, delta]
+    
     def truncated_powerlaw_4par_prior(self,theta):
 
 
@@ -1391,7 +1456,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Transform to actual priors
         log_omega0 = -2*theta[0] - 4
         log_fcut = -0.7*theta[1] - 2.4
-        log_fscale = -1*theta[2] - 3
+        log_fscale = -2*theta[2] - 2
         
         
         return [log_omega0, log_fcut, log_fscale]
@@ -1424,6 +1489,37 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
 
         return [log_omega0, log_fcut, log_fscale]
+    
+    def lmcspecbpl_prior(self,theta):
+
+
+        '''
+        Prior function for a stochastic signal search with a 4-parameter broken power law spectral model.
+        Tailored for the LMC DWD SGWB spectrum.
+
+        Parameters
+        -----------
+
+        theta   : float
+            A list or numpy array containing samples from a unit cube.
+
+        Returns
+        ---------
+
+        theta   :   float
+            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), log(f_scale)
+
+        '''
+
+        # Unpack: Theta is defined in the unit cube
+        # Transform to actual priors
+        
+        log_omega0 = -4*theta[0] - 8
+        alpha_2 = 2*theta[1] + self.fixedvals['alpha_1'] ## must be greater than alpha_1
+        log_fbreak = -1*theta[2] - 2
+        delta = 0.99*theta[3] + 0.01
+
+        return [log_omega0, alpha_2, log_fbreak, delta]
     
     def fixed_model_wrapper_prior(self,theta):
 
