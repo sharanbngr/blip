@@ -2,6 +2,7 @@ import numpy as np
 from scipy.special import sph_harm
 import numpy.linalg as LA
 import healpy as hp
+from multiprocessing import Pool
 from blip.src.clebschGordan import clebschGordan
 
 class sph_geometry(clebschGordan):
@@ -39,7 +40,7 @@ class sph_geometry(clebschGordan):
             over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
         '''
 
-        print('calculating the anisotropic responses')
+        print('Calculating the anisotropic responses...')
 
         ## set almax
         if set_almax is None:
@@ -173,15 +174,15 @@ class sph_geometry(clebschGordan):
             F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
             F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
 
-            R1[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F1, Ylms)
-            R2[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F2, Ylms)
-            R3[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F3, Ylms)
-            R12[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F12, Ylms)
-            R13[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F13, Ylms)
-            R23[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', F23, Ylms)
-            R21[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F12), Ylms)
-            R31[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F13), Ylms)
-            R32[ii, :, :] = dOmega/(8*np.pi)*np.einsum('ij, jk', np.conj(F23), Ylms)
+            R1[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F1, Ylms)
+            R2[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F2, Ylms)
+            R3[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F3, Ylms)
+            R12[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F12, Ylms)
+            R13[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F13, Ylms)
+            R23[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', F23, Ylms)
+            R21[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', np.conj(F12), Ylms)
+            R31[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', np.conj(F13), Ylms)
+            R32[ii, :, :] = dOmega/(2)*np.einsum('ij, jk', np.conj(F23), Ylms)
 
 
         response_mat = np.array([ [R1, R12, R13] , [R21, R2, R23], [R31, R32, R3] ])
@@ -283,3 +284,294 @@ class sph_geometry(clebschGordan):
         return aet_response_mat
 
 
+    def asgwb_frequency_response_wrapper(self,ii):
+        
+        '''
+        Wrapper function to help with parallelization of the response function calculations.
+        
+        Arguments
+        
+        ii (int)   :  Frequency index
+        
+        Returns
+        
+        response_ii : Response matrix in that frequency bin
+        '''
+        # Calculate the detector response for each frequency
+
+        # Calculate GW transfer function for the michelson channels        
+        gammaU_plus    =    1/2 * (np.sinc((self.f0[ii])*(1 - self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(3+self.udir)) + \
+                         np.sinc((self.f0[ii])*(1 + self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(1+self.udir)))
+
+        gammaV_plus    =    1/2 * (np.sinc((self.f0[ii])*(1 - self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3+self.vdir)) + \
+                         np.sinc((self.f0[ii])*(1 + self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1+self.vdir)))
+
+        gammaW_plus    =    1/2 * (np.sinc((self.f0[ii])*(1 - self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3+self.wdir)) + \
+                         np.sinc((self.f0[ii])*(1 + self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1+self.wdir)))
+
+
+        # Calculate GW transfer function for the michelson channels
+        gammaU_minus    =    1/2 * (np.sinc((self.f0[ii])*(1 + self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(3 - self.udir)) + \
+                         np.sinc((self.f0[ii])*(1 - self.udir)/np.pi)*np.exp(-1j*self.f0[ii]*(1 - self.udir)))
+
+        gammaV_minus    =    1/2 * (np.sinc((self.f0[ii])*(1 + self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3 - self.vdir)) + \
+                         np.sinc((self.f0[ii])*(1 - self.vdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1 - self.vdir)))
+
+        gammaW_minus    =    1/2 * (np.sinc((self.f0[ii])*(1 + self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(3 - self.wdir)) + \
+                         np.sinc((self.f0[ii])*(1 - self.wdir)/np.pi)*np.exp(-1j*self.f0[ii]*(1 - self.wdir)))
+        
+
+        ## Calculate Fplus
+        Fplus1 = 0.5*(self.Fplus_u*gammaU_plus - self.Fplus_v*gammaV_plus)*np.exp(-1j*self.f0[ii]*(self.udir + self.vdir)/np.sqrt(3))
+        Fplus2 = 0.5*(self.Fplus_w*gammaW_plus - self.Fplus_u*gammaU_minus)*np.exp(-1j*self.f0[ii]*(-self.udir + self.vdir)/np.sqrt(3))
+        Fplus3 = 0.5*(self.Fplus_v*gammaV_minus - self.Fplus_w*gammaW_minus)*np.exp(1j*self.f0[ii]*(self.vdir + self.wdir)/np.sqrt(3))
+
+        ## Calculate Fcross
+        Fcross1 = 0.5*(self.Fcross_u*gammaU_plus  - self.Fcross_v*gammaV_plus)*np.exp(-1j*self.f0[ii]*(self.udir + self.vdir)/np.sqrt(3))
+        Fcross2 = 0.5*(self.Fcross_w*gammaW_plus  - self.Fcross_u*gammaU_minus)*np.exp(-1j*self.f0[ii]*(-self.udir + self.vdir)/np.sqrt(3))
+        Fcross3 = 0.5*(self.Fcross_v*gammaV_minus - self.Fcross_w*gammaW_minus)*np.exp(1j*self.f0[ii]*(self.vdir + self.wdir)/np.sqrt(3))
+
+
+
+        ## Detector response for the TDI Channels, summed over polarization
+        ## and integrated over sky direction
+        F1 = (np.absolute(Fplus1))**2 + (np.absolute(Fcross1))**2
+        F2 = (np.absolute(Fplus2))**2 + (np.absolute(Fcross2))**2
+        F3 = (np.absolute(Fplus3))**2 + (np.absolute(Fcross3))**2
+        F12 = np.conj(Fplus1)*Fplus2 + np.conj(Fcross1)*Fcross2
+        F13 = np.conj(Fplus1)*Fplus3 + np.conj(Fcross1)*Fcross3
+        F23 = np.conj(Fplus2)*Fplus3 + np.conj(Fcross2)*Fcross3
+
+        R1_ii  = self.dOmega/(2)*np.einsum('ij, jk', F1, self.Ylms)
+        R2_ii  = self.dOmega/(2)*np.einsum('ij, jk', F2, self.Ylms)
+        R3_ii = self.dOmega/(2)*np.einsum('ij, jk', F3, self.Ylms)
+        R12_ii = self.dOmega/(2)*np.einsum('ij, jk', F12, self.Ylms)
+        R13_ii = self.dOmega/(2)*np.einsum('ij, jk', F13, self.Ylms)
+        R23_ii = self.dOmega/(2)*np.einsum('ij, jk', F23, self.Ylms)
+        R21_ii = self.dOmega/(2)*np.einsum('ij, jk', np.conj(F12), self.Ylms)
+        R31_ii = self.dOmega/(2)*np.einsum('ij, jk', np.conj(F13), self.Ylms)
+        R32_ii = self.dOmega/(2)*np.einsum('ij, jk', np.conj(F23), self.Ylms)
+
+        return np.array([ [R1_ii, R12_ii, R13_ii] , [R21_ii, R2_ii, R23_ii], [R31_ii, R32_ii, R3_ii] ])
+
+
+    def asgwb_mich_response_parallel(self, f0, tsegmid, set_almax=None):
+
+        '''
+        Parallel implementation of asgwb_mich_response.
+        
+        Calculate the Antenna pattern/ detector transfer function functions to acSGWB using michelson channels,
+        and using a spherical harmonic decomposition. Note that the response function to power is integrated over
+        sky direction with the appropriate spherical harmonics, and averaged over polarozation. The angular
+        integral is numerically done by divvying up the sky into a healpix grid.
+
+        Note that f0 is (pi*L*f)/c and is input as an array
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+        tsegmid : float
+            A numpy array of the time series midpoints.
+        set_almax : int
+            Allows the user to manually set the almax used in the response function calculations.
+            If None, almax will default to the globally set self.almax. Otherwise almax will be the value given.
+
+        Returns
+        ---------
+
+        R1, R2 and R3   :   float
+            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
+            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
+        '''
+
+        print('Calculating the anisotropic responses...')
+
+        ## set almax
+        if set_almax is None:
+            almax = self.almax
+        else:
+            almax = set_almax
+        
+        ## array size of almax
+        alm_size = (almax + 1)**2
+
+        npix = hp.nside2npix(self.params['nside'])
+
+        # Array of pixel indices
+        pix_idx  = np.arange(npix)
+
+        #Angular coordinates of pixel indcides
+        theta, phi = hp.pix2ang(self.params['nside'], pix_idx)
+
+        # Take cosine.
+        ctheta = np.cos(theta)
+
+        # Area of each pixel in sq.radians
+        self.dOmega = hp.pixelfunc.nside2pixarea(self.params['nside'])
+
+        # Create 2D array of (x,y,z) unit vectors for every sky direction.
+        omegahat = np.array([np.sqrt(1-ctheta**2)*np.cos(phi),np.sqrt(1-ctheta**2)*np.sin(phi),ctheta])
+
+        # Call lisa_orbits to compute satellite positions at the midpoint of each time segment
+        rs1, rs2, rs3 = self.lisa_orbits(tsegmid)
+
+        ## Calculate directional unit vector dot products
+        ## Dimensions of udir is time-segs x sky-pixels
+        self.udir = np.einsum('ij,ik',(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],omegahat)
+        self.vdir = np.einsum('ij,ik',(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],omegahat)
+        self.wdir = np.einsum('ij,ik',(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],omegahat)
+
+
+        ## NB --    An attempt to directly adapt e.g. (u o u):e+ as implicit tensor calculations
+        ##             as opposed to the explicit forms we've previously used. '''
+
+        mhat = np.array([np.sin(phi),-np.cos(phi),np.zeros(len(phi))])
+        nhat = np.array([np.cos(phi)*ctheta,np.sin(phi)*ctheta,-np.sqrt(1-ctheta**2)])
+
+        # 1/2 u x u : eplus. These depend only on geometry so they only have a time and directionality dependence and not of frequency
+        self.Fplus_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :], (rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        self.Fplus_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        self.Fplus_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) - np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        # 1/2 u x u : ecross
+        self.Fcross_u = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :],(rs2-rs1)/LA.norm(rs2-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        self.Fcross_v = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :],(rs3-rs1)/LA.norm(rs3-rs1,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        self.Fcross_w = 0.5*np.einsum("ijk,ijl", \
+                              np.einsum("ik,jk -> ijk",(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :],(rs3-rs2)/LA.norm(rs3-rs2,axis=0)[None, :]), \
+                              np.einsum("ik,jk -> ijk",mhat,mhat) + np.einsum("ik,jk -> ijk",nhat,nhat))
+
+        ## initalize array for Ylms
+        self.Ylms = np.zeros((npix, alm_size ), dtype='complex')
+
+        ## Get the spherical harmonics
+        for ii in range(alm_size):
+            lval, mval = self.idxtoalm(almax, ii)
+            self.Ylms[:, ii] = sph_harm(mval, lval, phi, theta)
+
+        
+        # Initialize response matrix
+        response_mat = np.zeros((3,3,f0.size, tsegmid.size,alm_size), dtype='complex')
+        
+        # Calculate the detector response for each frequency
+        idx = range(0,f0.size)
+        
+        with Pool(self.inj['response_nthread']) as pool:
+            result = pool.map(self.asgwb_frequency_response_wrapper,idx)
+        
+            for ii, R_f in zip(idx,result):
+                response_mat[:,:,ii,:,:] = R_f
+
+        return response_mat
+    
+    def asgwb_xyz_response_parallel(self, f0, tsegmid, set_almax=None):
+
+        '''
+        Parallel implementation of asgwb_xyz_response.
+        
+        Calculate the Antenna pattern/ detector transfer function functions to acSGWB using X,Y,Z TDI channels,
+        and using a spherical harmonic decomposition. Note that the response function to power is integrated over
+        sky direction with the appropriate spherical harmonics, and averaged over polarozation. The angular
+        integral is numerically done by divvying up the sky into a healpix grid.
+
+        Note that f0 is (pi*L*f)/c and is input as an array
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+        tsegmid : float
+            A numpy array of the time series midpoints.
+        set_almax : int
+            Allows the user to manually set the almax used in the response function calculations.
+            If None, almax will default to the globally set self.almax. Otherwise almax will be the value given.
+
+        Returns
+        ---------
+
+        R1, R2 and R3   :   float
+            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
+            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
+        '''
+
+        mich_response_mat = self.asgwb_mich_response_parallel(f0, tsegmid, set_almax)
+        xyz_response_mat = 4 * mich_response_mat * (np.sin(2*f0[None, None, :, None, None]))**2
+
+        return xyz_response_mat
+
+
+    def asgwb_aet_response_parallel(self, f0, tsegmid, set_almax=None):
+
+        '''
+        Parallel implementation of asgwb_aet_response.
+        
+        Calculate the Antenna pattern/ detector transfer function functions to acSGWB using X,Y,Z TDI channels,
+        and using a spherical harmonic decomposition. Note that the response function to power is integrated over
+        sky direction with the appropriate spherical harmonics, and averaged over polarozation. The angular
+        integral is numerically done by divvying up the sky into a healpix grid.
+
+        Note that f0 is (pi*L*f)/c and is input as an array
+
+
+
+        Parameters
+        -----------
+
+        f0   : float
+            A numpy array of scaled frequencies (see above for def)
+        tsegmid : float
+            A numpy array of the time series midpoints.
+        set_almax : int
+            Allows the user to manually set the almax used in the response function calculations.
+            If None, almax will default to the globally set self.almax. Otherwise almax will be the value given.
+
+
+        Returns
+        ---------
+
+        R1, R2 and R3   :   float
+            Antenna Patterns for the given sky direction for the three channels, integrated over sky direction and averaged
+            over polarization. The arrays are 2-d, one direction corresponds to frequency and the other to the l coeffcient.
+        '''
+
+        xyz_response_mat = self.asgwb_xyz_response_parallel(f0, tsegmid, set_almax)
+
+        ## Upnack xyz matrix to make assembling the aet matrix easier
+        RXX, RYY, RZZ = xyz_response_mat[0, 0], xyz_response_mat[1, 1], xyz_response_mat[2, 2]
+        RXY, RXZ, RYZ = xyz_response_mat[0, 1], xyz_response_mat[0, 2], xyz_response_mat[1, 2]
+
+        ## construct AET matrix elements
+        RAA = (1/9) * (4*RXX + RYY + RZZ - 2*RXY - 2*np.conj(RXY) - 2*RXZ - 2*np.conj(RXZ) + \
+                        RYZ  + np.conj(RYZ))
+
+        REE = (1/3) * (RZZ + RYY - RYZ - np.conj(RYZ))
+
+        RTT = (1/9) * (RXX + RYY + RZZ + RXY + np.conj(RXY) + RXZ + np.conj(RXZ) + RYZ + np.conj(RYZ))
+
+        RAE = (1/(3*np.sqrt(3))) * (RYY - RZZ - RYZ + np.conj(RYZ) + 2*RXZ - 2*RXY)
+
+        RAT = (1/9) * (2*RXX - RYY - RZZ + 2*RXY - np.conj(RXY) + 2*RXZ - np.conj(RXZ) - RYZ - np.conj(RYZ))
+
+        RET = (1/(3*np.sqrt(3))) * (RZZ - RYY - RYZ + np.conj(RYZ) + np.conj(RXZ) - np.conj(RXY))
+
+        aet_response_mat = np.array([ [RAA, RAE, RAT] , \
+                                    [np.conj(RAE), REE, RET], \
+                                    [np.conj(RAT), np.conj(RET), RTT] ])
+
+        return aet_response_mat

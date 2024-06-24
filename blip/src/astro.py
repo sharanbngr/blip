@@ -1,4 +1,5 @@
 import numpy as np
+import jax.numpy as jnp
 import legwork as lw
 import pandas as pd
 from blip.src.instrNoise import instrNoise
@@ -19,38 +20,59 @@ class Population():
     and preparing data for use in some of the makeLISAdata.py signal simulation methods. 
     '''
 
-    def __init__(self, params, inj, frange):
+    def __init__(self, params, inj, frange, popdict, map_only=False):
         '''
         Produces a population object with an attached skymap and spectrum.
         
         Note that we don't carry around the entire set of binaries, just the overall population-level data.
+        
+        This is a fast way to accurately approximate the strain PSD of the unresolved DWD population in frequency-domain, 
+        but does result in some smoothing of the spectrum, so sharp features may be reduced in the simulation process. 
+        Also note that each bin is phase-averaged, which will underestimate the variance in a small fraction of bins.
+        
+        NB -- should implement a full time-domain approach when time allows, as it will be more precise. This is a good (and efficient) approximation, though.
+        
+        Arguments
+        -------------------
+        params (dict)            : params dict
+        inj (dict)               : injection dict
+        frange (array of floats) : injection splice fft frequencies
+        popdict (str)            : the populations dict corresponding to the desired population (allows for multiple populations)
+        map_only (bool)          : Whether to only compute the skymap. Used for models that rely on a fixed population skymap.
+        
         '''
         self.params = params
         self.inj = inj
         self.frange = frange
         
+        self.popdict = popdict
         
-        pop = self.load_population(self.inj['popfile'],self.params['fmin'],self.params['fmax'],names=self.inj['columns'],sep=self.inj['delimiter'])
+        ## load the population
+        pop = self.load_population(self.popdict['popfile'],self.params['fmin'],self.params['fmax'],names=self.popdict['columns'],sep=self.popdict['delimiter'])
         
+        ## get the skymap
         self.skymap = self.pop2map(pop,self.params['nside'],self.params['dur']*u.s,self.params['fmin'],self.params['fmax'])
+        ## also compute the spherical harmonic transform if the injection is using the spherical harmonic basis
+        if self.inj['inj_basis']=='sph':
+            self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
         
-        ## PSD at injection frequency binning
-        self.PSD= self.pop2spec(pop,self.frange,self.params['dur']*u.s,return_median=False,plot=False)
-
-        ## PSD at data frequencies
-        fs_spec = np.fft.rfftfreq(int(self.params['fs']*self.params['dur']),1/self.params['fs'])[1:]
-        PSD_spec = self.pop2spec(pop,fs_spec,self.params['dur']*u.s,return_median=False,plot=False)
-        self.PSD_interp = intrp(fs_spec,PSD_spec)
-        self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
-        self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
-        self.PSD_true = self.PSD_interp(self.frange_true)
-
-        ## factor of two b/c (h_A,h_A*)~h^2~1/2 * S_A
-        ## additional factor of 2 b/c S_GW = 2 * S_A
-        self.Sgw = self.PSD * 4
-        self.Sgw_true = self.PSD_true * 4
+        ## spectrum
+        if not map_only:
+            ## PSD at injection frequency binning
+            self.PSD = self.pop2spec(pop,self.frange,self.params['dur']*u.s,SNR_cut=self.popdict['snr_cut'],return_median=False,plot=False)
+    
+            ## PSD at data frequencies
+            self.fftfreqs = np.fft.rfftfreq(int(self.params['fs']*self.params['seglen']),1/self.params['fs'])[1:]
+            self.PSD_true = self.pop2spec(pop,self.fftfreqs,self.params['dur']*u.s,return_median=False,plot=False)[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
+            self.frange_true = self.fftfreqs[np.logical_and(self.fftfreqs >=  self.params['fmin'] , self.fftfreqs <=  self.params['fmax'])]
+                  
+            
+            ## factor of 2 is for GW amplitude convention with a prefactor of 2, i.e. h0**2 = A+**2 + Ax**2 = 2A**2
+            ## if instead using prefactor of 4 convention, no factor of 4 because h0 = A
+            ## should add a flag in case we use a pop with the factor of 4 convention
+            self.Sgw = self.PSD *4
+            self.Sgw_true = self.PSD_true*4
         
-        self.sph_skymap = skymap_pix2sph(self.skymap,self.inj['inj_lmax'])
         
     def rebin_PSD(self,fs_new):
         '''
@@ -126,9 +148,9 @@ class Population():
         lats = (dwds[coldict['lat']].to_numpy()*unitdict['lat']).to(u.deg).value
         longs = (dwds[coldict['long']].to_numpy()*unitdict['long']).to(u.deg).value
         ## filter to frequency band
-        f_filter = (fs >= fmin) & (fs <= fmax)
+#        f_filter = (fs >= fmin) & (fs <= fmax)
         ## generate pop dict
-        pop = {'fs':fs[f_filter],'hs':hs[f_filter],'lats':lats[f_filter],'longs':longs[f_filter]}
+        pop = {'fs':fs,'hs':hs,'lats':lats,'longs':longs}
         return pop
         
         
@@ -144,7 +166,7 @@ class Population():
         Returns:
             binary_psds (1D array of floats): Monochromatic PSDs for each binary
         '''
-        binary_psds = t_obs*hs**2
+        binary_psds = 0.5*t_obs*hs**2
         
         return binary_psds
     
@@ -275,12 +297,14 @@ class Population():
             plt.savefig(saveto + '/population_injection_zoom.png', dpi=150)
             plt.close()
         
+        
+        ## factor of 1/2 is for phase-averaging to account for interference
         if return_median:
-            spectrum =  fg_PSD_binned/bin_widths *u.Hz*u.s
-            median_spectrum = runmed_binned/bin_widths *u.Hz*u.s
+            spectrum =  0.5*fg_PSD_binned/bin_widths *u.Hz*u.s
+            median_spectrum = 0.5*runmed_binned/bin_widths *u.Hz*u.s
             return spectrum, median_spectrum
         else:
-            spectrum =  fg_PSD_binned/bin_widths *u.Hz*u.s
+            spectrum =  0.5*fg_PSD_binned/bin_widths *u.Hz*u.s
             return spectrum
      
     @staticmethod
@@ -405,6 +429,138 @@ class Population():
 ##################################################
 ## Analytic Astrophysical Spatial Distributions ##
 ##################################################
+class Galaxy_Model():
+    '''
+    Class to support parameterized inference of the Galactic white dwarf binary spatial distribution.
+    '''
+    def __init__(self,nside,grid_spec='interval',grid_res=0.33,gal_rad=16,gal_height=8,max_rh=4,max_zh=2,fix_rh=None):
+        '''
+        Function to initialize a grid on which to generate simple parameterized density models of the galactic DWD distribution.
+        
+        Arguments:
+            nside (int)         :   Healpy nside (pixel resolution).
+            grid_spec (str)     :   Determines the nature of grid_res (below). Can be 'interval' or 'npoints'. 
+                                    If 'interval', grid_res is the dx=dy=dz grid interval in kpc.
+                                    If 'npoints', grid_res is the number of number of points along x and y.
+                                    (Note that the number of points along z will be scaled to keep dx=dy=dz if gal_rad and gal_height are different.)
+            grid_res (float)    :   Grid resolution as defined above. If grid_spec='npoints', type must be int.
+            gal_rad (float)     :   Max galactic radius of the grid in kpc. Grid will be definded on -gal_rad <= x,y <= +gal_rad.
+            gal_height (float)  :   Max galactic height of the grid in kpc. Grid will be definded on -gal_height <= z <= +gal_height.
+            max_rh (float)      :   Maximum prior value of the Galaxy model's radial scale height (rh). Used to create a mask for response function calculations.
+            max_zh (float)      :   As max_rh, but for the vertical scale height (zh).
+            fix_rh (float)      :   Value of the radial scale height to fix for the model (if None, rh is treated as a parameter.)
+            
+        '''
+        self.nside = nside
+        ## for binning
+        self.length = hp.nside2npix(self.nside)
+        ## create grid *in cartesian coordinates*
+        ## size of density grid gives enough padding around the galactic plane without becoming needlessly large
+        ## set to 4x max default radial/vertical scale height, respectively (corresponds to "edge" density ~1/10 of central density)
+        ## distances in kpc
+        if grid_spec=='interval':
+            resolution = grid_res
+            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
+            xs = np.arange(-gal_rad,gal_rad,resolution)
+            ys = np.arange(-gal_rad,gal_rad,resolution)
+            zs = np.arange(-gal_height,gal_height,resolution)
+        elif grid_spec=='npoints':
+            if type(grid_res) is not int:
+                raise TypeError("If grid_spec is 'npoints', grid_res must be an integer.")
+            resolution = gal_rad*2 / grid_res
+            print("Generating grid with dx = dy = dz = {:0.2f} kpc".format(resolution))
+            xs = np.linspace(-gal_rad,gal_rad,grid_res)
+            ys = np.linspace(-gal_rad,gal_rad,grid_res)
+            zs = np.arange(-gal_height,gal_height,resolution)
+        
+        ## generate meshgrid
+        x, y, z = np.meshgrid(xs,ys,zs)
+        self.z = z
+        self.r = np.sqrt(x**2 + y**2)
+        ## Use astropy.coordinates to transform from galactocentric frame to galactic (solar system barycenter) frame.
+        gc = cc.SkyCoord(x=x*u.kpc,y=y*u.kpc,z=z*u.kpc, frame='galactocentric')
+        SSBc = gc.transform_to(cc.Galactic)
+        ## 1/D^2 with filtering to avoid nearby, presumeably resolved, DWDs
+        self.dist_adj = (np.array(SSBc.distance)>2)*(np.array(SSBc.distance))**-2
+        ## make pixel grid
+        self.pixels = hp.ang2pix(self.nside,np.array(SSBc.l),np.array(SSBc.b),lonlat=True).flatten()
+        self.rGE = hp.rotator.Rotator(coord=['G','E'])
+        
+        ## set global (fixed) MW model parameters
+        self.rho_c = 1 # some fiducial central density
+        self.r_cut = 2.1 #kpc
+        self.r0 = 0.075 #kpc
+        self.alpha = 1.8
+        self.q = 0.5
+        
+        ## compute the bulge density (independent of rh,zh)
+        self.bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
+        
+        
+        if fix_rh is not None:
+            self.rh = fix_rh
+            self.disk_density_radial_prefactor = self.rho_c*jnp.exp(-self.r/self.rh)
+            self.max_skymap = self.mw_mapmaker_2par(fix_rh+0.1,max_zh+0.1)
+        else:
+            ## create skymap with maximum allowed spatial extent (plus some buffer)
+            self.max_skymap = self.mw_mapmaker_2par(max_rh+0.1,max_zh+0.1)
+    
+    
+    def mw_mapmaker_1par(self,zh):
+        '''
+        
+        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
+        zh is the vertical scale height in kpc. 
+        The distribution is azimuthally symmetric in the galactocentric frame.
+        
+        Designed for speed, as it is intended for use during sampling. Relies on pre-computed galaxy grid that is produced as part of Galaxy_Model() initialization.
+        
+        Returns
+        ---------
+        skymap : float
+            Healpy GW power skymap of the Milky Way white dwarf binary distribution.
+        
+        '''
+        ## Calculate density distribution
+        disk_density = self.disk_density_radial_prefactor*jnp.exp(-jnp.abs(self.z)/zh) 
+#        bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
+        summed_density = disk_density + self.bulge_density
+        ## use stored grid to convert density to power and filter nearby resolved DWDs
+        unresolved_powers = summed_density*self.dist_adj
+        ## Bin
+        skymap_galactic = jnp.bincount(self.pixels,weights=unresolved_powers.flatten(),length=self.length)
+        ## Transform into the ecliptic
+        skymap = self.rGE.rotate_map_pixel(skymap_galactic)
+        
+        return skymap
+
+    def mw_mapmaker_2par(self,rh,zh):
+        '''
+        
+        Generate a galactic white dwarf binary foreground modeled after Breivik et al. (2020), consisting of a bulge + disk.
+        rh is the radial scale height in kpc, zh is the vertical scale height in kpc. 
+        The distribution is azimuthally symmetric in the galactocentric frame.
+        
+        Designed for speed, as it is intended for use during sampling. Relies on pre-computed galaxy grid that is produced as part of Galaxy_Model() initialization.
+        
+        Returns
+        ---------
+        skymap : float
+            Healpy GW power skymap of the Milky Way white dwarf binary distribution.
+        
+        '''
+        ## Calculate density distribution
+        disk_density = self.rho_c*jnp.exp(-self.r/rh)*jnp.exp(-jnp.abs(self.z)/zh) 
+#        bulge_density = self.rho_c*(jnp.exp(-(self.r/self.r_cut)**2)/(1+jnp.sqrt(self.r**2 + (self.z/self.q)**2)/self.r0)**self.alpha)
+        summed_density = disk_density + self.bulge_density
+        ## use stored grid to convert density to power and filter nearby resolved DWDs
+        unresolved_powers = summed_density*self.dist_adj
+        ## Bin
+        skymap_galactic = jnp.bincount(self.pixels,weights=unresolved_powers.flatten(),length=self.length)
+        ## Transform into the ecliptic
+        skymap = self.rGE.rotate_map_pixel(skymap_galactic)
+        
+        return skymap
 
         
 def generate_galactic_foreground(rh,zh,nside):
@@ -469,6 +625,7 @@ def generate_galactic_foreground(rh,zh,nside):
     astro_map = rGE.rotate_map_pixel(astro_mapG)
     
     return astro_map
+
 
 def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     '''
@@ -571,33 +728,50 @@ def generate_sdg(nside,ra=80.21496, dec=-69.37772, D=50, r=2.1462, N=2169264):
     ## returning healpix skymaps
     return astro_map
 
-def generate_point_source(theta,phi,nside):
+def generate_point_source(ang_coord1,ang_coord2,nside,convention='healpy',pad=True):
     '''
-    Generates a point source skymap. Allows small amount of power to artifically bleed into adjacent pixels to avoid numerical error issues later on.
+    Generates a point source skymap. 
     
     Arguments
     ---------
-    theta, phi : float
-        angular coordinates of the point source in radians
+    ang_coord1, ang_coord2 : float
+        angular coordinates of the point source in radians. Either theta, phi or ra, dec (see convention variable)
+    nside : int
+        Healpy nside (skymap resolution)
+    convention : str
+        Angle specification convention. Can be 'healpy' (Healpy polar theta, aziumuthal phi) or 'radec' (standard astronomical RA/DEC). Default is theta/phi.
+    pad : bool
+        Whether to allow a small amount of power to artifically bleed into adjacent pixels to avoid numerical error issues later on. Only needed for single-pixel case.
     
     Returns
     ---------
     astro_map (array of floats) : healpy skymap
     '''
     
+    if convention=='healpy':
+        theta, phi = ang_coord1, ang_coord2
+    elif convention=='radec':
+        ra, dec = ang_coord1, ang_coord2
+        theta, phi = np.pi/2 - np.deg2rad(dec), np.deg2rad(ra)
+    else:
+        raise ValueError("Unknown specification of angular coordinate convention. Can be 'healpy' (Healpy theta/phi) or 'radec' (RA/DEC).")
+    
     astro_map = np.zeros(hp.nside2npix(nside))
     ps_id = hp.ang2pix(nside, theta, phi)
     astro_map[ps_id] = 1
     
-    neighbours = hp.pixelfunc.get_all_neighbours(nside,ps_id)
-    astro_map[neighbours] = 1e-10
-    astro_map = astro_map/np.sum(astro_map)
+    if pad:
+        neighbours = hp.pixelfunc.get_all_neighbours(nside,ps_id)
+        astro_map[neighbours] = 1e-10
+        astro_map = astro_map/np.sum(astro_map)
     
     return astro_map
 
 def generate_two_point_source(theta_1,phi_1,theta_2,phi_2,nside):
     '''
     Generates a two-point-source skymap. 
+    
+    Depreciation note: Keeping until the angular resolution study is finished, then will depreciate in favor of generate_point_sources() (below)/
     
     Arguments
     ---------
@@ -618,6 +792,35 @@ def generate_two_point_source(theta_1,phi_1,theta_2,phi_2,nside):
     
     return astro_map
 
+def generate_point_sources(coord_list,nside,convention='healpy'):
+    '''
+    Generates a skymap with a flexible number of point sources. 
+
+    Arguments
+    ---------
+    coord_list : list of tuples
+        List of (ang_coord1,ang_coord2) tuples, one tuple per source. Each tuple gives angular coordinates of their respective  point sourc as either (theta, phi) or (ra, dec) (see convention variable).
+    nside : int
+        Healpy nside (skymap resolution)
+    convention : str
+        Angle specification convention. Can be 'healpy' (Healpy polar theta, aziumuthal phi) or 'radec' (standard astronomical RA/DEC). Default is theta/phi.
+    
+    Returns
+    ---------
+    astro_map (array of floats) : healpy skymap
+    '''
+    
+    astro_map = np.zeros(hp.nside2npix(nside))
+    
+    ## add sources
+    for source_coord in coord_list:
+        source_map = generate_point_source(source_coord[0],source_coord[1],nside,convention=convention,pad=False)
+        astro_map += source_map
+    
+    ## normalise to 1
+    astro_map = astro_map/np.sum(astro_map)
+    
+    return astro_map
 
 def skymap_pix2sph(skymap, blmax):
     '''

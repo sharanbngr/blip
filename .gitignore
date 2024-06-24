@@ -15,6 +15,7 @@ cython_response.c
 cython_response.html
 /Prev
 /.git
+BLiP.egg-info
 mldcparams*
 owndata*
 eogtest*
