@@ -1336,9 +1336,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         
-        log_omega0 = -4*theta[0] - 8
+        log_omega0 = -10*theta[0] - 4
         alpha_2 = 2*theta[1] + self.fixedvals['alpha_1'] ## must be greater than alpha_1
-        log_fbreak = -1*theta[2] - 2
+        log_fbreak = -2*theta[2] - 2
         delta = 0.99*theta[3] + 0.01
 
         return [log_omega0, alpha_2, log_fbreak, delta]
