@@ -9,6 +9,81 @@ utils.py contains a collection of ragtag miscellaneous utility functions. If you
 '''
 
 
+def parse_submodel_name(name):
+    '''
+    Parse a BLIP submodel/component name into spectral and spatial pieces.
+
+    The base syntax is ``spectral_spatial``. We also support extended spatial
+    labels like ``sph_l2`` for an ``ell``-collapsed anisotropic SGWB component.
+    Duplicate markers appended as ``-N`` are ignored for the parsed metadata.
+    '''
+
+    base_name = name.split('-')[0]
+
+    if base_name == 'noise':
+        return {
+            'base_name': base_name,
+            'spectral_name': 'noise',
+            'spatial_name': 'noise',
+            'spatial_kind': 'noise',
+            'ell': None,
+        }
+
+    if '_' in base_name:
+        spectral_name, spatial_name = base_name.split('_', 1)
+    else:
+        spectral_name = spatial_name = base_name
+
+    spatial_kind = spatial_name
+    ell = None
+
+    if spatial_name.startswith('sph_l'):
+        ell_text = spatial_name[len('sph_l'):]
+        if (ell_text == '') or (not ell_text.isdigit()):
+            raise ValueError(
+                "Invalid ell-collapsed anisotropic spatial model '{}'. "
+                "Use the form 'sph_lN', e.g. 'sph_l2'.".format(spatial_name)
+            )
+        spatial_kind = 'sph_l'
+        ell = int(ell_text)
+
+    return {
+        'base_name': base_name,
+        'spectral_name': spectral_name,
+        'spatial_name': spatial_name,
+        'spatial_kind': spatial_kind,
+        'ell': ell,
+    }
+
+
+def spatial_suffix_label(name):
+    '''
+    Generate a short suffix label for a model/component based on its spatial
+    specification.
+    '''
+
+    parsed = parse_submodel_name(name)
+    spatial_kind = parsed['spatial_kind']
+
+    shorthand = {
+        'noise': '',
+        'isgwb': 'I',
+        'sph': 'A',
+        'population': 'P',
+        'hierarchical': 'H',
+        'galaxy': 'G',
+        'dwarfgalaxy': 'DG',
+        'lmc': 'LMC',
+        'pointsource': '1P',
+        'twopoints': '2P',
+    }
+
+    if spatial_kind == 'sph_l':
+        return 'L{}'.format(parsed['ell'])
+
+    return shorthand.get(spatial_kind, parsed['spatial_name'])
+
+
 ## Some helper functions for Models, Injections, and submodels.
 def catch_duplicates(names):
     '''
@@ -45,18 +120,22 @@ def gen_suffixes(names):
     ---------------
     suffixes (list of str) : parameter suffixes for each respective model or injection submodel
     '''
-    ## grab the spatial designation (or just 'noise' for the noise case)
-    end_lst = [name.split('-')[0].split('_')[-1] for name in names]
+    parsed_names = [parse_submodel_name(name) for name in names]
+    end_lst = []
+    label_lst = []
+    for parsed, name in zip(parsed_names, names):
+        if parsed['spatial_kind'] == 'sph_l':
+            end_lst.append('sph_l{}'.format(parsed['ell']))
+        else:
+            end_lst.append(parsed['spatial_kind'])
+        label_lst.append(spatial_suffix_label(name))
+
     ## if we just have noise and a lone signal, we don't need to do this.
     if ('noise' in end_lst) and len(end_lst)==2:
         suffixes = ['','']
         return suffixes
-    ## set up our building blocks and model counts for iterative numbering
-    shorthand = {'noise':{'abbrv':'','count':1},
-                 'isgwb':{'abbrv':'I','count':1},
-                 'sph':{'abbrv':'A','count':1},
-                 'population':{'abbrv':'P','count':1},
-                 'hierarchical':{'abbrv':'H','count':1} }
+
+    count_map = {end:1 for end in end_lst}
     
     suffixes = ['  $\mathrm{[' for i in range(len(names))]
     
@@ -64,17 +143,17 @@ def gen_suffixes(names):
     dupc = {end:end_lst.count(end) for end in end_lst}
     
     ## generate the suffixes by assigning the abbreviated notation and numbering as necessary
-    for i, (end,suff) in enumerate(zip(end_lst,suffixes)):
+    for i, (end, label, suff) in enumerate(zip(end_lst,label_lst,suffixes)):
         if end == 'noise':
             if dupc[end] > 1:
                 raise ValueError("Multiple noise injections/models is not supported.")
             else:
                 suffixes[i] = ''
         elif dupc[end] == 1:
-            suffixes[i] = suff + shorthand[end]['abbrv'] + ']}$'
+            suffixes[i] = suff + label + ']}$'
         else:
-            suffixes[i] = suff + shorthand[end]['abbrv'] + '_' + str(shorthand[end]['count']) + ']}$'
-            shorthand[end]['count'] += 1
+            suffixes[i] = suff + label + '_' + str(count_map[end]) + ']}$'
+            count_map[end] += 1
 
     return suffixes
 

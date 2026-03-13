@@ -1,6 +1,9 @@
 import numpy as np
 from healpy import Alm
-from sympy.physics.quantum.cg import CG
+try:
+    from sympy.physics.quantum.cg import CG
+except ModuleNotFoundError:
+    CG = None
 
 
 class clebschGordan():
@@ -19,6 +22,16 @@ class clebschGordan():
         ## size of arrays: for blms its only non-negative m values but for alms it is all of them
         self.alm_size = (self.almax + 1)**2
         self.blm_size = Alm.getsize(self.blmax)
+
+        self.requires_clebsch_gordan = getattr(self, 'requires_clebsch_gordan', True)
+        if not self.requires_clebsch_gordan:
+            return
+
+        if CG is None:
+            raise ModuleNotFoundError(
+                "sympy is required for spherical-harmonic sky-map models that "
+                "convert between b_lm and a_lm coefficients."
+            )
 
         ## calculate and store beta
         self.calc_beta()
@@ -58,6 +71,23 @@ class clebschGordan():
                 m = -m
 
         return l, m
+
+
+    def almtoidx(self, lmax, l, m):
+
+        '''
+        (l, m) --> index function matching idxtoalm, including negative m.
+        '''
+
+        alm_size = Alm.getsize(lmax)
+
+        if np.abs(m) > l:
+            raise ValueError('Invalid m={} for l={}'.format(m, l))
+
+        if m >= 0:
+            return Alm.getidx(lmax, l, m)
+
+        return Alm.getidx(lmax, l, -m) + alm_size - lmax - 1
 
 
     def calc_beta(self):

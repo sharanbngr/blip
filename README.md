@@ -30,6 +30,8 @@ This will (by default) inject and recover a power law isotropic SGWB, with LISA 
 
 Two other helpful parameter files are also included: test_params.ini, which has settings ideal for (more) rapid code testing, and minimal_params.ini, which only includes the bare bones, minimal necessary settings for BLIP to run.
 
+BLIP also supports ell-collapsed anisotropic SGWB submodels that probe one angular multipole at a time without fitting individual m-modes. Use model strings such as `powerlaw_sph_l1` or `powerlaw_sph_l2`, and combine them normally, e.g. `noise+powerlaw_sph_l1+powerlaw_sph_l2`. For injections of these models, specify the amplitude with `Bell` (or the legacy `omega0`) in the `truevals` dictionary; the model string itself determines which multipole ell that amplitude belongs to.
+
 Posterior plots will be automatically created in the specified output directory, along with some diagnostics. All statistical model information is saved in Model.pickle; all information used to perform the injection is likewise saved in Injection.pickle. The posterior samples are saved to post_samples.txt.
 
 More details can be found in [the code documentation](https://blip.readthedocs.io/en/latest/).

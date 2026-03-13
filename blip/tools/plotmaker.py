@@ -14,6 +14,7 @@ from astropy import units as u
 import pickle, argparse
 import logging
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
+from blip.src.utils import parse_submodel_name
 
 
 def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None, post_map_kwargs={}, med_map_kwargs={}):
@@ -41,9 +42,7 @@ def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None
     sph_models = []
     hierarchical_models = []
     for submodel_name in Model.submodel_names:
-        ## spatial type will be the latter part of the name
-        ## also catch duplicates (with -N appended to them_)
-        spatial_name = submodel_name.split('_')[-1].split('-')[0]
+        spatial_name = parse_submodel_name(submodel_name)['spatial_kind']
         if spatial_name == 'sph':
             sph_models.append(submodel_name)
         elif spatial_name == 'hierarchical':
@@ -601,4 +600,3 @@ if __name__ == '__main__':
             mapmaker(post, params, parameters, Model, coord=params['healpy_proj'])
         else:
             mapmaker(post, params, parameters, Model)
-

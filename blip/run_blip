@@ -6,7 +6,7 @@ import sys, os,configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
-from blip.src.utils import ensure_color_matching
+from blip.src.utils import ensure_color_matching, parse_submodel_name
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
@@ -380,7 +380,7 @@ def blip(paramsfile='params.ini',resume=False):
     params['tstart'] = float(config.get("params", "tstart", fallback=0))
 
     ## see if we need to initialize the spherical harmonic subroutines
-    sph_check = [sublist.split('-')[0].split('_')[-1] for sublist in params['model'].split('+')]
+    sph_check = [parse_submodel_name(sublist)['spatial_kind'] for sublist in params['model'].split('+')]
 
     # Injection Dict
     inj['doInj']         = int(config.get("inj", "doInj"))
@@ -401,18 +401,23 @@ def blip(paramsfile='params.ini',resume=False):
         inj['truevals'] = {}
         log_list = ["Np","Na","omega0","fbreak","fcut","fscale"]
         for component_name in truevals.keys():
+            component_spatial_kind = parse_submodel_name(component_name)['spatial_kind']
             inj['truevals'][component_name] = {}
             for name in truevals[component_name].keys():
-                if name in log_list:
+                if name.startswith('log_'):
+                    inj['truevals'][component_name][name] = truevals[component_name][name]
+                elif name in log_list:
                     new_name = "log_"+name
                     inj['truevals'][component_name][new_name] = np.log10(truevals[component_name][name])
+                elif (component_spatial_kind == 'sph_l') and (name in ['Bell', 'B']):
+                    inj['truevals'][component_name]['log_Bell'] = np.log10(truevals[component_name][name])
                 else:
                     inj['truevals'][component_name][name] = truevals[component_name][name]
         ## add injections to the spherical harmonic check if needed
-        sph_check = sph_check + [sublist.split('-')[0].split('_')[-1] for sublist in inj['injection'].split('+')]
+        sph_check = sph_check + [parse_submodel_name(sublist)['spatial_kind'] for sublist in inj['injection'].split('+')]
         
     ## set sph flags
-    params['sph_flag'] = ('sph' in sph_check) or ('hierarchical' in sph_check)
+    params['sph_flag'] = np.any([item in ['sph', 'sph_l', 'hierarchical'] for item in sph_check])
     inj['sph_flag'] = np.any([(item not in ['noise','isgwb']) for item in sph_check])
     inj['pop_flag'] = 'population' in sph_check
     

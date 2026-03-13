@@ -3,13 +3,23 @@ from matplotlib import pyplot as plt
 from scipy.interpolate import interp1d
 import healpy as hp
 import logging
-from blip.src.utils import log_manager, catch_duplicates, gen_suffixes, catch_color_duplicates
+from blip.src.utils import (
+    log_manager,
+    catch_duplicates,
+    gen_suffixes,
+    catch_color_duplicates,
+    parse_submodel_name,
+)
 from blip.src.geometry import geometry
 from blip.src.sph_geometry import sph_geometry
 from blip.src.clebschGordan import clebschGordan
-from blip.src.astro import Population
 from blip.src.instrNoise import instrNoise
-import blip.src.astro as astro
+try:
+    from blip.src.astro import Population
+    import blip.src.astro as astro
+except ModuleNotFoundError:
+    Population = None
+    astro = None
 
 
 
@@ -22,6 +32,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     New models (injection or analysis) should be added here.
     
     '''
+    _anisotropic_response_cache = {}
+
     def __init__(self,params,inj,submodel_name,fs,f0,tsegmid,injection=False,suffix=''):
         '''
         Each submodel should be defined as "[spectral]_[spatial]", save for the noise model, which is just "noise".
@@ -55,6 +67,18 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         self.time_dim = tsegmid.size
         self.name = submodel_name
         self.injection = injection
+
+        parsed_model_name = parse_submodel_name(submodel_name)
+        self.requires_clebsch_gordan = parsed_model_name['spatial_kind'] in [
+            'sph',
+            'galaxy',
+            'dwarfgalaxy',
+            'lmc',
+            'pointsource',
+            'twopoints',
+            'population',
+            'hierarchical',
+        ]
         geometry.__init__(self)
         
         ## remove the duplicate identifier if needed (powerlaw_isgwb-3 -> powerlaw_isgwb)
@@ -124,11 +148,19 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.parameters = []
             self.spectral_parameters = []
             self.spatial_parameters = []
-            ## for convenience, so there's no need to specify e.g., "population_population"
-            if submodel_name == 'population':
-                self.spectral_model_name = self.spatial_model_name = submodel_name
-            else:
-                self.spectral_model_name, self.spatial_model_name = submodel_name.split('_')
+            self.spectral_model_name = parsed_model_name['spectral_name']
+            self.spatial_model_name = parsed_model_name['spatial_name']
+            self.spatial_model_kind = parsed_model_name['spatial_kind']
+            self.multipole = parsed_model_name['ell']
+            self.amplitude_parameter = r'$\log_{10} (\Omega_0)$'
+            self.amplitude_trueval_key = 'log_omega0'
+            self.amplitude_trueval_fallback_keys = ()
+
+            if self.spatial_model_kind == 'sph_l':
+                self.amplitude_parameter = r'$\log_{10} (B_{' + str(self.multipole) + '})$'
+                self.amplitude_trueval_key = 'log_Bell'
+                ## keep omega0 as a backwards-compatible alias for injections.
+                self.amplitude_trueval_fallback_keys = ('log_omega0',)
             
             
         
@@ -138,40 +170,51 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
         ## assignment of spectrum
         if self.spectral_model_name == 'powerlaw':
-            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', self.amplitude_parameter]
             self.omegaf = self.powerlaw_spectrum
             self.fancyname = "Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.powerlaw_prior
             else:
                 self.truevals[r'$\alpha$'] = self.injvals['alpha']
-                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[self.amplitude_parameter] = self.get_injection_trueval(
+                    self.amplitude_trueval_key,
+                    self.amplitude_trueval_fallback_keys,
+                )
         elif self.spectral_model_name == 'brokenpowerlaw':
-            self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$',r'$\log_{10} (\Omega_0)$',r'$\alpha_2$',r'$\log_{10} (f_{break})$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha_1$',self.amplitude_parameter,r'$\alpha_2$',r'$\log_{10} (f_{break})$']
             self.omegaf = self.broken_powerlaw_spectrum
             self.fancyname = "Broken Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.broken_powerlaw_prior
             else:
                 self.truevals[r'$\alpha_1$'] = self.injvals['alpha1']
-                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[self.amplitude_parameter] = self.get_injection_trueval(
+                    self.amplitude_trueval_key,
+                    self.amplitude_trueval_fallback_keys,
+                )
                 self.truevals[r'$\alpha_2$'] = self.injvals['alpha2']
                 self.truevals[r'$\log_{10} (f_{break})$'] = self.injvals['log_fbreak']
         
         elif self.spectral_model_name == 'truncatedpowerlaw':
-            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', r'$\log_{10} (\Omega_0)$', r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
+            self.spectral_parameters = self.spectral_parameters + [r'$\alpha$', self.amplitude_parameter, r'$\log_{10} (f_{\mathrm{cut}})$',r'$\log_{10} (f_{\mathrm{scale}})$']
             self.omegaf = self.truncated_powerlaw_spectrum
             self.fancyname = "Truncated Power Law"+submodel_count
             if not injection:
                 self.spectral_prior = self.truncated_powerlaw_prior
             else:
                 self.truevals[r'$\alpha$'] = self.injvals['alpha']
-                self.truevals[r'$\log_{10} (\Omega_0)$'] = self.injvals['log_omega0']
+                self.truevals[self.amplitude_parameter] = self.get_injection_trueval(
+                    self.amplitude_trueval_key,
+                    self.amplitude_trueval_fallback_keys,
+                )
                 self.truevals[r'$\log_{10} (f_{\mathrm{cut}})$'] = self.injvals['log_fcut']
                 self.truevals[r'$\log_{10} (f_{\mathrm{scale}})$'] = self.injvals['log_fscale']
         elif self.spectral_model_name == 'population':
             if not injection:
                 raise ValueError("Populations are injection-only.")
+            if Population is None:
+                raise ModuleNotFoundError("Population injections require the optional 'legwork' dependency.")
             self.fancyname = "DWD Population"+submodel_count
             self.population = Population(self.params,self.inj,self.fs)
             self.compute_Sgw = self.population.Sgw_wrapper
@@ -186,7 +229,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         response_kwargs = {}
         
         ## This is the isotropic spatial model, and has no additional parameters.
-        if self.spatial_model_name == 'isgwb':
+        if self.spatial_model_kind == 'isgwb':
             if self.params['tdi_lev'] == 'michelson':
                 self.response = self.isgwb_mich_response
             elif self.params['tdi_lev'] == 'xyz':
@@ -215,7 +258,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         
         ## This is the spherical harmonic spatial model. It is the workhorse of the spherical harmonic anisotropic analysis.
         ## It can also be used to perform arbitrary injections in the spherical harmonic basis via direct specification of the blms.
-        elif self.spatial_model_name == 'sph':
+        elif self.spatial_model_kind == 'sph':
             
             if injection:
                 self.lmax = self.inj['inj_lmax']
@@ -225,15 +268,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             ## almax is twice the blmax
             self.almax = 2*self.lmax
             response_kwargs['set_almax'] = self.almax
-            
-            if self.params['tdi_lev']=='michelson':
-                self.response = self.asgwb_mich_response
-            elif self.params['tdi_lev']=='xyz':
-                self.response = self.asgwb_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                self.response = self.asgwb_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+
+            self.set_anisotropic_response_builder()
+            self.response = self.cached_anisotropic_response_basis
             
             ## compute response matrix
             self.response_mat = self.response(f0,tsegmid,**response_kwargs)
@@ -269,13 +306,38 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
                 self.summ_response_mat = self.compute_summed_response(self.alms_inj)
                 ## create a wrapper b/c isotropic and anisotropic injection responses are different
                 self.inj_response_mat = self.summ_response_mat
+
+        ## These models collapse the anisotropic spherical-harmonic response over m
+        ## and only infer the amplitude of a single angular multipole ell.
+        elif self.spatial_model_kind == 'sph_l':
+
+            self.almax = self.multipole
+            self.set_anisotropic_response_builder()
+            self.response = self.collapsed_multipole_response
+            response_kwargs['ell'] = self.multipole
+
+            ## response_mat is already the m-collapsed template P_ell^{IJ}(f,t)
+            self.response_mat = self.response(f0,tsegmid,**response_kwargs)
+
+            self.fancyname = "Multipole $\\ell={}$ ".format(self.multipole) + self.fancyname
+            self.subscript = "_{\\ell=" + str(self.multipole) + "}"
+            self.color = 'teal'
+            self.has_map = False
+
+            if not injection:
+                self.prior = self.multipole_prior
+                self.cov = self.compute_cov_multipole
+            else:
+                self.inj_response_mat = self.response_mat
         
         ## Handle all the astrophysical spatial distributions together due to their similarities
-        elif self.spatial_model_name in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population']:
+        elif self.spatial_model_kind in ['galaxy','dwarfgalaxy','lmc','pointsource','twopoints','population']:
             
             ## the astrophysical spatial models are generally injection-only
             if not injection:
                 raise ValueError("This model is injection-only.")
+            if astro is None:
+                raise ModuleNotFoundError("Astrophysical sky-map injections require the optional 'legwork' dependency.")
             
             self.has_map = True
             
@@ -283,15 +345,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.lmax = self.inj['inj_lmax']
             self.almax = 2*self.lmax
             response_kwargs['set_almax'] = self.almax
-            
-            if self.params['tdi_lev']=='michelson':
-                self.response = self.asgwb_mich_response
-            elif self.params['tdi_lev']=='xyz':
-                self.response = self.asgwb_xyz_response
-            elif self.params['tdi_lev']=='aet':
-                self.response = self.asgwb_aet_response
-            else:
-                raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+
+            self.set_anisotropic_response_builder()
+            self.response = self.cached_anisotropic_response_basis
             
             ## compute response matrix
             self.response_mat = self.response(f0,tsegmid,**response_kwargs)
@@ -354,10 +410,13 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             self.process_astro_skymap(self.skymap)
             
 
-        elif self.spatial_model_name == 'hierarchical':
+        elif self.spatial_model_kind == 'hierarchical':
             pass
         else:
-            raise ValueError("Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name))
+            raise ValueError(
+                "Invalid specification of spatial model name ('{}'). Can be 'isgwb', 'sph', "
+                "'sph_lN', 'galaxy', or 'hierarchical'.".format(self.spatial_model_name)
+            )
         
         
         ## store final parameter list and count
@@ -388,7 +447,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
     #############################
     ##    Spectral Functions   ##
     #############################
-    def powerlaw_spectrum(self,fs,alpha,log_omega0):
+    def powerlaw_spectrum(self,fs,alpha,log_amplitude):
         '''
         Function to calculate a simple power law spectrum.
         
@@ -396,17 +455,19 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         -----------
         fs (array of floats) : frequencies at which to evaluate the spectrum
         alpha (float)        : slope of the power law
-        log_omega0 (float)   : power law amplitude in units of log dimensionless GW energy density at f_ref
+        log_amplitude (float): log amplitude at f_ref. This is log(Omega_0) for
+                               standard SGWB models and log(B_ell) for the
+                               ell-collapsed anisotropic multipole models.
         
         Returns
         -----------
         spectrum (array of floats) : the resulting power law spectrum
         
         '''
-        return 10**(log_omega0)*(fs/self.params['fref'])**alpha
+        return 10**(log_amplitude)*(fs/self.params['fref'])**alpha
     
     
-    def broken_powerlaw_spectrum(self,fs,alpha_1,log_omega0,alpha_2,log_fbreak):
+    def broken_powerlaw_spectrum(self,fs,alpha_1,log_amplitude,alpha_2,log_fbreak):
         '''
         Function to calculate a broken power law spectrum.
         
@@ -414,7 +475,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         -----------
         fs (array of floats) : frequencies at which to evaluate the spectrum
         alpha_1 (float)      : slope of the first power law
-        log_omega0 (float)   : power law amplitude of the first power law in units of log dimensionless GW energy density at f_ref
+        log_amplitude (float): log amplitude of the first power law at f_ref
         alpha_2 (float)      : slope of the second power law
         log_fbreak (float)   : log of the break frequency ("knee") in Hz
         
@@ -426,9 +487,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         delta = 0.1
         fbreak = 10**log_fbreak
         norm = (fbreak/self.params['fref'])**alpha_1 / 1.25989194 ## this normalizes the broken powerlaw such that its first leg matches the equivalent standard power law
-        return norm * (10**log_omega0)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
+        return norm * (10**log_amplitude)*(fs/fbreak)**(alpha_1) * (0.5*(1+(fs/fbreak)**(1/delta)))**((alpha_1-alpha_2)*delta)
     
-    def truncated_powerlaw_spectrum(self,fs,alpha,log_omega0,log_fcut,log_fscale):
+    def truncated_powerlaw_spectrum(self,fs,alpha,log_amplitude,log_fcut,log_fscale):
         '''
         Function to calculate a tanh-truncated power law spectrum.
         
@@ -436,7 +497,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         -----------
         fs (array of floats) : frequencies at which to evaluate the spectrum
         alpha (float)        : slope of the power law
-        log_omega0 (float)   : power law amplitude of the power law in units of log dimensionless GW energy density at f_ref (if left un-truncated)
+        log_amplitude (float): log amplitude at f_ref (if left un-truncated)
         log_fcut (float)     : log of the cut frequency ("knee") in Hz
         log_fscale           : log of the cutoff scale factor in Hz
         
@@ -447,7 +508,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         '''
         fcut = 10**log_fcut
         fscale = 10**log_fscale
-        return 0.5 * (10**log_omega0)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
+        return 0.5 * (10**log_amplitude)*(fs/self.params['fref'])**(alpha) * (1+np.tanh((fcut-fs)/fscale))
     
     def compute_Sgw(self,fs,omegaf_args):
         '''
@@ -468,6 +529,140 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         Omegaf = self.omegaf(fs,*omegaf_args)
         Sgw = Omegaf*(3/(4*fs**3))*(H0/np.pi)**2
         return Sgw
+
+    def get_injection_trueval(self,key,fallback_keys=()):
+        '''
+        Fetch an injection true value, optionally allowing legacy aliases.
+        '''
+
+        key_sequence = (key,) + tuple(fallback_keys)
+        for candidate_key in key_sequence:
+            if candidate_key in self.injvals.keys():
+                return self.injvals[candidate_key]
+
+        raise KeyError(
+            "Could not find injection value for '{}' in component '{}'. Looked for {}.".format(
+                key,
+                self.name,
+                key_sequence,
+            )
+        )
+
+    def set_anisotropic_response_builder(self):
+        '''
+        Select the correct anisotropic spherical-harmonic response path for the
+        configured TDI level.
+        '''
+
+        if self.params['tdi_lev'] == 'michelson':
+            self.anisotropic_response_builder = self.asgwb_mich_response
+        elif self.params['tdi_lev'] == 'xyz':
+            self.anisotropic_response_builder = self.asgwb_xyz_response
+        elif self.params['tdi_lev'] == 'aet':
+            self.anisotropic_response_builder = self.asgwb_aet_response
+        else:
+            raise ValueError("Invalid specification of tdi_lev. Can be 'michelson', 'xyz', or 'aet'.")
+
+    def anisotropic_response_cache_key(self,f0,tsegmid):
+        '''
+        Build a cache key for anisotropic harmonic response tensors.
+        '''
+
+        f0_arr = np.asarray(f0)
+        tsegmid_arr = np.asarray(tsegmid)
+
+        return (
+            self.anisotropic_response_builder.__name__,
+            self.params['tdi_lev'],
+            self.params['lisa_config'],
+            self.params['nside'],
+            f0_arr.shape,
+            f0_arr.dtype.str,
+            f0_arr.tobytes(),
+            tsegmid_arr.shape,
+            tsegmid_arr.dtype.str,
+            tsegmid_arr.tobytes(),
+        )
+
+    def get_anisotropic_response_basis(self,f0,tsegmid,set_almax=None):
+        '''
+        Return an anisotropic harmonic response basis, reusing a cached tensor
+        when one with at least the requested almax already exists.
+        '''
+
+        if set_almax is None:
+            set_almax = self.almax
+
+        cache_key = self.anisotropic_response_cache_key(f0,tsegmid)
+        cache_bucket = self._anisotropic_response_cache.setdefault(cache_key, {})
+
+        eligible_almax = [almax for almax in cache_bucket.keys() if almax >= set_almax]
+        if len(eligible_almax) > 0:
+            cached_almax = min(eligible_almax)
+            return cache_bucket[cached_almax], cached_almax
+
+        response_mat = self.anisotropic_response_builder(f0,tsegmid,set_almax=set_almax)
+        cache_bucket[set_almax] = response_mat
+
+        return response_mat, set_almax
+
+    def cached_anisotropic_response_basis(self,f0,tsegmid,set_almax=None):
+        '''
+        Wrapper for anisotropic harmonic response evaluation that transparently
+        reuses cached tensors.
+        '''
+
+        response_mat, _ = self.get_anisotropic_response_basis(f0,tsegmid,set_almax=set_almax)
+        return response_mat
+
+    def infer_anisotropic_almax(self,response_basis):
+        '''
+        Infer the almax represented by the final axis of an anisotropic response
+        basis tensor.
+        '''
+
+        basis_size = response_basis.shape[-1]
+        almax = int(np.sqrt(basis_size) - 1)
+        if (almax + 1)**2 != basis_size:
+            raise ValueError("Response basis does not have the expected spherical-harmonic size.")
+        return almax
+
+    def compute_multipole_template(self,response_basis,ell,basis_almax=None):
+        '''
+        Collapse an anisotropic harmonic response basis over m to build the
+        per-ell template
+
+            P_ell^{IJ}(f,t) = (2 ell + 1)^-1 sum_m |Gamma_{ell m}^{IJ}(f,t)|^2.
+
+        These templates are meant for sensitivity-to-angular-scale studies, not
+        for full sky-map inference.
+        '''
+
+        if basis_almax is None:
+            basis_almax = self.infer_anisotropic_almax(response_basis)
+
+        if ell > basis_almax:
+            raise ValueError("Requested ell={} but response basis only supports almax={}.".format(ell, basis_almax))
+
+        ell_indices = [self.almtoidx(basis_almax, ell, m) for m in range(-ell, ell + 1)]
+        multipole_template = np.mean(np.abs(response_basis[..., ell_indices])**2, axis=-1)
+
+        return np.real_if_close(multipole_template)
+
+    def collapsed_multipole_response(self,f0,tsegmid,ell=None):
+        '''
+        Build the ell-collapsed anisotropic SGWB response template for a single
+        multipole, reusing cached Gamma_lm response tensors where possible.
+        '''
+
+        if ell is None:
+            ell = self.multipole
+
+        response_basis, basis_almax = self.get_anisotropic_response_basis(f0,tsegmid,set_almax=ell)
+        self.harmonic_response_mat = response_basis
+        self.harmonic_response_almax = basis_almax
+
+        return self.compute_multipole_template(response_basis, ell, basis_almax=basis_almax)
     
     #############################
     ##          Priors         ##
@@ -489,6 +684,14 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
             theta with each element rescaled for the spectral parameters.
             
         '''
+        return self.spectral_prior(theta)
+
+    def multipole_prior(self,theta):
+        '''
+        Prior transform for an ell-collapsed anisotropic SGWB component. This is
+        spectral-only because the spatial template is fixed by the chosen ell.
+        '''
+
         return self.spectral_prior(theta)
     
     def sph_prior(self,theta):
@@ -594,7 +797,7 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
 
 
         '''
-        Prior function for an isotropic stochastic backgound analysis.
+        Prior function for a power-law SGWB amplitude and spectral index.
 
         Parameters
         -----------
@@ -606,7 +809,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ---------
 
         theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha and log(Omega0)
+            theta with each element rescaled. The elements are interpreted as
+            alpha and a log amplitude at f_ref.
 
         '''
 
@@ -614,9 +818,9 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha       =  10*theta[0] - 5
-        log_omega0  = -22*theta[1] + 8
+        log_amplitude  = -22*theta[1] + 8
         
-        return [alpha, log_omega0]
+        return [alpha, log_amplitude]
     
     def broken_powerlaw_prior(self,theta):
 
@@ -634,18 +838,19 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ---------
 
         theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha_1, log(Omega_0), alpha_2, and log(f_break).
+            theta with each element rescaled. The elements are interpreted as
+            alpha_1, a log amplitude at f_ref, alpha_2, and log(f_break).
 
         '''
 
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha_1 = 10*theta[0] - 4
-        log_omega0 = -22*theta[1] + 8
+        log_amplitude = -22*theta[1] + 8
         alpha_2 = 40*theta[2]
         log_fbreak = -2*theta[3] - 2
 
-        return [alpha_1, log_omega0, alpha_2, log_fbreak]
+        return [alpha_1, log_amplitude, alpha_2, log_fbreak]
     
     def truncated_powerlaw_prior(self,theta):
 
@@ -663,19 +868,20 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ---------
 
         theta   :   float
-            theta with each element rescaled. The elements are  interpreted as alpha, log(Omega_0), log(f_cut), and log(f_scale)
+            theta with each element rescaled. The elements are interpreted as
+            alpha, a log amplitude at f_ref, log(f_cut), and log(f_scale)
 
         '''
 
         # Unpack: Theta is defined in the unit cube
         # Transform to actual priors
         alpha = 10*theta[0] - 5
-        log_omega0 = -22*theta[1] + 8
+        log_amplitude = -22*theta[1] + 8
         log_fcut = -2*theta[2] - 2
         log_fscale = -2*theta[3] - 2
         
 
-        return [alpha, log_omega0, log_fcut, log_fscale]
+        return [alpha, log_amplitude, log_fcut, log_fscale]
     
     
     
@@ -731,6 +937,17 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         ## covariance matrix axross all the channels.
         cov_sgwb = Sgw[None, None, :, None]*self.response_mat
         
+        return cov_sgwb
+
+    def compute_cov_multipole(self,theta):
+        '''
+        Computes the covariance matrix contribution from a single ell-collapsed
+        anisotropic SGWB multipole template.
+        '''
+
+        Sgw = self.compute_Sgw(self.fs,theta)
+        cov_sgwb = Sgw[None, None, :, None]*self.response_mat
+
         return cov_sgwb
     
     def compute_cov_asgwb(self,theta):
@@ -811,6 +1028,8 @@ class submodel(geometry,sph_geometry,clebschGordan,instrNoise):
         skymap (healpy array) : pixel-basis astrophysical skymap
         
         '''
+        if astro is None:
+            raise ModuleNotFoundError("Astrophysical sky-map processing requires the optional 'legwork' dependency.")
         ## transform to blms
         self.astro_blms = astro.skymap_pix2sph(skymap,self.lmax)
         ## get corresponding truevals

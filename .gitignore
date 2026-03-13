@@ -32,3 +32,5 @@ build/*
 params_run*
 BLiP.egg-info
 blip.egg-info
+!tests/
+!tests/*.py
