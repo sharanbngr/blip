@@ -14,7 +14,7 @@ from astropy import units as u
 import pickle, argparse
 import logging
 matplotlib.rcParams.update(matplotlib.rcParamsDefault)
-from blip.src.utils import parse_submodel_name
+from blip.src.utils import effective_detector_spectrum, parse_submodel_name
 
 
 def mapmaker(post, params, parameters, Model, saveto=None, coord=None, cmap=None, post_map_kwargs={}, med_map_kwargs={}):
@@ -224,6 +224,18 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
     ## update det kwargs
     det_kwargs = {'title':"Fit vs. Injection (in Detector)"} | det_kwargs
     det_kwargs = default_kwargs | det_kwargs
+
+    use_effective_detector_summary = any(
+        Model.submodels[sm_name].spatial_model_kind != 'isgwb'
+        for sm_name in Model.submodel_names
+        if sm_name != 'noise'
+    )
+
+    if use_effective_detector_summary:
+        if det_kwargs['title'] == "Fit vs. Injection (in Detector)":
+            det_kwargs['title'] = "Fit vs. Injection (Effective Detector Response)"
+        if det_kwargs['ylabel'] == 'PSD [1/Hz]':
+            det_kwargs['ylabel'] = 'Detector Covariance Norm [1/Hz]'
     
     print("Computing spectral fit median and 95% CI...")
     ## get samples
@@ -369,14 +381,30 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 if sm_name == 'noise':
                     Np = 10**post_sm[0]
                     Na = 10**post_sm[1]
-                    Sgw_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)[2,2,:]
+                    cov_j = sm.instr_noise_spectrum(fdata,f0,Np=Np,Na=Na)
                 ## handle any additional spatial variables (will need to fix this when I introduce hierarchical models)
                 elif hasattr(sm,"blm_start"):
                     post_sm_sph = post_sm[sm.blm_start:]
                     post_sm = post_sm[:sm.blm_start]
-                    Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.compute_summed_response(sm.compute_skymap_alms(post_sm_sph))[0,0,filt,:],axis=1)
+                    cov_j = np.mean(
+                        sm.compute_Sgw(fdata,post_sm)[None, None, :, None]
+                        * sm.compute_summed_response(sm.compute_skymap_alms(post_sm_sph))[:, :, filt, :],
+                        axis=-1,
+                    )
                 else:
-                    Sgw_j = np.mean(sm.compute_Sgw(fdata,post_sm)[:,None] * sm.response_mat[0,0,filt,:],axis=1)
+                    cov_j = np.mean(
+                        sm.compute_Sgw(fdata,post_sm)[None, None, :, None]
+                        * sm.response_mat[:, :, filt, :],
+                        axis=-1,
+                    )
+
+                if use_effective_detector_summary:
+                    Sgw_j = effective_detector_spectrum(cov_j)
+                else:
+                    if sm_name == 'noise':
+                        Sgw_j = cov_j[2,2,:]
+                    else:
+                        Sgw_j = cov_j[0,0,:]
                 
                 Sgw[jj,:] = np.real(Sgw_j)
             start_idx += sm.Npar
@@ -403,12 +431,21 @@ def fitmaker(post,params,parameters,inj,Model,Injection=None,saveto=None,plot_co
                 ## overwrite color if specified in the the high-level kwargs
                 if component_name in det_kwargs['color_dict'].keys():
                     kwargs['color'] = det_kwargs['color_dict'][component_name]
-                if component_name == 'noise':
-                    Injection.plot_injected_spectra(component_name,channels='22',ymins=ymins,**kwargs)
+                if use_effective_detector_summary:
+                    component = Injection.components[component_name]
+                    if component_name == 'noise':
+                        PSD = effective_detector_spectrum(component.frozen_spectra)
+                    else:
+                        PSD = effective_detector_spectrum(component.frozen_convolved_spectra)
+                    plt.loglog(Injection.frange, PSD, **kwargs)
+                    ymins.append(PSD.min())
                 else:
-                    Injection.plot_injected_spectra(component_name,fs_new=fdata,convolved=True,ymins=ymins,**kwargs)
-                    if component_name not in Model.submodel_names and component_name not in signal_aliases:
-                        model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
+                    if component_name == 'noise':
+                        Injection.plot_injected_spectra(component_name,channels='22',ymins=ymins,**kwargs)
+                    else:
+                        Injection.plot_injected_spectra(component_name,fs_new=fdata,convolved=True,ymins=ymins,**kwargs)
+                if component_name not in Model.submodel_names and component_name not in signal_aliases:
+                    model_legend_elements.append(Line2D([0],[0],color=Injection.components[component_name].color,lw=3,label=Injection.components[component_name].fancyname))
         
         ## avoid plot squishing due to signal spectra with cutoffs, etc.
         if det_kwargs['ymin'] is None:

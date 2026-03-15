@@ -1,6 +1,8 @@
 import logging
 from contextlib import contextmanager
 
+import numpy as np
+
 
 '''
 
@@ -82,6 +84,43 @@ def spatial_suffix_label(name):
         return 'L{}'.format(parsed['ell'])
 
     return shorthand.get(spatial_kind, parsed['spatial_name'])
+
+
+def effective_detector_spectrum(covariance):
+    '''
+    Collapse a frequency-dependent detector covariance matrix into a positive
+    scalar summary spectrum using the Frobenius norm over detector channels.
+
+    This is primarily useful for anisotropic runs, where odd multipoles can
+    live mostly in cross-channel power and therefore look artificially absent
+    if we only plot a single auto-spectrum.
+
+    Parameters
+    ----------
+    covariance : array-like
+        Complex covariance with shape ``(Nchan, Nchan, Nfreq)``.
+
+    Returns
+    -------
+    array
+        One-dimensional effective spectrum with length ``Nfreq``.
+    '''
+
+    covariance = np.asarray(covariance)
+
+    if covariance.ndim != 3:
+        raise ValueError(
+            "effective_detector_spectrum expects a 3D covariance array with "
+            "shape (Nchan, Nchan, Nfreq)."
+        )
+
+    if covariance.shape[0] != covariance.shape[1]:
+        raise ValueError(
+            "effective_detector_spectrum expects the first two axes to define "
+            "a square detector covariance matrix."
+        )
+
+    return np.sqrt(np.sum(np.abs(covariance)**2, axis=(0, 1)))
 
 
 ## Some helper functions for Models, Injections, and submodels.

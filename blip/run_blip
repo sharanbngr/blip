@@ -6,7 +6,7 @@ import sys, os,configparser, subprocess
 sys.path.append(os.getcwd()) ## this lets python find src
 from blip.src.makeLISAdata import LISAdata
 from blip.src.models import Model, Injection
-from blip.src.utils import ensure_color_matching, parse_submodel_name
+from blip.src.utils import effective_detector_spectrum, ensure_color_matching, parse_submodel_name
 from blip.tools.plotmaker import plotmaker
 from blip.tools.plotmaker import mapmaker
 from blip.tools.plotmaker import fitmaker
@@ -200,52 +200,121 @@ class LISA(LISAdata, Model):
             cm.frozen_convolved_spectra = Sgw_convolved
 
         plt.close()
-        
-        # noise budget plot
-        plt.loglog(psdfreqs, data_PSD3,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
-        plt.loglog(self.fdata, C_noise[2, 2, :], label='Instrumental Noise ', lw=0.75,color='dimgrey')
-        
-        ymins = []
-        for component_name in self.Injection.sgwb_component_names:
-            S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
-            ymins.append(S1_gw.min())
-            S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
-            S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
-        
-        plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
 
-        ## avoid plot squishing due to signal spectra with cutoffs, etc.
-        if len(ymins) > 0:
-            ymin = np.min(ymins)
-            if ymin < 1e-43:
-                plt.ylim(bottom=1e-43)
-        
-        plt.legend(loc='upper right')
-        plt.xlabel('$f$ in Hz')
-        plt.ylabel('PSD 1/Hz ')
-        plt.xlim(self.params['fmin'], self.params['fmax'])
-        plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
-        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
-        plt.close()
+        use_effective_detector_summary = any(
+            self.Injection.components[component_name].spatial_model_kind != 'isgwb'
+            for component_name in self.Injection.sgwb_component_names
+        )
+
+        if use_effective_detector_summary:
+            data_cov = np.mean(np.transpose(self.rmat, (2, 3, 0, 1)), axis=-1)
+            data_summary = effective_detector_spectrum(data_cov)
+            noise_summary = effective_detector_spectrum(C_noise)
+            total_cov = C_noise.copy()
+
+            ymins = []
+            for component_name in self.Injection.sgwb_component_names:
+                component_cov = self.Injection.components[component_name].frozen_convolved_spectra
+                component_summary = effective_detector_spectrum(component_cov)
+                ymins.append(component_summary.min())
+                total_cov = total_cov + component_cov
+
+            total_summary = effective_detector_spectrum(total_cov)
+
+            # noise budget plot
+            plt.loglog(
+                psdfreqs,
+                data_summary,
+                label='Simulated Data Covariance',
+                alpha=0.6,
+                lw=0.75,
+                color='slategrey',
+            )
+            plt.loglog(
+                self.fdata,
+                noise_summary,
+                label='Instrumental Noise',
+                lw=0.75,
+                color='dimgrey',
+            )
+            plt.loglog(
+                self.fdata,
+                total_summary,
+                label='Simulated Total Covariance',
+                lw=0.75,
+                color='cadetblue',
+            )
+
+            if len(ymins) > 0:
+                ymin = np.min(ymins)
+                if ymin < 1e-43:
+                    plt.ylim(bottom=1e-43)
+
+            plt.legend(loc='upper right')
+            plt.xlabel('$f$ in Hz')
+            plt.ylabel('Detector Covariance Norm [1/Hz]')
+            plt.xlim(self.params['fmin'], self.params['fmax'])
+            plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
+            print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
+            plt.close()
+
+            plt.loglog(self.fdata, total_summary, label='Required', color='mediumvioletred')
+            plt.loglog(psdfreqs, data_summary, label='Data', alpha=0.6, color='slategrey')
+            plt.xlabel('$f$ in Hz')
+            plt.ylabel('Detector Covariance Norm [1/Hz]')
+            plt.legend()
+            plt.grid(linestyle=':', linewidth=0.5)
+            plt.xlim(self.params['fmin'], self.params['fmax'])
+
+            plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
+            print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
+            plt.close()
+
+            ## lets also plot psd residue.
+            rel_res_mean = (data_summary - total_summary)/total_summary
+        else:
+            # noise budget plot
+            plt.loglog(psdfreqs, data_PSD3,label='Simulated Data Series PSD', alpha=0.6, lw=0.75,color='slategrey')
+            plt.loglog(self.fdata, C_noise[2, 2, :], label='Instrumental Noise ', lw=0.75,color='dimgrey')
+            
+            ymins = []
+            for component_name in self.Injection.sgwb_component_names:
+                S1_gw = self.Injection.plot_injected_spectra(component_name,fs_new=self.fdata,convolved=True,legend=True,channels='11',return_PSD=True,lw=0.75,color=self.Injection.components[component_name].color)
+                ymins.append(S1_gw.min())
+                S2_gw, S3_gw = self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='22'), self.Injection.compute_convolved_spectra(component_name,fs_new=self.fdata,channels='33')
+                S1, S2, S3 = S1+S1_gw, S2+S2_gw, S3+S3_gw
+            
+            plt.loglog(self.fdata, S1, label='Simulated Total spectrum', lw=0.75,color='cadetblue')
+
+            ## avoid plot squishing due to signal spectra with cutoffs, etc.
+            if len(ymins) > 0:
+                ymin = np.min(ymins)
+                if ymin < 1e-43:
+                    plt.ylim(bottom=1e-43)
+            
+            plt.legend(loc='upper right')
+            plt.xlabel('$f$ in Hz')
+            plt.ylabel('PSD 1/Hz ')
+            plt.xlim(self.params['fmin'], self.params['fmax'])
+            plt.savefig(self.params['out_dir'] + '/psd_budget.png', dpi=200)
+            print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/psd_budget.png')
+            plt.close()
 
 
-        plt.loglog(self.fdata, S3, label='required',color='mediumvioletred')
-        plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6,color='slategrey')
-        plt.xlabel('$f$ in Hz')
-        plt.ylabel('PSD 1/Hz ')
-        plt.legend()
-        plt.grid(linestyle=':',linewidth=0.5 )
-        plt.xlim(self.params['fmin'], self.params['fmax'])
+            plt.loglog(self.fdata, S3, label='required',color='mediumvioletred')
+            plt.loglog(psdfreqs, data_PSD3,label='PSD, data', alpha=0.6,color='slategrey')
+            plt.xlabel('$f$ in Hz')
+            plt.ylabel('PSD 1/Hz ')
+            plt.legend()
+            plt.grid(linestyle=':',linewidth=0.5 )
+            plt.xlim(self.params['fmin'], self.params['fmax'])
 
-        plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
-        print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
-        plt.close()
+            plt.savefig(self.params['out_dir'] + '/diag_psd.png', dpi=200)
+            print('Diagnostic spectra plot made in ' + self.params['out_dir'] + '/diag_psd.png')
+            plt.close()
 
-
-
-
-        ## lets also plot psd residue.
-        rel_res_mean = (data_PSD3 - S3)/S3
+            ## lets also plot psd residue.
+            rel_res_mean = (data_PSD3 - S3)/S3
 
         plt.semilogx(self.fdata, rel_res_mean , label='relative mean residue',color='slategrey')
         plt.xlabel('f in Hz')

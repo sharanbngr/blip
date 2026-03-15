@@ -8,6 +8,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 
 from blip.src.models import Model, submodel
+from blip.src.utils import effective_detector_spectrum
 
 
 def make_grid():
@@ -83,6 +84,32 @@ def test_single_multipole_models_are_distinct_and_standalone():
     assert cov_one.shape == cov_two.shape == (3, 3, fs.size, tsegmid.size)
     assert ell_one_model.spectral_parameters[1] == r'$\log_{10} (B_{1})$'
     assert ell_two_model.spectral_parameters[1] == r'$\log_{10} (B_{2})$'
+
+
+def test_effective_detector_spectrum_counts_cross_channel_power():
+    covariance = np.zeros((3, 3, 2), dtype=complex)
+    covariance[0, 1, :] = [3.0, 4.0]
+    covariance[1, 0, :] = [3.0, 4.0]
+
+    spectrum = effective_detector_spectrum(covariance)
+
+    np.testing.assert_allclose(spectrum, np.sqrt(2.0) * np.array([3.0, 4.0]))
+
+
+def test_odd_multipole_summary_is_not_auto_channel_suppressed():
+    submodel._anisotropic_response_cache.clear()
+    fs, f0, tsegmid = make_grid()
+    inj = make_inj()
+
+    ell_one_model = submodel(make_params('powerlaw_sph_l1', nside=2), inj, 'powerlaw_sph_l1', fs, f0, tsegmid)
+
+    mean_covariance = np.mean(ell_one_model.response_mat, axis=-1)
+    summary = effective_detector_spectrum(mean_covariance)
+    auto_channel = np.abs(mean_covariance[0, 0, :])
+    cross_channel = np.abs(mean_covariance[0, 1, :])
+
+    assert np.all(summary > 0)
+    assert np.all(cross_channel > auto_channel)
 
 
 def test_model_composes_multiple_collapsed_multipoles():
