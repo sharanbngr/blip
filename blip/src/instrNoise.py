@@ -1,5 +1,6 @@
 from __future__ import division
 import numpy as np
+import jax.numpy as jnp
 from scipy.interpolate import interp1d as intrp
 
 class instrNoise():
@@ -8,39 +9,43 @@ class instrNoise():
     Class with methods to calcualte instrumental noises
     '''
 
-    def fundamental_noise_spectrum(self, freqs, Np=4e-41, Na=1.44e-48):
+    def fundamental_noise_spectrum(self, freqs, Np=9e-42, Na=3.6e-49):
+        """Compute position and acceleration noise PSDs in strain units.
 
-        '''
-        Creates a frequency array of fundamentla noise estimates for lisa. Currently we consisder only contain only
-        position and acceleration noise sources. The default values are specifications pulled from 2017 Lisa proposal
-        noise estimations.
+        Position noise is also known as optical metrology system (OMS) noise, while
+        acceleration noise is test mass (TM) noise. There is one of these per MOSA.
+
+        The default values agree with the 2017 LISA proposal noise budget. In the white
+        noise regions corresponding to the coefficients, these are 15 pm/√Hz for OMS and
+        3 fm/s²/√Hz for TM.
 
         Parameters
-        -----------
-
-        freqs   : float
-            A numpy array of frequencies
-
-        Np (optional) : float
-            Position noise value
-
-        Na (optional) : float
-            Acceleration noise level
-
+        ----------
+        freqs : array
+            frequencies in Hz
+        Np : float, optional
+            Coefficient of position noise as equivalent strain, by default 9e-42
+        Na : float, optional
+            Coefficient of acceleration noise as equivalent strain, by default 3.6e-49
 
         Returns
-        ---------
-
-        Sp, Sa   :   float
-            Frequencies array for position and acceleration noises for each satellite
-        '''
-
-        Sp = Np*(1 + (2e-3/freqs)**4)
-        Sa = Na*(1 + 16e-8/freqs**2)*(1 + (freqs/8e-3)**4)*(1.0/(2*np.pi*freqs)**4)
+        -------
+        array
+            Sp: position noise PSD in strain units
+        array
+            Sa: acceleration noise PSD in strain units
+        """
+        Sp = Np * (1 + (2e-3 / freqs) ** 4)
+        Sa = (
+            Na
+            * (1 + 16e-8 / freqs**2)
+            * (1 + (freqs / 8e-3) ** 4)
+            * (1.0 / (2 * jnp.pi * freqs) ** 4)
+        )
 
         return Sp, Sa
 
-    def aet_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
+    def aet_noise_spectrum(self, freqs,f0, Np=9e-42, Na=3.6e-49):
 
         '''
         Calculates A, E, and T channel noise spectra for a stationary lisa. Following the defintions in
@@ -76,29 +81,27 @@ class instrNoise():
         CXX, CYY, CZZ = C_xyz[0, 0], C_xyz[1, 1], C_xyz[2, 2]
         CXY, CXZ, CYZ = C_xyz[0, 1], C_xyz[0, 2], C_xyz[1, 2]
 
-
         ## construct AET matrix elements
-        CAA = (1/9) * (4*CXX + CYY + CZZ - 2*CXY - 2*np.conj(CXY) - 2*CXZ - 2*np.conj(CXZ) + \
-                        CYZ  + np.conj(CYZ))
+        CAA = (1/9) * (4*CXX + CYY + CZZ - 2*CXY - 2*jnp.conj(CXY) - 2*CXZ - 2*jnp.conj(CXZ) + \
+                        CYZ  + jnp.conj(CYZ))
 
-        CEE = (1/3) * (CZZ + CYY - CYZ - np.conj(CYZ))
+        CEE = (1/3) * (CZZ + CYY - CYZ - jnp.conj(CYZ))
 
-        CTT = (1/9) * (CXX + CYY + CZZ + CXY + np.conj(CXY) + CXZ + np.conj(CXZ) + CYZ + np.conj(CYZ))
+        CTT = (1/9) * (CXX + CYY + CZZ + CXY + jnp.conj(CXY) + CXZ + jnp.conj(CXZ) + CYZ + jnp.conj(CYZ))
 
-        CAE = (1/(3*np.sqrt(3))) * (CYY - CZZ - CYZ + np.conj(CYZ) + 2*CXZ - 2*CXY)
+        CAE = (1/(3*jnp.sqrt(3))) * (CYY - CZZ - CYZ + jnp.conj(CYZ) + 2*CXZ - 2*CXY)
 
-        CAT = (1/9) * (2*CXX - CYY - CZZ + 2*CXY - np.conj(CXY) + 2*CXZ - np.conj(CXZ) - CYZ - np.conj(CYZ))
+        CAT = (1/9) * (2*CXX - CYY - CZZ + 2*CXY - jnp.conj(CXY) + 2*CXZ - jnp.conj(CXZ) - CYZ - jnp.conj(CYZ))
 
-        CET = (1/(3*np.sqrt(3))) * (CZZ - CYY - CYZ + np.conj(CYZ) + np.conj(CXZ) - np.conj(CXY))
+        CET = (1/(3*jnp.sqrt(3))) * (CZZ - CYY - CYZ + jnp.conj(CYZ) + jnp.conj(CXZ) - jnp.conj(CXY))
 
-        C_aet = np.array([ [CAA, CAE, CAT] , \
-                                    [np.conj(CAE), CEE, CET], \
-                                    [np.conj(CAT), np.conj(CET), CTT] ])
-
+        C_aet = jnp.array([ [CAA, CAE, CAT] , \
+                                    [jnp.conj(CAE), CEE, CET], \
+                                    [jnp.conj(CAT), jnp.conj(CET), CTT] ])
 
         return C_aet
 
-    def xyz_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
+    def xyz_noise_spectrum(self, freqs,f0, Np=9e-42, Na=3.6e-49):
 
         '''
         Calculates X,Y,Z channel noise spectra for a stationary lisa. Following the defintions in
@@ -129,11 +132,11 @@ class instrNoise():
         C_mich = self.mich_noise_spectrum(freqs, f0, Np, Na)
 
         ## Noise spectra of the X, Y and Z channels
-        C_xyz =  4 * np.sin(2*f0)**2 * C_mich
+        C_xyz =  4 * jnp.sin(2*f0)**2 * C_mich
 
         return C_xyz
 
-    def mich_noise_spectrum(self, freqs,f0, Np=4e-41, Na=1.44e-48):
+    def mich_noise_spectrum(self, freqs,f0, Np=9e-42, Na=3.6e-49):
 
         '''
         Calculates michelson channel noise spectra for a stationary lisa. Following the defintions in
@@ -166,15 +169,13 @@ class instrNoise():
         # Get Sp and Sa
         Sp, Sa = self.fundamental_noise_spectrum(freqs, Np, Na)
 
-
         ## Noise spectra of the michelson channels
-        S_auto  = 4.0 * (2.0 * Sa * (1.0 + (np.cos(2*f0))**2)  + Sp)
-        S_cross =  (-2 * Sp - 8 * Sa) * np.cos(2*f0)
+        S_auto  = 4.0 * (2.0 * Sa * (1.0 + (jnp.cos(2*f0))**2)  + Sp)
+        S_cross =  (-2 * Sp - 8 * Sa) * jnp.cos(2*f0)
 
-        C_mich = np.array([[S_auto, S_cross, S_cross], [S_cross, S_auto, S_cross], [S_cross, S_cross, S_auto]])
+        C_mich = jnp.array([[S_auto, S_cross, S_cross], [S_cross, S_auto, S_cross], [S_cross, S_cross, S_auto]])
 
         return C_mich
-
 
     def gen_michelson_noise(self):
 
@@ -188,9 +189,9 @@ class instrNoise():
         '''
 
         # --------------------- Generate Fake Noise -----------------------------
-        print("Simulating instrumental noise ...")
+        print("Simulating instrumental noise...")
 
-       # speed of light
+        # speed of light
         cspeed = 3e8 #m/s
         delf  = 1.0/self.params['dur']
         frange = np.arange(self.params['fmin'], self.params['fmax'], delf) # in Hz
@@ -254,7 +255,6 @@ class instrNoise():
         f31 = intrp(tarr, h31, kind='cubic', fill_value='extrapolate')
         f32 = intrp(tarr, h32, kind='cubic', fill_value='extrapolate')
 
-
         h1 = f12(tarr[ten_idx:]-tlag) + h21[ten_idx:] - \
                 f13(tarr[ten_idx:]-tlag)  - h31[ten_idx:]
 
@@ -263,7 +263,6 @@ class instrNoise():
 
         h3 = f31(tarr[ten_idx:]-tlag)  + h13[ten_idx:] - \
                 f32(tarr[ten_idx:]-tlag)  - h23[ten_idx:]
-
 
         '''
         Older way of doing time shifts is commented out here. Interp doesn't work since it
@@ -280,8 +279,6 @@ class instrNoise():
         '''
 
         return tarr[ten_idx:], h1, h2, h3
-
-
 
     def gen_xyz_noise(self):
 
@@ -314,14 +311,11 @@ class instrNoise():
         f2 = intrp(tarr, hm2, kind='cubic', fill_value='extrapolate')
         f3 = intrp(tarr, hm3, kind='cubic', fill_value='extrapolate')
 
-
         hX = hm1[ten_idx:] - f1(tarr[ten_idx:] - tshift)
         hY = hm2[ten_idx:] - f2(tarr[ten_idx:] - tshift)
         hZ = hm3[ten_idx:] - f3(tarr[ten_idx:] - tshift)
 
         return tarr[ten_idx:], hX, hY, hZ
-
-
 
     def gen_aet_noise(self):
 
@@ -344,7 +338,6 @@ class instrNoise():
 
         return tarr, h1_noi, h2_noi, h3_noi
 
-
     def gen_noise_cov(self):
 
         '''
@@ -365,7 +358,6 @@ class instrNoise():
 
         f0 = frange/(2*fstar)
 
-
         C_xyz = self.xyz_noise_spectrum(frange, f0, Np=10**self.inj['log_Np'], Na=10**self.inj['log_Na'])
 
         ## Cholesky decomposition to get the "sigma" matrix
@@ -380,12 +372,10 @@ class instrNoise():
         for ii in range(frange.size):
             z_scale[:, ii] = np.matmul(L_cholesky[ii, :, :], z_norm[:, ii])
 
-
         ## The three channels : concatenate with norm at f = 0 to be zero
         htilda1  = np.concatenate([ [0], z_scale[0, :]])
         htilda2  = np.concatenate([ [0], z_scale[1, :]])
         htilda3  = np.concatenate([ [0], z_scale[2, :]])
-
 
         # Take inverse fft to get time series data
         h1 = np.fft.irfft(htilda1, N)
@@ -394,10 +384,8 @@ class instrNoise():
 
         tarr =  np.arange(0, self.params['dur'], 1.0/self.params['fs'])
 
-
         return tarr, h1, h2, h3
-    
-    
+
     def gaussianData(self, Sh,freqs, fs=1, dur=1e5):
 
         '''
@@ -519,6 +507,5 @@ class instrNoise():
         im1 = norms*np.random.normal(size=fout.size)
 
         htilda = re1 + 1j*im1
-
 
         return htilda, fout

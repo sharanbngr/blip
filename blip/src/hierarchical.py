@@ -256,8 +256,9 @@ class postprocess(LISAdata):
         r0 = 0.075 #kpc
         alpha = 1.8
         q = 0.5
-        disk_density = rho_c*np.exp(-r/rh)*np.exp(-np.abs(z)/zh) 
-        bulge_density = rho_c*(np.exp(-(r/r_cut)**2)/(1+np.sqrt(r**2 + (z/q)**2)/r0)**alpha)
+        disk_density = rho_c*np.exp(-r/rh)*np.exp(-np.abs(z)/zh)
+        rp = np.sqrt(r**2 + (z/q)**2)
+        bulge_density = rho_c*(np.exp(-(rp/r_cut)**2)/(1+rp/r0)**alpha)
         DWD_density = disk_density + bulge_density
         ## use stored grid to convert density to power and filter nearby resolved DWDs
         DWD_unresolved_powers = DWD_density*self.dist_adj

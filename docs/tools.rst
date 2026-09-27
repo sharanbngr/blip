@@ -1,62 +1,53 @@
-tools package
-=============
+BLIP's command-line tools
+=========================
 
-Submodules
-----------
+The main one is `run_blip`, but there are a few more scripts:
 
-tools.SetRandomState module
----------------------------
 
-.. automodule:: tools.SetRandomState
+SetRandomState
+--------------
+
+.. automodule:: blip.tools.SetRandomState
    :members:
    :undoc-members:
    :show-inheritance:
 
-tools.lisaPSD module
---------------------
+lisaPSD
+-------
 
-.. automodule:: tools.lisaPSD
+.. automodule:: blip.tools.lisaPSD
    :members:
    :undoc-members:
    :show-inheritance:
 
-tools.makeGaussianData module
------------------------------
+makeGaussianData
+----------------
 
-.. automodule:: tools.makeGaussianData
+.. automodule:: blip.tools.makeGaussianData
    :members:
    :undoc-members:
    :show-inheritance:
 
-tools.plotmaker module
-----------------------
+plotmaker
+---------
 
-.. automodule:: tools.plotmaker
+.. automodule:: blip.tools.plotmaker
    :members:
    :undoc-members:
    :show-inheritance:
 
-tools.printmap module
+printmap
+--------
+
+.. automodule:: blip.tools.printmap
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+stochasticSensitivity
 ---------------------
 
-.. automodule:: tools.printmap
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-tools.stochasticSensitivity module
-----------------------------------
-
-.. automodule:: tools.stochasticSensitivity
-   :members:
-   :undoc-members:
-   :show-inheritance:
-
-
-Module contents
----------------
-
-.. automodule:: tools
+.. automodule:: blip.tools.stochasticSensitivity
    :members:
    :undoc-members:
    :show-inheritance:

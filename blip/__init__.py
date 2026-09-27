@@ -1,2 +1,2 @@
-__version__ = "0.1.0"
-__author__ = 'Sharan Banagiri'
+__version__ = "2.0.1"
+__author__ = 'Sharan Banagiri, Alexander Criswell'

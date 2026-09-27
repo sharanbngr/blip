@@ -1,0 +1,51 @@
+# CI workflow to run BLIP test suite
+
+name: BLIP CI
+
+on:
+  push:
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "0.10.9"
+    - name: Test on CPU with pytest
+      # this uses the CPU version of JAX and no lisaorbits
+      run: uv run --group test pytest
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v6
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+      with:
+        version: "0.10.9"
+    - name: set up venv
+      run: uv sync --group docs
+    - name: Build docs with sphinx
+      run: |
+        pushd docs
+        uv run --group docs make html
+        popd
+    - name: Upload docs artifact
+      uses: actions/upload-pages-artifact@v4.0.0
+      with:
+        name: github-pages
+        path: docs/_build/html
+        retention-days: 1
+    # - name: Deploy to GitHub Pages
+    #   uses: actions/deploy-pages@v4
+      
